@@ -3,9 +3,10 @@ from __future__ import annotations
 from mcp.server.fastmcp import FastMCP
 
 from ariostea.mcp.handlers import status_payload
+from ariostea.ports.store import IndexAdmin
 
 
-def build_server(admin) -> FastMCP:
+def build_server(admin: IndexAdmin) -> FastMCP:
     mcp = FastMCP("ariostea")
 
     @mcp.tool()
