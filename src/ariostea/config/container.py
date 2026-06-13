@@ -11,19 +11,19 @@ from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
 from ariostea.adapters.chunk.heading_aware import HeadingAwareChunker
 from ariostea.indexing.index_vault import IndexVault
 from ariostea.search.search_knowledge import SearchKnowledge
+from ariostea.ports.store import IndexAdmin
 
 
 @dataclass
 class Container:
+    """Assembled application: config, the use cases consumers call, and the
+    admin port for status. Concrete adapters (embeddings, store) are wiring
+    internals of build_container and are deliberately not exposed here."""
+
     config: Config
-    embeddings: FastEmbedEmbeddings
-    store: SqliteStore
     indexer: IndexVault
     searcher: SearchKnowledge
-
-    @property
-    def admin(self) -> SqliteStore:
-        return self.store
+    admin: IndexAdmin
 
 
 def _expand(p: str) -> str:
@@ -41,13 +41,10 @@ def build_container(config: Config) -> Container:
     parser = ObsidianMarkdownParser()
     chunker = HeadingAwareChunker()
 
+    # The store is injected into each use case as its narrow role
+    # (DocumentWriter for indexing, ChunkRetriever for search); only its
+    # IndexAdmin face is re-exposed on the Container for status.
     indexer = IndexVault(parser=parser, chunker=chunker, embeddings=embeddings, store=store)
     searcher = SearchKnowledge(embeddings=embeddings, retriever=store)
 
-    return Container(
-        config=config,
-        embeddings=embeddings,
-        store=store,
-        indexer=indexer,
-        searcher=searcher,
-    )
+    return Container(config=config, indexer=indexer, searcher=searcher, admin=store)
