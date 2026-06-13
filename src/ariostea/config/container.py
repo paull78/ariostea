@@ -10,6 +10,7 @@ from ariostea.adapters.store.sqlite_store import SqliteStore
 from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
 from ariostea.adapters.chunk.heading_aware import HeadingAwareChunker
 from ariostea.indexing.index_vault import IndexVault
+from ariostea.ports.embedding import EmbeddingProvider
 from ariostea.search.search_knowledge import SearchKnowledge
 from ariostea.ports.store import IndexAdmin
 
@@ -32,7 +33,7 @@ def _expand(p: str) -> str:
 
 def build_container(config: Config) -> Container:
     # Embedding provider — local fastembed for the walking skeleton.
-    embeddings = FastEmbedEmbeddings(model_name=config.embedding.local_model)
+    embeddings: EmbeddingProvider = FastEmbedEmbeddings(model_name=config.embedding.local_model)
 
     store_path = _expand(config.store.path)
     Path(store_path).parent.mkdir(parents=True, exist_ok=True)

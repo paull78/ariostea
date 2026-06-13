@@ -4,8 +4,10 @@ from typing import Sequence
 
 from fastembed import TextEmbedding
 
+from ariostea.ports.embedding import EmbeddingProvider
 
-class FastEmbedEmbeddings:
+
+class FastEmbedEmbeddings(EmbeddingProvider):
     def __init__(self, model_name: str = "BAAI/bge-small-en-v1.5") -> None:
         self._model_name = model_name
         self._model = TextEmbedding(model_name=model_name)

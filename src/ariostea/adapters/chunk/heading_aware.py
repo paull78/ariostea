@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 
 from ariostea.domain.models import Note, Chunk
+from ariostea.ports.pipeline import Chunker
 
 _HEADING = re.compile(r"^(#{1,6})\s+(.+)$")
 
@@ -48,7 +49,7 @@ def _token_count(text: str) -> int:
     return len(text.split())
 
 
-class HeadingAwareChunker:
+class HeadingAwareChunker(Chunker):
     def __init__(self, max_tokens: int = 512) -> None:
         self.max_tokens = max_tokens
 

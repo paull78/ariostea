@@ -15,9 +15,10 @@ from ariostea.domain.models import (
     QueryFilters,
     IndexStats,
 )
+from ariostea.ports.store import DocumentWriter, ChunkRetriever, IndexAdmin
 
 
-class SqliteStore:
+class SqliteStore(DocumentWriter, ChunkRetriever, IndexAdmin):
     def __init__(self, path: str, dim: int) -> None:
         self._dim = dim
         Path(path).parent.mkdir(parents=True, exist_ok=True)

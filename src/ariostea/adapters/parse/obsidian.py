@@ -5,6 +5,7 @@ import re
 from pathlib import PurePosixPath
 
 from ariostea.domain.models import Note
+from ariostea.ports.pipeline import MarkdownParser
 
 _FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 _TAG = re.compile(r"(?:^|\s)#([A-Za-z0-9_\-/]+)")
@@ -25,7 +26,7 @@ def _parse_frontmatter(raw: str) -> tuple[dict, str]:
     return fm, body
 
 
-class ObsidianMarkdownParser:
+class ObsidianMarkdownParser(MarkdownParser):
     def parse(self, path: str, raw: str, mtime: float) -> tuple[Note, str]:
         frontmatter, body = _parse_frontmatter(raw)
         heading = _H1.search(body)
