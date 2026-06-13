@@ -1,0 +1,13 @@
+from __future__ import annotations
+
+from typing import Protocol, Sequence, runtime_checkable
+
+
+@runtime_checkable
+class EmbeddingProvider(Protocol):
+    def embed_documents(self, texts: Sequence[str]) -> list[list[float]]: ...
+    def embed_query(self, text: str) -> list[float]: ...
+    @property
+    def dimension(self) -> int: ...
+    @property
+    def fingerprint(self) -> str: ...
