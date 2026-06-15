@@ -1358,15 +1358,22 @@ class SqliteStore:
     def dense(self, vec: list[float], k: int, filters: QueryFilters | None = None) -> list[RetrievedChunk]:
         rows = self.db.execute(
             """
+            WITH knn AS (
+                SELECT chunk_id, distance
+                FROM chunks_vec
+                WHERE embedding MATCH ? AND k = ?
+            )
             SELECT c.note_id, n.path AS note_path, c.ordinal, c.heading_path,
-                   c.text, c.token_count, v.distance
-            FROM chunks_vec v
-            JOIN chunks c ON c.id = v.chunk_id
+                   c.text, c.token_count, knn.distance
+            FROM knn
+            JOIN chunks c ON c.id = knn.chunk_id
             JOIN notes n ON n.id = c.note_id
-            WHERE v.embedding MATCH ? ORDER BY v.distance LIMIT ?
+            ORDER BY knn.distance
             """,
             (sqlite_vec.serialize_float32(vec), k),
         ).fetchall()
+        # NOTE: sqlite-vec requires the `k = ?` constraint on the vec0 scan itself;
+        # a LIMIT applied after the JOIN is rejected ("k = ? constraint is required").
         results: list[RetrievedChunk] = []
         for rank, r in enumerate(rows):
             heading_path = tuple(p for p in r["heading_path"].split("/") if p)
