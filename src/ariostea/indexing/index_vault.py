@@ -4,10 +4,10 @@ from pathlib import Path
 from typing import Sequence
 
 from ariostea.domain.models import ContextualizedChunk, IndexStats
-from ariostea.ports.embedding import EmbeddingProvider
-from ariostea.ports.pipeline import MarkdownParser, Chunker
-from ariostea.ports.store import DocumentWriter, IndexAdmin
 from ariostea.indexing.scanner import scan_vault
+from ariostea.ports.embedding import EmbeddingProvider
+from ariostea.ports.pipeline import Chunker, MarkdownParser
+from ariostea.ports.store import DocumentWriter, IndexAdmin
 
 
 class IndexVault:

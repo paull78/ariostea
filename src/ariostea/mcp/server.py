@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from mcp.server.fastmcp import FastMCP
 
-from ariostea.mcp.handlers import status_payload, search_payload, reindex_payload
+from ariostea.mcp.handlers import reindex_payload, search_payload, status_payload
 
 if TYPE_CHECKING:
     from ariostea.config.container import Container

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import typer
 
-from ariostea.config.schema import load_config
 from ariostea.config.container import build_container
-from ariostea.mcp.server import build_server
+from ariostea.config.schema import load_config
 from ariostea.mcp.handlers import reindex_payload, status_payload
+from ariostea.mcp.server import build_server
 
 app = typer.Typer(help="Ariostea — Obsidian RAG MCP server")
 

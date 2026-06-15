@@ -1,4 +1,4 @@
-from ariostea.config.schema import Config, load_config
+from ariostea.config.schema import load_config
 
 
 def test_minimal_config_applies_defaults(tmp_path):
@@ -6,9 +6,9 @@ def test_minimal_config_applies_defaults(tmp_path):
     cfg_file.write_text('[vault]\npath = "~/Vault"\n')
     cfg = load_config(cfg_file)
     assert cfg.vault.path == "~/Vault"
-    assert cfg.embedding.provider == "local"      # default
-    assert cfg.store.backend == "sqlite"          # default
-    assert cfg.search.top_k == 10                 # default
+    assert cfg.embedding.provider == "local"  # default
+    assert cfg.store.backend == "sqlite"  # default
+    assert cfg.search.top_k == 10  # default
 
 
 def test_full_config_parses(tmp_path):

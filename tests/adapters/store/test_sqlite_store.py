@@ -1,13 +1,21 @@
 from ariostea.adapters.store.sqlite_store import SqliteStore
-from ariostea.domain.models import Note, Chunk, ContextualizedChunk
+from ariostea.domain.models import Chunk, ContextualizedChunk, Note
 
 
 def _note(path="a.md"):
-    return Note(path=path, title="A", frontmatter={}, tags=(), wikilinks=(), content_hash="h1", mtime=1.0)
+    return Note(
+        path=path, title="A", frontmatter={}, tags=(), wikilinks=(), content_hash="h1", mtime=1.0
+    )
 
 
 def _cchunk(note, ordinal, text):
-    chunk = Chunk(note_path=note.path, ordinal=ordinal, heading_path=("A",), text=text, token_count=len(text.split()))
+    chunk = Chunk(
+        note_path=note.path,
+        ordinal=ordinal,
+        heading_path=("A",),
+        text=text,
+        token_count=len(text.split()),
+    )
     return ContextualizedChunk(chunk=chunk, context_blurb=None, embedding_text=text)
 
 
@@ -19,7 +27,7 @@ def test_upsert_then_dense_retrieves_nearest(tmp_path):
     store.upsert_note(note, chunks, embeddings)
 
     hits = store.dense([0.9, 0.1, 0.0], k=2)
-    assert hits[0].chunk.text == "alpha"          # nearest to [1,0,0]
+    assert hits[0].chunk.text == "alpha"  # nearest to [1,0,0]
     assert hits[0].chunk.note_path == "a.md"
     assert len(hits) == 2
 

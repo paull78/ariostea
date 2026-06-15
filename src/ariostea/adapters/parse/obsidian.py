@@ -17,7 +17,7 @@ def _parse_frontmatter(raw: str) -> tuple[dict, str]:
     m = _FRONTMATTER.match(raw)
     if not m:
         return {}, raw
-    block, body = m.group(1), raw[m.end():]
+    block, body = m.group(1), raw[m.end() :]
     fm: dict[str, str] = {}
     for line in block.splitlines():
         if ":" in line:

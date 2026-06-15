@@ -1,7 +1,8 @@
 import dataclasses
+
 import pytest
 
-from ariostea.domain.models import Note, Chunk, RetrievedChunk, Query, IndexStats
+from ariostea.domain.models import Chunk, IndexStats, Note, Query, RetrievedChunk
 
 
 def test_note_holds_metadata_and_is_frozen():
@@ -20,7 +21,9 @@ def test_note_holds_metadata_and_is_frozen():
 
 
 def test_chunk_and_retrieved_chunk_compose():
-    chunk = Chunk(note_path="ideas/rag.md", ordinal=0, heading_path=("RAG",), text="hello", token_count=1)
+    chunk = Chunk(
+        note_path="ideas/rag.md", ordinal=0, heading_path=("RAG",), text="hello", token_count=1
+    )
     rc = RetrievedChunk(chunk=chunk, score=0.9, dense_rank=0, sparse_rank=None)
     assert rc.chunk.text == "hello"
     assert rc.score == 0.9

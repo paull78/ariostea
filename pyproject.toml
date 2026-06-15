@@ -28,4 +28,21 @@ pythonpath = ["src"]
 markers = ["integration: tests that load real models or hit external services"]
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes, I: import sorting (isort)
+select = ["E", "F", "I", "W"]
+# The formatter owns line width for code; E501 would only fight it over
+# long string literals (URLs, fixtures), so disable it as the linter rule.
+ignore = ["E501"]
+
+[tool.pyright]
+include = ["src", "tests"]
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "standard"

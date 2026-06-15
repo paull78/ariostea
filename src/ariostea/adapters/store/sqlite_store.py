@@ -8,14 +8,14 @@ from typing import Sequence
 import sqlite_vec
 
 from ariostea.domain.models import (
-    Note,
     Chunk,
     ContextualizedChunk,
-    RetrievedChunk,
-    QueryFilters,
     IndexStats,
+    Note,
+    QueryFilters,
+    RetrievedChunk,
 )
-from ariostea.ports.store import DocumentWriter, ChunkRetriever, IndexAdmin
+from ariostea.ports.store import ChunkRetriever, DocumentWriter, IndexAdmin
 
 
 class SqliteStore(DocumentWriter, ChunkRetriever, IndexAdmin):
@@ -105,7 +105,8 @@ class SqliteStore(DocumentWriter, ChunkRetriever, IndexAdmin):
             return
         note_id = row["id"]
         chunk_ids = [
-            r["id"] for r in cur.execute("SELECT id FROM chunks WHERE note_id = ?", (note_id,)).fetchall()
+            r["id"]
+            for r in cur.execute("SELECT id FROM chunks WHERE note_id = ?", (note_id,)).fetchall()
         ]
         for cid in chunk_ids:
             cur.execute("DELETE FROM chunks_vec WHERE chunk_id = ?", (cid,))
@@ -113,7 +114,9 @@ class SqliteStore(DocumentWriter, ChunkRetriever, IndexAdmin):
         cur.execute("DELETE FROM notes WHERE id = ?", (note_id,))
 
     # --- ChunkRetriever ---
-    def dense(self, vec: list[float], k: int, filters: QueryFilters | None = None) -> list[RetrievedChunk]:
+    def dense(
+        self, vec: list[float], k: int, filters: QueryFilters | None = None
+    ) -> list[RetrievedChunk]:
         rows = self.db.execute(
             """
             WITH knn AS (
@@ -141,7 +144,12 @@ class SqliteStore(DocumentWriter, ChunkRetriever, IndexAdmin):
                 token_count=r["token_count"],
             )
             results.append(
-                RetrievedChunk(chunk=chunk, score=1.0 / (1.0 + r["distance"]), dense_rank=rank, sparse_rank=None)
+                RetrievedChunk(
+                    chunk=chunk,
+                    score=1.0 / (1.0 + r["distance"]),
+                    dense_rank=rank,
+                    sparse_rank=None,
+                )
             )
         return results
 
@@ -154,7 +162,10 @@ class SqliteStore(DocumentWriter, ChunkRetriever, IndexAdmin):
         notes = self.db.execute("SELECT COUNT(*) AS c FROM notes").fetchone()["c"]
         chunks = self.db.execute("SELECT COUNT(*) AS c FROM chunks").fetchone()["c"]
         return IndexStats(
-            notes=notes, chunks=chunks, last_indexed=time.time(), config_fingerprint=self.fingerprint()
+            notes=notes,
+            chunks=chunks,
+            last_indexed=time.time(),
+            config_fingerprint=self.fingerprint(),
         )
 
     def fingerprint(self) -> str:

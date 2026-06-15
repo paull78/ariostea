@@ -1,7 +1,6 @@
 from ariostea.ports.embedding import EmbeddingProvider
-from ariostea.ports.store import DocumentWriter, ChunkRetriever, IndexAdmin
-from ariostea.ports.pipeline import MarkdownParser, Chunker
-from ariostea.domain.models import Note, Chunk, IndexStats
+from ariostea.ports.pipeline import Chunker, MarkdownParser
+from ariostea.ports.store import ChunkRetriever, DocumentWriter, IndexAdmin
 
 
 class FakeEmbed:

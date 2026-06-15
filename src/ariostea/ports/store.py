@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import Protocol, Sequence, runtime_checkable
 
 from ariostea.domain.models import (
-    Note,
     ContextualizedChunk,
-    RetrievedChunk,
-    QueryFilters,
     IndexStats,
+    Note,
+    QueryFilters,
+    RetrievedChunk,
 )
 
 

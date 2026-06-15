@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from ariostea.domain.models import Note, Chunk
+from ariostea.domain.models import Chunk, Note
 
 
 @runtime_checkable

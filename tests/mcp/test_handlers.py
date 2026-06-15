@@ -1,5 +1,5 @@
-from ariostea.mcp.handlers import status_payload
 from ariostea.domain.models import IndexStats
+from ariostea.mcp.handlers import status_payload
 
 
 class FakeAdmin:

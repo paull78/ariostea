@@ -4,15 +4,15 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from ariostea.config.schema import Config
-from ariostea.adapters.embedding.fastembed_local import FastEmbedEmbeddings
-from ariostea.adapters.store.sqlite_store import SqliteStore
-from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
 from ariostea.adapters.chunk.heading_aware import HeadingAwareChunker
+from ariostea.adapters.embedding.fastembed_local import FastEmbedEmbeddings
+from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
+from ariostea.adapters.store.sqlite_store import SqliteStore
+from ariostea.config.schema import Config
 from ariostea.indexing.index_vault import IndexVault
 from ariostea.ports.embedding import EmbeddingProvider
-from ariostea.search.search_knowledge import SearchKnowledge
 from ariostea.ports.store import IndexAdmin
+from ariostea.search.search_knowledge import SearchKnowledge
 
 
 @dataclass

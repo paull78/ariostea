@@ -1,6 +1,6 @@
-from ariostea.indexing.index_vault import IndexVault
-from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
 from ariostea.adapters.chunk.heading_aware import HeadingAwareChunker
+from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
+from ariostea.indexing.index_vault import IndexVault
 
 
 class FakeEmbed:
@@ -39,6 +39,7 @@ class FakeStore:
 
     def stats(self):
         from ariostea.domain.models import IndexStats
+
         return IndexStats(len(self.notes), 0, 0.0, self._fp)
 
     def fingerprint(self):
@@ -72,7 +73,9 @@ def test_index_vault_indexes_each_note(tmp_path):
 def test_embedding_text_defaults_to_chunk_text(tmp_path):
     (tmp_path / "a.md").write_text("# A\nplain text")
     store = FakeStore()
-    IndexVault(ObsidianMarkdownParser(), HeadingAwareChunker(), FakeEmbed(), store).index(tmp_path, ignore=[])
+    IndexVault(ObsidianMarkdownParser(), HeadingAwareChunker(), FakeEmbed(), store).index(
+        tmp_path, ignore=[]
+    )
     _, chunks, _ = store.notes["a.md"]
     assert chunks[0].context_blurb is None
     assert chunks[0].embedding_text == chunks[0].chunk.text

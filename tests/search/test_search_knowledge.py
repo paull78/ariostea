@@ -1,5 +1,5 @@
+from ariostea.domain.models import Chunk, Query, RetrievedChunk
 from ariostea.search.search_knowledge import SearchKnowledge
-from ariostea.domain.models import Query, Chunk, RetrievedChunk
 
 
 class FakeEmbed:

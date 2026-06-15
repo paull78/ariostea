@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from ariostea.domain.models import Note, Chunk
+from ariostea.domain.models import Chunk, Note
 from ariostea.ports.pipeline import Chunker
 
 _HEADING = re.compile(r"^(#{1,6})\s+(.+)$")
