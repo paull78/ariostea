@@ -31,3 +31,21 @@ def test_store_role_ports_are_distinct():
 
 def test_pipeline_ports_exist():
     assert MarkdownParser is not None and Chunker is not None
+
+
+def test_chunk_retriever_requires_dense_and_sparse():
+    class DenseOnly:
+        def dense(self, vec, k, filters=None):
+            return []
+
+    class DenseAndSparse:
+        def dense(self, vec, k, filters=None):
+            return []
+
+        def sparse(self, query, k, filters=None):
+            return []
+
+    # A retriever missing sparse() does NOT satisfy the widened port...
+    assert not isinstance(DenseOnly(), ChunkRetriever)
+    # ...one providing both does.
+    assert isinstance(DenseAndSparse(), ChunkRetriever)
