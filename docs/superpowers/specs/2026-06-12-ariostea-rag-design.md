@@ -450,7 +450,9 @@ Each phase is independently shippable and demonstrable end-to-end.
 | 5 | Contextual Retrieval (contextualizer + prompt caching) | Blurbs stored; retrieval quality improves on eval set |
 | 6 | Reranking stage | Rerank reorders top-N measurably |
 | 7 | Deep Obsidian structure (link graph, backlinks, tag/frontmatter filters, heading-aware refinement) | Filters + graph signals usable in search |
-| 8 | Packaging polish (`init` wizard, docs) + extra store/rerank adapters | One-command onboarding documented; alt adapters pass contract tests |
+| 8 | Packaging polish (`init` wizard, docs) + extra store/rerank adapters + configurable FTS tokenizer | One-command onboarding documented; alt adapters pass contract tests |
+
+> **Phase 8 backlog — configurable FTS5 tokenizer.** The sparse side currently uses FTS5's default `unicode61` (word) tokenizer, which is correct for space-separated languages (English, Italian, …). Expose the tokenizer as a `[store]` config knob so users with **CJK / no-space scripts** (Chinese, Japanese, Thai) or who want **substring/fuzzy matching** can opt into the `trigram` tokenizer. Trade-off: larger index, noisier BM25 relevance. Note this is purely a *lexical* concern — it never makes BM25 cross-lingual (that remains the embedding layer's job); it only changes the unit and granularity of literal matching. Lives entirely inside `SqliteStore` (the `CREATE VIRTUAL TABLE ... USING fts5(tokenize=...)` clause), so it's a localized, swappable change.
 
 ---
 
