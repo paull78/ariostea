@@ -49,3 +49,10 @@ def test_chunk_retriever_requires_dense_and_sparse():
     assert not isinstance(DenseOnly(), ChunkRetriever)
     # ...one providing both does.
     assert isinstance(DenseAndSparse(), ChunkRetriever)
+
+
+def test_rrf_fuser_conforms_to_port():
+    from ariostea.adapters.fuse.rrf import RRFFuser
+    from ariostea.ports.fusion import Fuser
+
+    assert isinstance(RRFFuser(), Fuser)
