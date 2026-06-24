@@ -59,3 +59,55 @@ def test_delete_note_removes_everything(tmp_path):
     store.delete_note("a.md")
     assert store.known_hashes() == {}
     assert store.dense([1.0, 0.0, 0.0], k=5) == []
+
+
+def test_sparse_bm25_ranks_keyword_matches(tmp_path):
+    store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
+    note = _note()
+    chunks = [
+        _cchunk(note, 0, "the quick brown fox jumps"),
+        _cchunk(note, 1, "lorem ipsum dolor sit amet"),
+    ]
+    embeddings = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
+    store.upsert_note(note, chunks, embeddings)
+
+    hits = store.sparse("fox", k=5)
+    assert hits[0].chunk.text == "the quick brown fox jumps"
+    assert hits[0].sparse_rank == 0
+    assert hits[0].dense_rank is None
+    assert hits[0].score > 0.0
+
+
+def test_sparse_returns_empty_when_no_term_matches(tmp_path):
+    store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
+    note = _note()
+    store.upsert_note(note, [_cchunk(note, 0, "alpha beta gamma")], [[1.0, 0.0, 0.0]])
+    assert store.sparse("zebra", k=5) == []
+
+
+def test_sparse_sanitizes_punctuation_and_empty_queries(tmp_path):
+    store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
+    note = _note()
+    store.upsert_note(note, [_cchunk(note, 0, "alpha beta gamma")], [[1.0, 0.0, 0.0]])
+    # punctuation around a real term must not raise and must still match
+    assert store.sparse("  beta?! ", k=5)[0].chunk.text == "alpha beta gamma"
+    # a query with no word characters yields no results (and no SQL error)
+    assert store.sparse("?? -- ::", k=5) == []
+
+
+def test_delete_note_removes_from_fts(tmp_path):
+    store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
+    note = _note()
+    store.upsert_note(note, [_cchunk(note, 0, "findable keyword")], [[1.0, 0.0, 0.0]])
+    assert store.sparse("findable", k=5)  # present before delete
+    store.delete_note("a.md")
+    assert store.sparse("findable", k=5) == []
+
+
+def test_reupsert_does_not_duplicate_fts_rows(tmp_path):
+    store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
+    note = _note()
+    store.upsert_note(note, [_cchunk(note, 0, "unique token")], [[1.0, 0.0, 0.0]])
+    store.upsert_note(note, [_cchunk(note, 0, "unique token")], [[1.0, 0.0, 0.0]])
+    hits = store.sparse("unique", k=10)
+    assert len(hits) == 1  # old FTS row was cleaned, not duplicated

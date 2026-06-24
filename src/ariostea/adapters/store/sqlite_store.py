@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sqlite3
 import time
 from pathlib import Path
@@ -16,6 +17,17 @@ from ariostea.domain.models import (
     RetrievedChunk,
 )
 from ariostea.ports.store import ChunkRetriever, DocumentWriter, IndexAdmin
+
+
+def _fts_query(text: str) -> str:
+    """Turn free user text into a safe FTS5 MATCH expression.
+
+    FTS5 MATCH is its own query language; raw punctuation or an empty string
+    raises a syntax error. We extract word tokens and OR them so any term may
+    match (recall-first — fusion handles precision).
+    """
+    terms = re.findall(r"[A-Za-z0-9_]+", text)
+    return " OR ".join(f'"{t}"' for t in terms)
 
 
 class SqliteStore(DocumentWriter, ChunkRetriever, IndexAdmin):
@@ -51,6 +63,10 @@ class SqliteStore(DocumentWriter, ChunkRetriever, IndexAdmin):
                 chunk_id INTEGER PRIMARY KEY,
                 embedding FLOAT[{self._dim}]
             );
+            CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
+                chunk_id UNINDEXED,
+                text
+            );
             CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
             """
         )
@@ -84,6 +100,10 @@ class SqliteStore(DocumentWriter, ChunkRetriever, IndexAdmin):
                     "INSERT INTO chunks_vec(chunk_id, embedding) VALUES (?, ?)",
                     (chunk_id, sqlite_vec.serialize_float32(vec)),
                 )
+                cur.execute(
+                    "INSERT INTO chunks_fts(chunk_id, text) VALUES(?, ?)",
+                    (chunk_id, cc.embedding_text),
+                )
             self.db.commit()
         except Exception:
             self.db.rollback()
@@ -110,6 +130,7 @@ class SqliteStore(DocumentWriter, ChunkRetriever, IndexAdmin):
         ]
         for cid in chunk_ids:
             cur.execute("DELETE FROM chunks_vec WHERE chunk_id = ?", (cid,))
+            cur.execute("DELETE FROM chunks_fts WHERE chunk_id = ?", (cid,))
         cur.execute("DELETE FROM chunks WHERE note_id = ?", (note_id,))
         cur.execute("DELETE FROM notes WHERE id = ?", (note_id,))
 
@@ -149,6 +170,49 @@ class SqliteStore(DocumentWriter, ChunkRetriever, IndexAdmin):
                     score=1.0 / (1.0 + r["distance"]),
                     dense_rank=rank,
                     sparse_rank=None,
+                )
+            )
+        return results
+
+    def sparse(
+        self, query: str, k: int, filters: QueryFilters | None = None
+    ) -> list[RetrievedChunk]:
+        match = _fts_query(query)
+        if not match:
+            return []
+        rows = self.db.execute(
+            """
+        WITH bm AS (
+            SELECT chunk_id, bm25(chunks_fts) AS bm
+            FROM chunks_fts
+            WHERE chunks_fts MATCH ?
+            ORDER BY bm
+            LIMIT ?
+        )
+        SELECT n.path as note_path, c.ordinal, c.heading_path, c.text, c.token_count, bm.bm
+        FROM bm
+        JOIN chunks c ON c.id = bm.chunk_id
+        JOIN notes n ON n.id = c.note_id
+        ORDER BY bm.bm
+        """,
+            (match, k),
+        ).fetchall()
+        results: list[RetrievedChunk] = []
+        for rank, r in enumerate(rows):
+            heading_path = tuple(p for p in r["heading_path"].split("/") if p)
+            chunk = Chunk(
+                note_path=r["note_path"],
+                ordinal=r["ordinal"],
+                heading_path=heading_path,
+                text=r["text"],
+                token_count=r["token_count"],
+            )
+            results.append(
+                RetrievedChunk(
+                    chunk=chunk,
+                    score=-r["bm"],
+                    dense_rank=None,
+                    sparse_rank=rank,
                 )
             )
         return results
