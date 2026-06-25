@@ -470,6 +470,7 @@ Each phase is independently shippable and demonstrable end-to-end.
 - **fastembed model footprint** in a `uvx` one-shot — pick a small default model; document the first-run download.
 - **Reranker fragmentation** (no OpenAI standard) — accepted; isolated in its own adapter family with a local default.
 - Deferred: dedicated entity/concept index (a second "source search" mode) — revisit after v1.
+- **RRF suppresses strong single-channel matches** (observed Phase 2, real bilingual vault). Because RRF rewards cross-channel *agreement*, a chunk that ranks #1 in one channel but is absent from the other scores below a mediocre chunk present in both. Worst case is **cross-lingual** queries: BM25 is structurally blind to a different-language match, so the multilingual embedding's best hits get penalized exactly where they matter most. Corrective is **reranking (Phase 6)** — a cross-encoder re-scores the candidate pool by true relevance, treating RRF as a recall-maximizing *candidate gatherer*, not the final ranking. Secondary mitigations: `WeightedFuser` (tilt toward dense) and per-note diversity/MMR (a single long note can otherwise flood both channels and dominate the fused list).
 
 ---
 
