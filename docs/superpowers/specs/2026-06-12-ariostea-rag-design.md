@@ -450,7 +450,9 @@ Each phase is independently shippable and demonstrable end-to-end.
 | 5 | Contextual Retrieval (contextualizer + prompt caching) | Blurbs stored; retrieval quality improves on eval set |
 | 6 | Reranking stage | Rerank reorders top-N measurably |
 | 7 | Deep Obsidian structure (link graph, backlinks, tag/frontmatter filters, heading-aware refinement) | Filters + graph signals usable in search |
-| 8 | Packaging polish (`init` wizard, docs) + extra store/rerank adapters | One-command onboarding documented; alt adapters pass contract tests |
+| 8 | Packaging polish (`init` wizard, docs) + extra store/rerank adapters + configurable FTS tokenizer | One-command onboarding documented; alt adapters pass contract tests |
+
+> **Phase 8 backlog — configurable FTS5 tokenizer.** The sparse side currently uses FTS5's default `unicode61` (word) tokenizer, which is correct for space-separated languages (English, Italian, …). Expose the tokenizer as a `[store]` config knob so users with **CJK / no-space scripts** (Chinese, Japanese, Thai) or who want **substring/fuzzy matching** can opt into the `trigram` tokenizer. Trade-off: larger index, noisier BM25 relevance. Note this is purely a *lexical* concern — it never makes BM25 cross-lingual (that remains the embedding layer's job); it only changes the unit and granularity of literal matching. Lives entirely inside `SqliteStore` (the `CREATE VIRTUAL TABLE ... USING fts5(tokenize=...)` clause), so it's a localized, swappable change.
 
 ---
 
@@ -468,6 +470,8 @@ Each phase is independently shippable and demonstrable end-to-end.
 - **fastembed model footprint** in a `uvx` one-shot — pick a small default model; document the first-run download.
 - **Reranker fragmentation** (no OpenAI standard) — accepted; isolated in its own adapter family with a local default.
 - Deferred: dedicated entity/concept index (a second "source search" mode) — revisit after v1.
+- **Cross-lingual *lexical* search (exploration, low priority).** BM25 is structurally monolingual. Options to bridge it: (a) **query-translation CLIR** — detect corpus languages, translate the query into each, search the union of terms; pitfalls are word-sense ambiguity (e.g. EN "dice" → IT "dadi" the game, but "dice" is also IT for "he says"), morphology, and a translator dependency (dictionary/MT/LLM) that fights the local-first/zero-key ethos. (b) **learned multilingual sparse** (e.g. BGE-M3 sparse mode, multilingual SPLADE) — cross-lingual term weights from one model, no translation step; the cleaner modern path. **Assessment:** low ROI — multilingual *dense* embeddings already cover the semantic cross-lingual case, and the terms that most need BM25 (codes, names, identifiers) don't translate anyway (same token across languages, so BM25 already matches them). If pursued, fits as a swappable edge: query translation = a `QueryExpander` adapter before `sparse()`; learned sparse = another retriever adapter. Prefer (b) over (a).
+- **RRF suppresses strong single-channel matches** (observed Phase 2, real bilingual vault). Because RRF rewards cross-channel *agreement*, a chunk that ranks #1 in one channel but is absent from the other scores below a mediocre chunk present in both. Worst case is **cross-lingual** queries: BM25 is structurally blind to a different-language match, so the multilingual embedding's best hits get penalized exactly where they matter most. Corrective is **reranking (Phase 6)** — a cross-encoder re-scores the candidate pool by true relevance, treating RRF as a recall-maximizing *candidate gatherer*, not the final ranking. Secondary mitigations: `WeightedFuser` (tilt toward dense) and per-note diversity/MMR (a single long note can otherwise flood both channels and dominate the fused list).
 
 ---
 

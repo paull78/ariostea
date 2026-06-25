@@ -4,3 +4,7 @@ __pycache__/
 .ariostea/
 *.db
 .DS_Store
+
+# local experimentation (personal vault config + scratch scripts)
+ariostea.toml
+try_search.py

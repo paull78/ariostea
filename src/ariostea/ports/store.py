@@ -27,6 +27,9 @@ class ChunkRetriever(Protocol):
     def dense(
         self, vec: list[float], k: int, filters: QueryFilters | None = None
     ) -> list[RetrievedChunk]: ...
+    def sparse(
+        self, query: str, k: int, filters: QueryFilters | None = None
+    ) -> list[RetrievedChunk]: ...
 
 
 @runtime_checkable
