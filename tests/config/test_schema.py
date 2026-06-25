@@ -9,6 +9,7 @@ def test_minimal_config_applies_defaults(tmp_path):
     assert cfg.embedding.provider == "local"  # default
     assert cfg.store.backend == "sqlite"  # default
     assert cfg.search.top_k == 10  # default
+    assert cfg.search.k_sparse == 50  # default
 
 
 def test_full_config_parses(tmp_path):

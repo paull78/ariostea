@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ariostea.adapters.chunk.heading_aware import HeadingAwareChunker
 from ariostea.adapters.embedding.fastembed_local import FastEmbedEmbeddings
+from ariostea.adapters.fuse.rrf import RRFFuser
 from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
 from ariostea.adapters.store.sqlite_store import SqliteStore
 from ariostea.config.schema import Config
@@ -46,6 +47,12 @@ def build_container(config: Config) -> Container:
     # (DocumentWriter for indexing, ChunkRetriever for search); only its
     # IndexAdmin face is re-exposed on the Container for status.
     indexer = IndexVault(parser=parser, chunker=chunker, embeddings=embeddings, store=store)
-    searcher = SearchKnowledge(embeddings=embeddings, retriever=store)
+    searcher = SearchKnowledge(
+        embeddings=embeddings,
+        retriever=store,
+        fuser=RRFFuser(),
+        k_dense=config.search.k_dense,
+        k_sparse=config.search.k_sparse,
+    )
 
     return Container(config=config, indexer=indexer, searcher=searcher, admin=store)

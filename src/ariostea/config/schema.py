@@ -26,6 +26,7 @@ class StoreCfg(BaseModel):
 
 class SearchCfg(BaseModel):
     k_dense: int = 50
+    k_sparse: int = 50
     top_k: int = 10
 
 
