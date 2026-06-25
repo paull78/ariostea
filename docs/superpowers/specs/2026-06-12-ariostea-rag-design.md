@@ -361,6 +361,23 @@ Thin adapter over the use cases — **the only layer that knows MCP exists.**
 
 Runs as a stdio MCP server. Swapping delivery to a CLI/HTTP transport touches only this layer.
 
+### Result presentation — the agentic "search + fetch" pattern
+
+MCP changes the calculus versus classic RAG: the client is an **agent** that can make follow-up calls, so we don't decide context depth once at retrieval time. Best practice is a **lean search + targeted fetch** pair:
+
+- **`search_knowledge` returns judge-able, fetch-able references**, not full notes. Each hit carries: `note_path` (stable handle for `get_note`), `heading_path` (location), a **snippet** (optionally term-highlighted via FTS5 `snippet()`/`highlight()`), `score`, and a **stable chunk id**. Returning full notes for every hit floods the agent's context.
+- **`get_note(path)` returns full content on demand** — the agent fetches only the 1–2 results it deems relevant. Token-efficient; depth is the agent's decision.
+
+**Retrieval granularity ≠ presentation granularity.** We *match* on small chunks (precise embeddings + sharp BM25) but may *return* something richer. Expansion strategies, smallest→largest, to layer in over time:
+
+1. **Raw chunk** (current baseline) — precise but can be fragmented.
+2. **Section expansion** — return the whole heading-section the chunk belongs to (we already store `heading_path` + `ordinal`, so this is a cheap store query). The sweet spot for a structured Obsidian corpus.
+3. **Neighbor / sentence-window** — matched chunk ± N adjacent chunks, to restore cut-off context.
+4. **Auto-merge / merge-contiguous** — when several hits share a parent note/section, return the parent once (also dedups).
+5. **Full note** — on demand via `get_note`, not by default (long notes blow the context budget).
+
+**Group by source note.** Flat per-chunk results let one long note dominate (the same failure mode seen with RRF in §19). Grouping hits under their note — best score + which sections matched — is cleaner; this is exactly what `search_sources` (Phase 3) provides.
+
 ---
 
 ## 12. Incremental & watcher (`watch/`)
@@ -445,7 +462,7 @@ Each phase is independently shippable and demonstrable end-to-end.
 | 0 | Scaffold + domain + ports + composition root + MCP server with a stub tool | `uvx ariostea serve` starts; stub tool responds |
 | 1 | **Walking skeleton:** scan→parse→naive chunk→fastembed→sqlite-vec dense→`search_knowledge` | Query a fixture vault, get relevant passages |
 | 2 | FTS5 sparse + RRF hybrid | Hybrid beats dense-only on fixture queries |
-| 3 | Provenance rollup + `search_sources` | "appears in notes X, Y, Z" returns correct notes |
+| 3 | Provenance rollup + `search_sources` + `get_note` tool (search+fetch pattern) | "appears in notes X, Y, Z" returns correct notes; agent can fetch a full note by path |
 | 4 | Incremental (hash/mtime diff) + watcher | Editing a note updates only that note's chunks |
 | 5 | Contextual Retrieval (contextualizer + prompt caching) | Blurbs stored; retrieval quality improves on eval set |
 | 6 | Reranking stage | Rerank reorders top-N measurably |
