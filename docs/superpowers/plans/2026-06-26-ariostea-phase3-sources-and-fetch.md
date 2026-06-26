@@ -42,7 +42,10 @@ In scope: **deletion detection** in `IndexVault.index()` (sweep notes removed fr
 
 **Files:**
 - Modify: `src/ariostea/indexing/index_vault.py`
+- Modify: `src/ariostea/ports/store.py` (add `IndexStore` composite port)
 - Modify: `tests/indexing/test_index_vault.py`
+
+> **Type fix discovered during execution:** `index()` needs a store that is *both* `DocumentWriter` (upsert/delete) *and* `IndexAdmin` (hashes/fingerprint/stats). The old annotation `DocumentWriter | IndexAdmin` was a **union** (either/or), which Pylance correctly flags since each role-specific method is missing on the other member. Python has no intersection type, so we add a composite `IndexStore(DocumentWriter, IndexAdmin, Protocol)` and annotate `store: IndexStore`. `SqliteStore` already satisfies it structurally.
 
 **Why this shape:** A full `reindex` currently only *adds/updates* notes found on disk — it never removes notes that were **deleted** (or renamed away), leaving stale "ghost" chunks/vectors/FTS rows that still surface in search and `get_note`. Phase 3's fetch tools make ghosts user-visible, so we close the gap now. The pieces already exist: `IndexAdmin.known_hashes()` lists every indexed path, `DocumentWriter.delete_note()` removes a note completely. The sweep is: track the set of paths we just wrote (`seen`), then delete any indexed path **not** in `seen`. Tracking `seen` only for notes we actually upsert also cleans **emptied** notes (a note that now produces no chunks is treated as gone — its stale rows are removed). The hash/mtime *skip* optimization and the watcher stay in Phase 4; this is deletion correctness only.
 

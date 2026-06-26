@@ -7,7 +7,7 @@ from ariostea.domain.models import ContextualizedChunk, IndexStats
 from ariostea.indexing.scanner import scan_vault
 from ariostea.ports.embedding import EmbeddingProvider
 from ariostea.ports.pipeline import Chunker, MarkdownParser
-from ariostea.ports.store import DocumentWriter, IndexAdmin
+from ariostea.ports.store import IndexStore
 
 
 class IndexVault:
@@ -16,7 +16,7 @@ class IndexVault:
         parser: MarkdownParser,
         chunker: Chunker,
         embeddings: EmbeddingProvider,
-        store: DocumentWriter | IndexAdmin,
+        store: IndexStore,
     ) -> None:
         self._parser = parser
         self._chunker = chunker
@@ -24,6 +24,7 @@ class IndexVault:
         self._store = store
 
     def index(self, root: str | Path, ignore: Sequence[str] = ()) -> IndexStats:
+        seen: set[str] = set()
         for scanned in scan_vault(root, ignore=ignore):
             note, body = self._parser.parse(scanned.rel_path, scanned.raw, scanned.mtime)
             chunks = self._chunker.chunk(note, body)
@@ -35,5 +36,9 @@ class IndexVault:
             ]
             vectors = self._embeddings.embed_documents([cc.embedding_text for cc in cchunks])
             self._store.upsert_note(note, cchunks, vectors)
+            seen.add(note.path)
+        for path in list(self._store.known_hashes()):
+            if path not in seen:
+                self._store.delete_note(path)
         self._store.set_fingerprint(self._embeddings.fingerprint)
         return self._store.stats()

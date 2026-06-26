@@ -38,3 +38,10 @@ class IndexAdmin(Protocol):
     def stats(self) -> IndexStats: ...
     def fingerprint(self) -> str: ...
     def set_fingerprint(self, value: str) -> None: ...
+
+
+@runtime_checkable
+class IndexStore(DocumentWriter, IndexAdmin, Protocol):
+    """Composite role for the indexing use case: it both writes notes and
+    administers the index (hashes, fingerprint, stats). Python has no
+    intersection type, so we name the combination as one Protocol."""
