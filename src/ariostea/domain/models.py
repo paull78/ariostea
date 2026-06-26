@@ -67,6 +67,13 @@ class SourceHit:
 
 
 @dataclass(frozen=True)
+class NoteDocument:
+    note_path: str
+    title: str
+    text: str
+
+
+@dataclass(frozen=True)
 class IndexStats:
     notes: int
     chunks: int

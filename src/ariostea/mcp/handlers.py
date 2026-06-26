@@ -39,3 +39,26 @@ def search_payload(container: "Container", query: str, k: int = 10) -> dict:
             for rc in result.chunks
         ]
     }
+
+
+def search_sources_payload(container: "Container", query: str, k: int = 10) -> dict:
+    hits = container.sources.search(Query(text=query, k=k))
+    return {
+        "sources": [
+            {
+                "note_path": h.note_path,
+                "title": h.title,
+                "hit_count": h.hit_count,
+                "best_score": h.best_score,
+                "snippets": list(h.snippets),
+            }
+            for h in hits
+        ]
+    }
+
+
+def get_note_payload(container: "Container", path: str) -> dict:
+    doc = container.reader.read_note(path)
+    if doc is None:
+        return {"found": False, "note_path": path}
+    return {"found": True, "note_path": doc.note_path, "title": doc.title, "text": doc.text}

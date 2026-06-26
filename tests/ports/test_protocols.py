@@ -56,3 +56,10 @@ def test_rrf_fuser_conforms_to_port():
     from ariostea.ports.fusion import Fuser
 
     assert isinstance(RRFFuser(), Fuser)
+
+
+def test_sqlite_store_conforms_to_document_reader():
+    from ariostea.adapters.store.sqlite_store import SqliteStore
+    from ariostea.ports.store import DocumentReader
+
+    assert issubclass(SqliteStore, DocumentReader)

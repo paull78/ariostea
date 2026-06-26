@@ -6,6 +6,7 @@ from ariostea.domain.models import (
     ContextualizedChunk,
     IndexStats,
     Note,
+    NoteDocument,
     QueryFilters,
     RetrievedChunk,
 )
@@ -33,8 +34,21 @@ class ChunkRetriever(Protocol):
 
 
 @runtime_checkable
+class DocumentReader(Protocol):
+    def note_titles(self, paths: Sequence[str]) -> dict[str, str]: ...
+    def read_note(self, path: str) -> NoteDocument | None: ...
+
+
+@runtime_checkable
 class IndexAdmin(Protocol):
     def known_hashes(self) -> dict[str, str]: ...
     def stats(self) -> IndexStats: ...
     def fingerprint(self) -> str: ...
     def set_fingerprint(self, value: str) -> None: ...
+
+
+@runtime_checkable
+class IndexStore(DocumentWriter, IndexAdmin, Protocol):
+    """Composite role for the indexing use case: it both writes notes and
+    administers the index (hashes, fingerprint, stats). Python has no
+    intersection type, so we name the combination as one Protocol."""

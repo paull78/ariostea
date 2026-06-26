@@ -79,3 +79,24 @@ def test_embedding_text_defaults_to_chunk_text(tmp_path):
     _, chunks, _ = store.notes["a.md"]
     assert chunks[0].context_blurb is None
     assert chunks[0].embedding_text == chunks[0].chunk.text
+
+
+def test_index_removes_notes_deleted_from_disk(tmp_path):
+    (tmp_path / "a.md").write_text("# A\nalpha content here")
+    (tmp_path / "b.md").write_text("# B\nbeta content here")
+
+    embed, store = FakeEmbed(), FakeStore()
+    indexer = IndexVault(
+        parser=ObsidianMarkdownParser(),
+        chunker=HeadingAwareChunker(max_tokens=200),
+        embeddings=embed,
+        store=store,
+    )
+    indexer.index(tmp_path, ignore=[])
+    assert set(store.notes) == {"a.md", "b.md"}
+
+    # delete b.md from disk and reindex
+    (tmp_path / "b.md").unlink()
+    stats = indexer.index(tmp_path, ignore=[])
+    assert set(store.notes) == {"a.md"}
+    assert stats.notes == 1

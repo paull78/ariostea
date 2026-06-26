@@ -13,10 +13,11 @@ from ariostea.domain.models import (
     ContextualizedChunk,
     IndexStats,
     Note,
+    NoteDocument,
     QueryFilters,
     RetrievedChunk,
 )
-from ariostea.ports.store import ChunkRetriever, DocumentWriter, IndexAdmin
+from ariostea.ports.store import ChunkRetriever, DocumentReader, DocumentWriter, IndexAdmin
 
 
 def _fts_query(text: str) -> str:
@@ -30,7 +31,7 @@ def _fts_query(text: str) -> str:
     return " OR ".join(f'"{t}"' for t in terms)
 
 
-class SqliteStore(DocumentWriter, ChunkRetriever, IndexAdmin):
+class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
     def __init__(self, path: str, dim: int) -> None:
         self._dim = dim
         Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -216,6 +217,29 @@ class SqliteStore(DocumentWriter, ChunkRetriever, IndexAdmin):
                 )
             )
         return results
+
+    # --- DocumentReader ---
+    def note_titles(self, paths: Sequence[str]) -> dict[str, str]:
+        paths = list(paths)
+        if not paths:
+            return {}
+        placeholders = ",".join("?" for _ in paths)
+        rows = self.db.execute(
+            f"SELECT path, title FROM notes WHERE path IN ({placeholders})", paths
+        ).fetchall()
+        return {r["path"]: r["title"] for r in rows}
+
+    def read_note(self, path) -> NoteDocument | None:
+        note = self.db.execute("SELECT title FROM notes WHERE path = ?", (path,)).fetchone()
+        if note is None:
+            return None
+        rows = self.db.execute(
+            "SELECT c.text FROM chunks c JOIN notes n ON n.id = c.note_id "
+            "WHERE n.path = ? ORDER BY c.ordinal",
+            (path,),
+        ).fetchall()
+        body = "\n\n".join(r["text"] for r in rows)
+        return NoteDocument(note_path=path, title=note["title"], text=body)
 
     # --- IndexAdmin ---
     def known_hashes(self) -> dict[str, str]:

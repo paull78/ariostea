@@ -462,8 +462,8 @@ Each phase is independently shippable and demonstrable end-to-end.
 | 0 | Scaffold + domain + ports + composition root + MCP server with a stub tool | `uvx ariostea serve` starts; stub tool responds |
 | 1 | **Walking skeleton:** scan→parse→naive chunk→fastembed→sqlite-vec dense→`search_knowledge` | Query a fixture vault, get relevant passages |
 | 2 | FTS5 sparse + RRF hybrid | Hybrid beats dense-only on fixture queries |
-| 3 | Provenance rollup + `search_sources` + `get_note` tool (search+fetch pattern) | "appears in notes X, Y, Z" returns correct notes; agent can fetch a full note by path |
-| 4 | Incremental (hash/mtime diff) + watcher | Editing a note updates only that note's chunks |
+| 3 | Provenance rollup + `search_sources` + `get_note` tool (search+fetch pattern) + **deletion sweep on reindex** | "appears in notes X, Y, Z" returns correct notes; agent can fetch a full note by path; deleting a note from disk drops it on reindex |
+| 4 | Incremental **skip of unchanged files** (hash/mtime gate) + watcher | Editing a note updates only that note's chunks; unchanged files are skipped; live updates via watcher (deletion sweep already landed in Phase 3) |
 | 5 | Contextual Retrieval (contextualizer + prompt caching) | Blurbs stored; retrieval quality improves on eval set |
 | 6 | Reranking stage | Rerank reorders top-N measurably |
 | 7 | Deep Obsidian structure (link graph, backlinks, tag/frontmatter filters, heading-aware refinement) | Filters + graph signals usable in search |
