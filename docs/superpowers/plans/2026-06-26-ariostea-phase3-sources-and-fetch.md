@@ -16,9 +16,9 @@ Each task starts with **Why this shape** (the design reasoning — read it, ask 
 
 ## Scope of this plan
 
-In scope: a `NoteDocument` domain model; a `DocumentReader` port (`note_titles`, `read_note`) implemented by `SqliteStore`; a `SearchSources` use case that groups fused chunks into `SourceHit`s; MCP `search_sources` and `get_note` tools + handlers; composition-root wiring exposing `sources` (use case) and `reader` (port); an end-to-end test for both new tools.
+In scope: **deletion detection** in `IndexVault.index()` (sweep notes removed from disk); a `NoteDocument` domain model; a `DocumentReader` port (`note_titles`, `read_note`) implemented by `SqliteStore`; a `SearchSources` use case that groups fused chunks into `SourceHit`s; MCP `search_sources` and `get_note` tools + handlers; composition-root wiring exposing `sources` (use case) and `reader` (port); an end-to-end test for both new tools.
 
-**Deferred to later phase plans:** incremental hash-diff + watcher (Phase 4); contextual blurbs (Phase 5); reranking (Phase 6); deep Obsidian filters/graph (Phase 7); section/neighbor context-expansion of search results, snippet term-highlighting via FTS5 `snippet()`, and richer `get_note` metadata (tags/frontmatter) (Phase 8 / spec §11 presentation ladder).
+**Deferred to later phase plans:** incremental **hash/mtime skip** of *unchanged* files + the file **watcher** (Phase 4) — note that *deletion* detection moves **into this plan** (Task 3.0), since `get_note`/`search_sources` would otherwise surface ghost notes; contextual blurbs (Phase 5); reranking (Phase 6); deep Obsidian filters/graph (Phase 7); section/neighbor context-expansion of search results, snippet term-highlighting via FTS5 `snippet()`, and richer `get_note` metadata (tags/frontmatter) (Phase 8 / spec §11 presentation ladder).
 
 ## Conventions
 
@@ -35,6 +35,89 @@ In scope: a `NoteDocument` domain model; a `DocumentReader` port (`note_titles`,
 - **`get_note` reconstructs from stored chunks** (title + chunk texts joined in `ordinal` order), not from disk. This keeps the reader self-contained (no vault-root coupling, returns exactly what was indexed). Trade-off: not byte-exact (frontmatter/blank-line fidelity lost, no tags — the store doesn't persist them). Disk-read + full metadata is a Phase 8 enhancement, noted in scope.
 - **Candidate pool ≥ returned sources.** `SearchSources` retrieves a wide chunk pool (`pool=50`) to find *all* notes a concept touches, then returns the top `query.k` notes. `Query.k` means "number of source notes" here; the chunk breadth is internal policy.
 - **Container exposes `sources` (use case) + `reader` (port-typed), consistent with `admin`** — never the concrete store. (Honors the existing container-exposes-ports convention.)
+
+---
+
+## Task 3.0: Deletion detection in `IndexVault.index()`
+
+**Files:**
+- Modify: `src/ariostea/indexing/index_vault.py`
+- Modify: `tests/indexing/test_index_vault.py`
+
+**Why this shape:** A full `reindex` currently only *adds/updates* notes found on disk — it never removes notes that were **deleted** (or renamed away), leaving stale "ghost" chunks/vectors/FTS rows that still surface in search and `get_note`. Phase 3's fetch tools make ghosts user-visible, so we close the gap now. The pieces already exist: `IndexAdmin.known_hashes()` lists every indexed path, `DocumentWriter.delete_note()` removes a note completely. The sweep is: track the set of paths we just wrote (`seen`), then delete any indexed path **not** in `seen`. Tracking `seen` only for notes we actually upsert also cleans **emptied** notes (a note that now produces no chunks is treated as gone — its stale rows are removed). The hash/mtime *skip* optimization and the watcher stay in Phase 4; this is deletion correctness only.
+
+- [ ] **Step 1: Write the failing test**
+
+Append to `tests/indexing/test_index_vault.py` (reuses the existing `FakeEmbed`/`FakeStore` and the real parser/chunker already imported at the top of that file):
+
+```python
+def test_index_removes_notes_deleted_from_disk(tmp_path):
+    (tmp_path / "a.md").write_text("# A\nalpha content here")
+    (tmp_path / "b.md").write_text("# B\nbeta content here")
+
+    embed, store = FakeEmbed(), FakeStore()
+    indexer = IndexVault(
+        parser=ObsidianMarkdownParser(),
+        chunker=HeadingAwareChunker(max_tokens=200),
+        embeddings=embed,
+        store=store,
+    )
+    indexer.index(tmp_path, ignore=[])
+    assert set(store.notes) == {"a.md", "b.md"}
+
+    # delete b.md from disk and reindex — its rows must be swept
+    (tmp_path / "b.md").unlink()
+    stats = indexer.index(tmp_path, ignore=[])
+    assert set(store.notes) == {"a.md"}
+    assert stats.notes == 1
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `uv run pytest tests/indexing/test_index_vault.py::test_index_removes_notes_deleted_from_disk -v`
+Expected: FAIL — after deleting `b.md`, `store.notes` is still `{"a.md", "b.md"}` (`assert set(store.notes) == {"a.md"}` fails); the old loop never deletes vanished notes.
+
+- [ ] **Step 3: Write minimal implementation**
+
+Replace the body of `index()` in `src/ariostea/indexing/index_vault.py` with the deletion-aware version:
+
+```python
+    def index(self, root: str | Path, ignore: Sequence[str] = ()) -> IndexStats:
+        seen: set[str] = set()
+        for scanned in scan_vault(root, ignore=ignore):
+            note, body = self._parser.parse(scanned.rel_path, scanned.raw, scanned.mtime)
+            chunks = self._chunker.chunk(note, body)
+            if not chunks:
+                continue
+            cchunks = [
+                ContextualizedChunk(chunk=c, context_blurb=None, embedding_text=c.text)
+                for c in chunks
+            ]
+            vectors = self._embeddings.embed_documents([cc.embedding_text for cc in cchunks])
+            self._store.upsert_note(note, cchunks, vectors)
+            seen.add(note.path)
+        # sweep notes that vanished from disk (deleted/renamed/emptied)
+        for path in list(self._store.known_hashes()):
+            if path not in seen:
+                self._store.delete_note(path)
+        self._store.set_fingerprint(self._embeddings.fingerprint)
+        return self._store.stats()
+```
+
+> Note: `index()` now also calls `known_hashes()` and `delete_note()`, so its `store` parameter exercises the `IndexAdmin` and `DocumentWriter` roles it's already typed against (`DocumentWriter | IndexAdmin`). No signature change needed.
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `uv run pytest tests/indexing/test_index_vault.py -v`
+Expected: PASS — the new deletion test plus the two existing `IndexVault` tests (which index without deletions and are unaffected).
+
+- [ ] **Step 5: Commit**
+
+```bash
+uv run ruff check --fix . >/dev/null; uv run ruff format . >/dev/null && uv run ruff check .
+git add src/ariostea/indexing/index_vault.py tests/indexing/test_index_vault.py
+git commit -m "feat(indexing): sweep deleted/renamed notes on reindex"
+```
 
 ---
 
@@ -551,7 +634,7 @@ git commit -m "feat(mcp): search_sources + get_note tools (search+fetch pattern)
 
 ## Self-review (completed by plan author)
 
-- **Spec coverage:** §1 use cases U2 (`search_sources`) → Tasks 3.2 + 3.3; U3 (`get_note`) → Tasks 3.1 + 3.3. §6 `SourceRollup`/reader role → Task 3.1 `DocumentReader` (adapted: rollup logic lives in the `SearchSources` use case over fused chunks, titles via the reader — chosen over a store `chunk_ids` rollup so scores reflect RRF; documented in Design decisions). §10 `SearchSources` retrieval core (reuses hybrid) → Task 3.2. §11 delivery table `search_sources`/`get_note` rows → Task 3.3. §11 "group by source note" presentation note → Task 3.2. §17 Phase 3 acceptance ("appears in notes X, Y, Z"; fetch a full note) → e2e test in Task 3.3.
+- **Spec coverage:** §9 "deletions detected by diffing known paths vs scanned paths" → Task 3.0 (pulled forward from Phase 4 since the fetch tools expose ghost notes). §1 use cases U2 (`search_sources`) → Tasks 3.2 + 3.3; U3 (`get_note`) → Tasks 3.1 + 3.3. §6 `SourceRollup`/reader role → Task 3.1 `DocumentReader` (adapted: rollup logic lives in the `SearchSources` use case over fused chunks, titles via the reader — chosen over a store `chunk_ids` rollup so scores reflect RRF; documented in Design decisions). §10 `SearchSources` retrieval core (reuses hybrid) → Task 3.2. §11 delivery table `search_sources`/`get_note` rows → Task 3.3. §11 "group by source note" presentation note → Task 3.2. §17 Phase 3 acceptance ("appears in notes X, Y, Z"; fetch a full note) → e2e test in Task 3.3.
 - **Type consistency:** `note_titles(paths: Sequence[str]) -> dict[str, str]` and `read_note(path: str) -> NoteDocument | None` identical in port (3.1), adapter (3.1), and call sites (3.2 reader, 3.3 handler). `SearchSources(searcher, reader, pool=50).search(Query) -> list[SourceHit]` consistent across use case (3.2), container (3.3), and handler (3.3). `NoteDocument(note_path, title, text)` fields match across model, reader, handler, and tests. `SourceHit` fields (`note_path, title, hit_count, best_score, snippets`) match the existing domain model.
 - **Placeholders:** none — every code step shows complete code; every command shows expected output.
 - **Deviation noted:** `get_note` reconstructs from chunks rather than reading disk; `SourceHit.title` comes from a reader lookup rather than the spec's `chunk_ids`-based `SourceRollup` — both rationalized in Design decisions, both swappable later.
