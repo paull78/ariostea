@@ -12,8 +12,9 @@ from ariostea.adapters.store.sqlite_store import SqliteStore
 from ariostea.config.schema import Config
 from ariostea.indexing.index_vault import IndexVault
 from ariostea.ports.embedding import EmbeddingProvider
-from ariostea.ports.store import IndexAdmin
+from ariostea.ports.store import DocumentReader, IndexAdmin
 from ariostea.search.search_knowledge import SearchKnowledge
+from ariostea.search.search_sources import SearchSources
 
 
 @dataclass
@@ -26,6 +27,8 @@ class Container:
     indexer: IndexVault
     searcher: SearchKnowledge
     admin: IndexAdmin
+    sources: SearchSources
+    reader: DocumentReader
 
 
 def _expand(p: str) -> str:
@@ -54,5 +57,13 @@ def build_container(config: Config) -> Container:
         k_dense=config.search.k_dense,
         k_sparse=config.search.k_sparse,
     )
+    sources = SearchSources(searcher=searcher, reader=store)
 
-    return Container(config=config, indexer=indexer, searcher=searcher, admin=store)
+    return Container(
+        config=config,
+        indexer=indexer,
+        searcher=searcher,
+        admin=store,
+        sources=sources,
+        reader=store,
+    )
