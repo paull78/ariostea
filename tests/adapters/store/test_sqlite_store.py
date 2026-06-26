@@ -111,3 +111,30 @@ def test_reupsert_does_not_duplicate_fts_rows(tmp_path):
     store.upsert_note(note, [_cchunk(note, 0, "unique token")], [[1.0, 0.0, 0.0]])
     hits = store.sparse("unique", k=10)
     assert len(hits) == 1  # old FTS row was cleaned, not duplicated
+
+
+def test_note_titles_batch_lookup(tmp_path):
+    store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
+    store.upsert_note(_note("a.md"), [_cchunk(_note("a.md"), 0, "x")], [[1.0, 0.0, 0.0]])
+    store.upsert_note(_note("b.md"), [_cchunk(_note("b.md"), 0, "y")], [[0.0, 1.0, 0.0]])
+    titles = store.note_titles(["a.md", "b.md", "missing.md"])
+    assert titles == {"a.md": "A", "b.md": "A"}  # _note() always titles "A"
+    assert store.note_titles([]) == {}
+
+
+def test_read_note_reconstructs_in_ordinal_order(tmp_path):
+    store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
+    note = _note("a.md")
+    chunks = [_cchunk(note, 0, "first part"), _cchunk(note, 1, "second part")]
+    store.upsert_note(note, chunks, [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+
+    doc = store.read_note("a.md")
+    assert doc is not None
+    assert doc.note_path == "a.md"
+    assert doc.title == "A"
+    assert doc.text == "first part\n\nsecond part"
+
+
+def test_read_note_returns_none_when_absent(tmp_path):
+    store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
+    assert store.read_note("nope.md") is None
