@@ -1,0 +1,24 @@
+# Copy to ariostea.toml and edit. Only [vault].path is required;
+# every other value below is the built-in default, shown for reference.
+
+[vault]
+path = "~/Library/Mobile Documents/iCloud~md~obsidian/Documents/My Vault"
+ignore = [".obsidian/", ".trash/"]
+
+[embedding]
+provider = "local"                       # "local" | "openai_compat"
+local_model = "BAAI/bge-small-en-v1.5"   # English-only, 384-dim
+# For cross-lingual search, swap to a multilingual model (768-dim) and reindex:
+# local_model = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+# base_url = "http://localhost:11434/v1"  # for provider = "openai_compat"
+# api_key  = "..."
+# model    = "nomic-embed-text"
+
+[store]
+backend = "sqlite"
+path = "~/.ariostea/index.db"
+
+[search]
+k_dense = 50    # dense candidates fetched before fusion
+k_sparse = 50   # BM25 candidates fetched before fusion
+top_k = 10      # results returned to the client
