@@ -3,8 +3,20 @@
   {"query": "come cuocere gli spaghetti in casa", "query_lang": "it", "expected": ["pasta_it.md"], "scenario": "same"},
   {"query": "rolling dice in a board game", "query_lang": "en", "expected": ["dice_en.md"], "scenario": "same"},
   {"query": "tirare i dadi in un gioco da tavolo", "query_lang": "it", "expected": ["dadi_it.md"], "scenario": "same"},
-  {"query": "rolling dice board game pieces", "query_lang": "en", "expected": ["dadi_it.md"], "scenario": "en→it"},
-  {"query": "cooking spaghetti al dente", "query_lang": "en", "expected": ["pasta_it.md"], "scenario": "en→it"},
-  {"query": "tirare i dadi e muovere le pedine", "query_lang": "it", "expected": ["dice_en.md"], "scenario": "it→en"},
-  {"query": "bollire la pasta con il sale", "query_lang": "it", "expected": ["pasta_en.md"], "scenario": "it→en"}
+  {"query": "osservare le stelle con il telescopio", "query_lang": "it", "expected": ["astronomia_it.md"], "scenario": "same"},
+  {"query": "keeping bees and collecting honey", "query_lang": "en", "expected": ["beekeeping_en.md"], "scenario": "same"},
+  {"query": "subir la montaña en bicicleta", "query_lang": "es", "expected": ["ciclismo_es.md"], "scenario": "same"},
+
+  {"query": "looking at planets and stars through a telescope at night", "query_lang": "en", "expected": ["astronomia_it.md"], "scenario": "en→it"},
+  {"query": "mirar las estrellas y los planetas con un telescopio", "query_lang": "es", "expected": ["astronomia_it.md"], "scenario": "es→it"},
+  {"query": "apicoltura e raccolta del miele dall'alveare", "query_lang": "it", "expected": ["beekeeping_en.md"], "scenario": "it→en"},
+  {"query": "apicultura y recoleccion de miel de la colmena", "query_lang": "es", "expected": ["beekeeping_en.md"], "scenario": "es→en"},
+  {"query": "mountain biking up a steep trail on a bicycle", "query_lang": "en", "expected": ["ciclismo_es.md"], "scenario": "en→es"},
+  {"query": "andare in bicicletta in montagna su un sentiero", "query_lang": "it", "expected": ["ciclismo_es.md"], "scenario": "it→es"},
+
+  {"query": "città", "query_lang": "it", "expected": ["astronomia_it.md"], "scenario": "accent"},
+  {"query": "montaña", "query_lang": "es", "expected": ["ciclismo_es.md"], "scenario": "accent"},
+
+  {"query": "bottoni", "query_lang": "it", "expected": ["cucito_it.md"], "scenario": "inflection"},
+  {"query": "vasijas", "query_lang": "es", "expected": ["alfareria_es.md"], "scenario": "inflection"}
 ]

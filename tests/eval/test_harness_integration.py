@@ -34,7 +34,17 @@ def test_eval_harness_runs_and_same_language_is_perfect(tmp_path):
     # The harness produces a complete report over every gold case...
     assert report.overall.n == len(cases)
     by = {s.scenario: s for s in report.by_scenario}
-    assert set(by) == {"same", "en→it", "it→en"}
+    assert set(by) == {
+        "same",
+        "en→it",
+        "es→it",
+        "it→en",
+        "es→en",
+        "en→es",
+        "it→es",
+        "accent",
+        "inflection",
+    }
 
     # ...and same-language retrieval on the fixture is a stable 1.0 floor.
     assert by["same"].recall_at_k == 1.0
