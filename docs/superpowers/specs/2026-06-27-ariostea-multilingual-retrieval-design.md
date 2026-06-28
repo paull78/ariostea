@@ -131,6 +131,13 @@ relevance.
 > direction — 2 is noisy) before judging `en→it`. Default model is Jina (the design's named
 > alternative) because `bge-reranker-v2-m3` is absent from the installed fastembed.
 
+> **Result (measured 2026-06-28, per-channel gold-set eval, 17 cases, k=5).** The expanded
+> gold set (see [`2026-06-28-ariostea-gold-set-expansion-design.md`](2026-06-28-ariostea-gold-set-expansion-design.md))
+> confirmed the FTS diacritic fix end-to-end: sparse `accent` recall@5 = 1.000. It also
+> confirmed that dense embeddings already recover inflected forms that sparse misses (dense
+> `inflection` recall@5 = 1.000 vs. sparse = 0.000), so multilingual FTS stemming remains a
+> YAGNI backlog item — no evidence yet that it is needed.
+
 ### 4.3 `WeightedFuser` (Component 3 — optional interim, YAGNI)
 
 A `Fuser` adapter variant that tilts fusion toward the dense channel (or softens the
