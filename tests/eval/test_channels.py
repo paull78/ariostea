@@ -26,7 +26,7 @@ class FakeRetriever:
 
     def sparse(self, query, k, filters=None):
         self.sparse_call = (query, k, filters)
-        return [_rc("c.md", 0), _rc("c.md", 1)]
+        return [_rc("c.md", 0), _rc("c.md", 1), _rc("d.md", 2)]  # two chunks of c.md
 
 
 def test_dense_search_fn_embeds_query_and_dedupes_to_notes():
@@ -47,5 +47,10 @@ def test_sparse_search_fn_passes_raw_query_and_dedupes():
     ret = FakeRetriever()
     fn = make_sparse_search_fn(ret, pool=30)
 
-    assert fn("dice", 5) == ["c.md"]
+    assert fn("dice", 5) == ["c.md", "d.md"]
     assert ret.sparse_call == ("dice", 30, None)  # raw text + pool, no embedding
+
+
+def test_sparse_search_fn_truncates_to_k():
+    fn = make_sparse_search_fn(FakeRetriever(), pool=30)
+    assert fn("dice", 1) == ["c.md"]
