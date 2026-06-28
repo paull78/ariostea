@@ -146,6 +146,7 @@ uv run ariostea reindex                  # or: uvx ariostea reindex
 uv run ariostea serve                    # or: uvx ariostea serve
 
 # Other commands
+uv run ariostea watch                    # index, then auto-reindex on vault edits
 uv run ariostea status                   # print index health
 uv run pytest -m "not integration"       # fast test suite
 ```
