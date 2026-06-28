@@ -49,3 +49,12 @@ def test_raises_on_error_status():
     )
     with pytest.raises(ChatError):
         chat.complete(system="s", user="u")
+
+
+def test_raises_on_transport_error():
+    def handler(request):
+        raise httpx.ConnectError("no route to host")
+
+    chat = OpenAICompatChat(base_url="http://x/v1", model="m", client=_client(handler))
+    with pytest.raises(ChatError):
+        chat.complete(system="s", user="u")
