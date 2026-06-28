@@ -63,3 +63,16 @@ def test_sqlite_store_conforms_to_document_reader():
     from ariostea.ports.store import DocumentReader
 
     assert issubclass(SqliteStore, DocumentReader)
+
+
+def test_reranker_protocol_is_runtime_checkable():
+    from ariostea.domain.models import RetrievedChunk
+    from ariostea.ports.rerank import Reranker
+
+    class FakeReranker:
+        def rerank(
+            self, query: str, candidates: list[RetrievedChunk], top_n: int
+        ) -> list[RetrievedChunk]:
+            return list(candidates[:top_n])
+
+    assert isinstance(FakeReranker(), Reranker)

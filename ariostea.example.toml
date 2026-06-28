@@ -22,3 +22,8 @@ path = "~/.ariostea/index.db"
 k_dense = 50    # dense candidates fetched before fusion
 k_sparse = 50   # BM25 candidates fetched before fusion
 top_k = 10      # results returned to the client
+
+[rerank]
+enabled = true                                          # multilingual cross-encoder reranking
+model = "jinaai/jina-reranker-v2-base-multilingual"     # ONNX, no API key
+pool = 100      # fused candidates re-scored by the reranker (recall vs latency)

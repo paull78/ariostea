@@ -112,6 +112,25 @@ relevance.
   the `en→it` and `it→en` directions versus the no-rerank baseline, with **no regression** on
   `same`.
 
+> **Result (measured 2026-06-28, `jina-reranker-v2-base-multilingual`, fixture vault).**
+> Partial, honest win — no regression:
+>
+> | direction | recall@1 (base→rerank) | MRR@5 (base→rerank) |
+> |-----------|------------------------|---------------------|
+> | `it→en`   | 0.000 → **0.500**      | 0.500 → **0.750**   |
+> | `en→it`   | 0.000 → 0.000          | 0.500 → 0.500       |
+> | `same`    | 0.750 → 0.750 (held)   | 0.875 → 0.875 (held)|
+> | overall   | 0.375 → **0.500**      | 0.688 → **0.750**   |
+>
+> Reranking improved `it→en` and overall and regressed nothing. `en→it` stayed flat — but
+> that is largely a **fixture confound**: each `en→it` case declares only the Italian note
+> correct while the corpus also holds an equally-relevant *English* twin on the same topic, so
+> for an English query the reranker ranking the English note first is defensible. Clean
+> cross-lingual measurement needs target topics that exist *only* in the other language.
+> **Follow-up:** expand the gold set with single-language-only topics (and more cases per
+> direction — 2 is noisy) before judging `en→it`. Default model is Jina (the design's named
+> alternative) because `bge-reranker-v2-m3` is absent from the installed fastembed.
+
 ### 4.3 `WeightedFuser` (Component 3 — optional interim, YAGNI)
 
 A `Fuser` adapter variant that tilts fusion toward the dense channel (or softens the
