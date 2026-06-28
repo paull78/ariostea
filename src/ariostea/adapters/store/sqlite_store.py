@@ -21,13 +21,18 @@ from ariostea.ports.store import ChunkRetriever, DocumentReader, DocumentWriter,
 
 
 def _fts_query(text: str) -> str:
-    """Turn free user text into a safe FTS5 MATCH expression.
+    r"""Turn free user text into a safe FTS5 MATCH expression.
 
     FTS5 MATCH is its own query language; raw punctuation or an empty string
     raises a syntax error. We extract word tokens and OR them so any term may
     match (recall-first — fusion handles precision).
+
+    The token pattern is Unicode-aware (``\w`` matches accented letters), so
+    words like "città" or "Müller" reach FTS intact. FTS5 then applies the
+    table tokenizer (unicode61 + remove_diacritics) to fold accents on both the
+    query and the index, making keyword search accent-insensitive.
     """
-    terms = re.findall(r"[A-Za-z0-9_]+", text)
+    terms = re.findall(r"\w+", text, re.UNICODE)
     return " OR ".join(f'"{t}"' for t in terms)
 
 
@@ -66,7 +71,8 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
             );
             CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
                 chunk_id UNINDEXED,
-                text
+                text,
+                tokenize="unicode61 remove_diacritics 2"
             );
             CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
             """

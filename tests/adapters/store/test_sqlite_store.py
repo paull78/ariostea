@@ -78,6 +78,24 @@ def test_sparse_bm25_ranks_keyword_matches(tmp_path):
     assert hits[0].score > 0.0
 
 
+def test_sparse_matches_accented_terms_in_main_languages(tmp_path):
+    store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
+    note = _note()
+    chunks = [
+        _cchunk(note, 0, "la grande citta di Roma"),  # Italian, indexed without accent
+        _cchunk(note, 1, "hasta manana amigo"),  # Spanish
+        _cchunk(note, 2, "Herr Muller wohnt hier"),  # German
+        _cchunk(note, 3, "pedido de informacao urgente"),  # Portuguese
+    ]
+    store.upsert_note(note, chunks, [[1.0, 0.0, 0.0]] * 4)
+
+    # Accented queries must fold to the same token as the unaccented stored text.
+    assert store.sparse("città", k=5)[0].chunk.ordinal == 0
+    assert store.sparse("mañana", k=5)[0].chunk.ordinal == 1
+    assert store.sparse("Müller", k=5)[0].chunk.ordinal == 2
+    assert store.sparse("informação", k=5)[0].chunk.ordinal == 3
+
+
 def test_sparse_returns_empty_when_no_term_matches(tmp_path):
     store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
     note = _note()
