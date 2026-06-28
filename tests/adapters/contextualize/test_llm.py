@@ -52,5 +52,14 @@ def test_provider_failure_degrades_to_plain_text():
     assert all(c.context_blurb is None for c in out)
 
 
+def test_provider_failure_logs_a_warning(caplog):
+    import logging
+
+    ctx = LLMContextualizer(BrokenChat(), model_name="m")
+    with caplog.at_level(logging.WARNING):
+        ctx.contextualize(_note(), "doc", [_chunk(0, "alpha")])
+    assert "a.md" in caplog.text and "indexing plain" in caplog.text
+
+
 def test_fingerprint_includes_model():
     assert LLMContextualizer(FakeChat(), model_name="gpt-4o-mini").fingerprint == "llm:gpt-4o-mini"

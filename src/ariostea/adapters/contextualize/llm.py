@@ -31,7 +31,9 @@ class LLMContextualizer(Contextualizer):
         try:
             blurb = self._chat.complete(system=_INSTRUCTIONS, user=full_doc).strip()
         except Exception as exc:  # provider down / timeout / bad response
-            logger.warning("contextualization failed for %s (%s); indexing plain", note.path, exc)
+            logger.warning(
+                "contextualization failed for %s; indexing plain", note.path, exc_info=exc
+            )
             blurb = ""
         if not blurb:
             return [
