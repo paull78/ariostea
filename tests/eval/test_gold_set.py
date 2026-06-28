@@ -9,8 +9,9 @@ GOLD = REPO / "eval" / "gold.json"
 
 def test_every_expected_note_exists_and_is_single():
     for case in load_gold(GOLD):
-        assert len(case.expected) == 1  # single-correct-note assumption holds
-        assert (CORPUS / case.expected[0]).exists()
+        # single-correct-note assumption holds
+        assert len(case.expected) == 1, f"case {case.query!r} has {len(case.expected)} expected notes"
+        assert (CORPUS / case.expected[0]).exists(), f"missing corpus note: {case.expected[0]}"
 
 
 def test_gold_covers_all_scenarios():
