@@ -5,16 +5,20 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from ariostea.adapters.chat.openai_compat import OpenAICompatChat
 from ariostea.adapters.chunk.heading_aware import HeadingAwareChunker
+from ariostea.adapters.contextualize.llm import LLMContextualizer
+from ariostea.adapters.contextualize.noop import NoopContextualizer
 from ariostea.adapters.embedding.fastembed_local import FastEmbedEmbeddings
 from ariostea.adapters.fuse.rrf import RRFFuser
 from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
 from ariostea.adapters.rerank.fastembed_rerank import FastEmbedReranker
 from ariostea.adapters.rerank.noop import NoopReranker
 from ariostea.adapters.store.sqlite_store import SqliteStore
-from ariostea.config.schema import Config, RerankCfg
+from ariostea.config.schema import Config, ContextualCfg, RerankCfg
 from ariostea.indexing.index_vault import IndexVault
 from ariostea.ports.embedding import EmbeddingProvider
+from ariostea.ports.pipeline import Contextualizer
 from ariostea.ports.rerank import Reranker
 from ariostea.ports.store import DocumentReader, IndexAdmin
 from ariostea.search.search_knowledge import SearchKnowledge
@@ -54,6 +58,28 @@ def _build_reranker(cfg: RerankCfg) -> Reranker:
         return NoopReranker()
 
 
+def _build_contextualizer(cfg: ContextualCfg) -> Contextualizer:
+    """Build the configured contextualizer. When disabled, returns a
+    NoopContextualizer (plain chunks) silently. When enabled, builds the LLM
+    contextualizer; the try/except is defensive — today's constructors do no I/O
+    and won't raise, but a future eager-connecting client would degrade to
+    NoopContextualizer with a warning rather than break startup."""
+    if not cfg.enabled:
+        return NoopContextualizer()
+    try:
+        chat = OpenAICompatChat(
+            base_url=cfg.base_url,
+            model=cfg.model,
+            api_key=cfg.api_key,
+            timeout=cfg.timeout,
+            max_tokens=cfg.max_tokens,
+        )
+        return LLMContextualizer(chat, model_name=cfg.model)
+    except Exception as exc:  # misconfiguration
+        logger.warning("contextualizer unavailable (%s); indexing plain chunks", exc)
+        return NoopContextualizer()
+
+
 def build_container(config: Config) -> Container:
     # Embedding provider — local fastembed for the walking skeleton.
     embeddings: EmbeddingProvider = FastEmbedEmbeddings(model_name=config.embedding.local_model)
@@ -68,7 +94,13 @@ def build_container(config: Config) -> Container:
     # The store is injected into each use case as its narrow role
     # (DocumentWriter for indexing, ChunkRetriever for search); only its
     # IndexAdmin face is re-exposed on the Container for status.
-    indexer = IndexVault(parser=parser, chunker=chunker, embeddings=embeddings, store=store)
+    indexer = IndexVault(
+        parser=parser,
+        chunker=chunker,
+        embeddings=embeddings,
+        store=store,
+        contextualizer=_build_contextualizer(config.contextual),
+    )
     searcher = SearchKnowledge(
         embeddings=embeddings,
         retriever=store,

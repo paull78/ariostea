@@ -156,3 +156,16 @@ def test_read_note_reconstructs_in_ordinal_order(tmp_path):
 def test_read_note_returns_none_when_absent(tmp_path):
     store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
     assert store.read_note("nope.md") is None
+
+
+def test_upsert_persists_context_blurb(tmp_path):
+    from ariostea.domain.models import Chunk, ContextualizedChunk
+
+    store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
+    note = _note()
+    chunk = Chunk(note_path=note.path, ordinal=0, heading_path=("A",), text="bare", token_count=1)
+    cc = ContextualizedChunk(chunk=chunk, context_blurb="the blurb", embedding_text="the blurb\n\nbare")
+    store.upsert_note(note, [cc], [[1.0, 0.0, 0.0]])
+
+    rows = store.db.execute("SELECT context_blurb FROM chunks").fetchall()
+    assert rows[0]["context_blurb"] == "the blurb"

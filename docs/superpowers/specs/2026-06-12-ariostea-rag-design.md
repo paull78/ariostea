@@ -439,6 +439,8 @@ enabled = true; debounce_ms = 750
 
 Per Anthropic's method: for each chunk, an LLM produces a 50–100-token blurb situating it in its document; the blurb is prepended to the chunk text **before both embedding and BM25 indexing**. The full document is sent once with `cache_prefix` so prompt caching amortizes its cost across the document's chunks (when the chat provider supports caching). Stored in `chunks.context_blurb`; the `embedding_text` (blurb + chunk) feeds both `chunks_vec` and `chunks_fts`. Toggle: `[contextual].enabled`. When off or no LLM is available, `embedding_text == chunk.text` and quality degrades gracefully to plain hybrid search.
 
+> **As implemented (Phase 5, 2026-06-28):** the shipped contextualizer is **note-level** — one blurb per note (a single LLM call) prepended to every chunk — rather than the per-chunk blurb described above, and there is no explicit `cache_prefix` (the OpenAI-compatible default relies on automatic prefix caching). Note-level fits Obsidian's short, single-topic notes; per-chunk Contextual Retrieval and a native Anthropic adapter with explicit caching are recorded as future enhancements. See [contextual-retrieval design §8/§10](2026-06-28-ariostea-contextual-retrieval-design.md).
+
 ---
 
 ## 16. Cross-cutting concerns
@@ -464,7 +466,7 @@ Each phase is independently shippable and demonstrable end-to-end.
 | 2 | FTS5 sparse + RRF hybrid | Hybrid beats dense-only on fixture queries |
 | 3 | Provenance rollup + `search_sources` + `get_note` tool (search+fetch pattern) + **deletion sweep on reindex** | "appears in notes X, Y, Z" returns correct notes; agent can fetch a full note by path; deleting a note from disk drops it on reindex |
 | 4 ✅ | Incremental **skip of unchanged files** (content-hash gate, fingerprint-guarded) + `watch` command | DONE — unchanged notes skipped on reindex; model swap forces full re-embed; `ariostea watch` re-indexes live via watchfiles |
-| 5 | Contextual Retrieval (contextualizer + prompt caching) | Blurbs stored; retrieval quality improves on eval set |
+| 5 ✅ | Contextual Retrieval — **note-level** blurb via OpenAI-compatible chat; off by default, graceful Noop degradation | DONE — blurb prepended to every chunk's `embedding_text`; per-chunk blurbs + explicit prompt caching deferred (see [contextual-retrieval design §10](2026-06-28-ariostea-contextual-retrieval-design.md)) |
 | **Eval** | **Cross-lingual eval harness** — committed bilingual fixture vault + JSON gold set + recall@k / MRR scorer (per-direction). Driving consumer of the use cases; no new ports. | Baseline reported; scorer math unit-tested; satisfies the "eval set" acceptance referenced by Phases 5–6. See [`2026-06-27-ariostea-multilingual-retrieval-design.md`](2026-06-27-ariostea-multilingual-retrieval-design.md). |
 | 6 | Reranking stage — **default reranker is multilingual** (`bge-reranker-v2-m3`, ONNX); RRF demoted to a recall gatherer feeding the reranker | Rerank reorders top-N measurably; **recall@k / MRR gain on `en→it` and `it→en`, no regression on `same`** |
 | 7 | Deep Obsidian structure (link graph, backlinks, tag/frontmatter filters, heading-aware refinement) | Filters + graph signals usable in search |

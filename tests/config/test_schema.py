@@ -56,3 +56,13 @@ def test_rerank_can_be_disabled(tmp_path):
     cfg = load_config(cfg_file)
     assert cfg.rerank.enabled is False
     assert cfg.rerank.pool == 40
+
+
+def test_contextual_defaults_off():
+    from ariostea.config.schema import Config, VaultCfg
+
+    cfg = Config(vault=VaultCfg(path="/v"))
+    assert cfg.contextual.enabled is False
+    assert cfg.contextual.base_url == "http://localhost:11434/v1"
+    assert cfg.contextual.model == "llama3.1"
+    assert cfg.contextual.max_tokens == 128
