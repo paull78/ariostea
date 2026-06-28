@@ -76,3 +76,29 @@ def test_reranker_protocol_is_runtime_checkable():
             return list(candidates[:top_n])
 
     assert isinstance(FakeReranker(), Reranker)
+
+
+def test_chat_provider_protocol():
+    from ariostea.ports.chat import ChatProvider
+
+    class Chat:
+        def complete(self, system, user):
+            return "ok"
+
+    assert isinstance(Chat(), ChatProvider)
+    assert not isinstance(object(), ChatProvider)
+
+
+def test_contextualizer_protocol():
+    from ariostea.ports.pipeline import Contextualizer
+
+    class Ctx:
+        def contextualize(self, note, full_doc, chunks):
+            return []
+
+        @property
+        def fingerprint(self):
+            return "x"
+
+    assert isinstance(Ctx(), Contextualizer)
+    assert not isinstance(object(), Contextualizer)
