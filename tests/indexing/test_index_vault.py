@@ -159,8 +159,6 @@ def test_index_reembeds_all_when_fingerprint_changes(tmp_path):
 
 
 def test_contextualizer_output_flows_to_store(tmp_path):
-    from collections.abc import Sequence
-
     from ariostea.domain.models import ContextualizedChunk
     from ariostea.ports.pipeline import Contextualizer
 
