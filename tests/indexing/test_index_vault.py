@@ -100,3 +100,56 @@ def test_index_removes_notes_deleted_from_disk(tmp_path):
     stats = indexer.index(tmp_path, ignore=[])
     assert set(store.notes) == {"a.md"}
     assert stats.notes == 1
+
+
+def test_index_skips_unchanged_notes_on_reindex(tmp_path):
+    (tmp_path / "a.md").write_text("# A\nalpha content here")
+    (tmp_path / "b.md").write_text("# B\nbeta content here")
+    embed, store = FakeEmbed(), FakeStore()
+    indexer = IndexVault(
+        ObsidianMarkdownParser(), HeadingAwareChunker(max_tokens=200), embed, store
+    )
+    indexer.index(tmp_path, ignore=[])
+
+    # Second run, nothing changed on disk: no text should be re-embedded.
+    embed.seen.clear()
+    stats = indexer.index(tmp_path, ignore=[])
+    assert embed.seen == []
+    assert set(store.notes) == {"a.md", "b.md"}  # unchanged notes are kept, not swept
+    assert stats.notes == 2
+
+
+def test_index_reembeds_only_the_changed_note(tmp_path):
+    (tmp_path / "a.md").write_text("# A\nalpha content here")
+    (tmp_path / "b.md").write_text("# B\nbeta content here")
+    embed, store = FakeEmbed(), FakeStore()
+    indexer = IndexVault(
+        ObsidianMarkdownParser(), HeadingAwareChunker(max_tokens=200), embed, store
+    )
+    indexer.index(tmp_path, ignore=[])
+
+    (tmp_path / "a.md").write_text("# A\nalpha content CHANGED now")
+    embed.seen.clear()
+    indexer.index(tmp_path, ignore=[])
+    assert any("CHANGED" in t for t in embed.seen)  # changed note re-embedded
+    assert not any("beta" in t for t in embed.seen)  # unchanged note skipped
+
+
+def test_index_reembeds_all_when_fingerprint_changes(tmp_path):
+    (tmp_path / "a.md").write_text("# A\nalpha content here")
+    embed, store = FakeEmbed(), FakeStore()
+    IndexVault(ObsidianMarkdownParser(), HeadingAwareChunker(max_tokens=200), embed, store).index(
+        tmp_path, ignore=[]
+    )
+
+    # Simulate a model swap: same content, different fingerprint -> must re-embed.
+    class FakeEmbed2(FakeEmbed):
+        @property
+        def fingerprint(self):
+            return "fake:v2"
+
+    embed2 = FakeEmbed2()
+    IndexVault(ObsidianMarkdownParser(), HeadingAwareChunker(max_tokens=200), embed2, store).index(
+        tmp_path, ignore=[]
+    )
+    assert any("alpha" in t for t in embed2.seen)  # re-embedded despite unchanged content

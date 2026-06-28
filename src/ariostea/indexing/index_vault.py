@@ -25,7 +25,15 @@ class IndexVault:
 
     def index(self, root: str | Path, ignore: Sequence[str] = ()) -> IndexStats:
         seen: set[str] = set()
+        known = self._store.known_hashes()
+        # A model swap invalidates every stored vector, so the content-hash skip
+        # must be bypassed when the embedding fingerprint changed.
+        fingerprint_changed = self._store.fingerprint() != self._embeddings.fingerprint
+
         for scanned in scan_vault(root, ignore=ignore):
+            if not fingerprint_changed and known.get(scanned.rel_path) == scanned.content_hash:
+                seen.add(scanned.rel_path)  # unchanged & already indexed — keep it
+                continue
             note, body = self._parser.parse(scanned.rel_path, scanned.raw, scanned.mtime)
             chunks = self._chunker.chunk(note, body)
             if not chunks:
