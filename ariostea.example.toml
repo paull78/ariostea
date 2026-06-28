@@ -27,3 +27,13 @@ top_k = 10      # results returned to the client
 enabled = true                                          # multilingual cross-encoder reranking
 model = "jinaai/jina-reranker-v2-base-multilingual"     # ONNX, no API key
 pool = 100      # fused candidates re-scored by the reranker (recall vs latency)
+
+[contextual]
+# Prepend an LLM-written note-level blurb to each chunk before embedding/indexing.
+# Off by default; the zero-key install runs without it (plain hybrid search).
+enabled = false
+base_url = "http://localhost:11434/v1"   # any OpenAI-compatible endpoint (Ollama, OpenAI, vLLM, …)
+api_key = ""                              # leave empty for local/keyless servers
+model = "llama3.1"
+timeout = 30.0
+max_tokens = 128
