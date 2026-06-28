@@ -16,18 +16,18 @@ MULTILINGUAL_MODEL = "sentence-transformers/paraphrase-multilingual-mpnet-base-v
 
 @pytest.mark.integration
 def test_accent_hits_sparse_and_inflection_needs_dense(tmp_path):
-    db = tmp_path / "eval.db"
+    db = str(tmp_path / "eval.db")
     cfg = Config(
         vault=VaultCfg(path=str(CORPUS), ignore=[]),
         embedding=EmbeddingCfg(local_model=MULTILINGUAL_MODEL),
-        store=StoreCfg(backend="sqlite", path=str(db)),
+        store=StoreCfg(backend="sqlite", path=db),
     )
     container = build_container(cfg)
     reindex_payload(container)
 
     # A second read-only handle on the same indexed DB for raw channel access.
     embeddings = FastEmbedEmbeddings(model_name=MULTILINGUAL_MODEL)
-    store = SqliteStore(path=str(db), dim=embeddings.dimension)
+    store = SqliteStore(path=db, dim=embeddings.dimension)
     dense = make_dense_search_fn(embeddings, store, pool=50)
     sparse = make_sparse_search_fn(store, pool=50)
 
