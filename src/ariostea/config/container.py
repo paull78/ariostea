@@ -59,8 +59,9 @@ def _build_reranker(cfg: RerankCfg) -> Reranker:
 
 
 def _build_contextualizer(cfg: ContextualCfg) -> Contextualizer:
-    """Build the configured contextualizer, degrading to NoopContextualizer
-    (plain chunks) with a warning if disabled or the chat client can't be built."""
+    """Build the configured contextualizer. When disabled, returns a
+    NoopContextualizer (plain chunks) silently; when enabled but the chat client
+    can't be built, degrades to NoopContextualizer with a warning."""
     if not cfg.enabled:
         return NoopContextualizer()
     try:

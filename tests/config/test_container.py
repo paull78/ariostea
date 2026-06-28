@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from ariostea.adapters.contextualize.llm import LLMContextualizer
 from ariostea.adapters.contextualize.noop import NoopContextualizer
 from ariostea.config.container import _build_contextualizer
