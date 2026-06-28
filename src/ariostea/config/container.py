@@ -5,13 +5,13 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from ariostea.adapters.chat.openai_compat import OpenAICompatChat
 from ariostea.adapters.chunk.heading_aware import HeadingAwareChunker
+from ariostea.adapters.contextualize.llm import LLMContextualizer
+from ariostea.adapters.contextualize.noop import NoopContextualizer
 from ariostea.adapters.embedding.fastembed_local import FastEmbedEmbeddings
 from ariostea.adapters.fuse.rrf import RRFFuser
 from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
-from ariostea.adapters.chat.openai_compat import OpenAICompatChat
-from ariostea.adapters.contextualize.llm import LLMContextualizer
-from ariostea.adapters.contextualize.noop import NoopContextualizer
 from ariostea.adapters.rerank.fastembed_rerank import FastEmbedReranker
 from ariostea.adapters.rerank.noop import NoopReranker
 from ariostea.adapters.store.sqlite_store import SqliteStore
