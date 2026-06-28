@@ -95,7 +95,50 @@ A 3-channel × scenario matrix. Hypotheses to confirm:
 - **inflection** cases **miss on sparse** but **hit on dense** → confirms dense already absorbs morphology; records the evidence that keeps multilingual FTS stemming as YAGNI.
 - **cross-lingual** scenarios are now interpretable because each target is conclusive.
 
-Measured numbers will be written back into this design and the multilingual-retrieval design (`2026-06-27-...`) §4.2 after the run.
+**Measured results** (2026-06-28, k=5, `paraphrase-multilingual-mpnet-base-v2`, 17 gold cases):
+
+```
+=== DENSE ===
+scenario       n  recall@5    mrr
+accent         2     1.000  1.000
+en→es          1     1.000  1.000
+en→it          1     1.000  1.000
+es→en          1     1.000  1.000
+es→it          1     1.000  1.000
+inflection     2     1.000  1.000
+it→en          1     1.000  1.000
+it→es          1     1.000  1.000
+same           7     1.000  0.929
+overall       17     1.000  0.971
+
+=== SPARSE ===
+scenario       n  recall@5    mrr
+accent         2     1.000  1.000
+en→es          1     0.000  0.000
+en→it          1     0.000  0.000
+es→en          1     0.000  0.000
+es→it          1     1.000  1.000
+inflection     2     0.000  0.000
+it→en          1     0.000  0.000
+it→es          1     1.000  1.000
+same           7     1.000  1.000
+overall       17     0.647  0.647
+
+=== HYBRID ===
+scenario       n  recall@5    mrr
+accent         2     1.000  1.000
+en→es          1     1.000  1.000
+en→it          1     1.000  1.000
+es→en          1     1.000  1.000
+es→it          1     1.000  1.000
+inflection     2     1.000  1.000
+it→en          1     1.000  1.000
+it→es          1     1.000  1.000
+same           7     1.000  0.929
+overall       17     1.000  0.971
+```
+
+Sparse `accent` recall@5 = 1.000 confirms the FTS diacritic fix is verified end-to-end. Sparse `inflection` recall@5 = 0.000 confirms FTS has no stemming, as expected; dense `inflection` recall@5 = 1.000 shows multilingual embeddings already recover inflected forms — this is the evidence that keeps multilingual FTS stemming as a YAGNI backlog item. The sparse `es→it` and `it→es` hits (1.000) are a fixture quirk: Spanish and Italian share enough cognate tokens (e.g. "telescopio", "montaña"/"montagna") that BM25 fires across those two language pairs — this is not a general sparse cross-lingual capability. Hybrid overall recall@5 = 1.000: dense fully compensates for sparse's blind spots; the `same` MRR of 0.929 reflects one same-language note ranking second rather than first.
 
 ## 8. Out of scope
 

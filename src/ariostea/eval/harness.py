@@ -16,12 +16,12 @@ class GoldCase:
     query: str
     query_lang: str
     expected: tuple[str, ...]
-    direction: str  # "en→it" | "it→en" | "same"
+    scenario: str  # "same" | "en→it" | … | "accent" | "inflection"
 
 
 @dataclass(frozen=True)
-class DirectionScore:
-    direction: str
+class ScenarioScore:
+    scenario: str
     n: int
     recall_at_k: float
     mrr: float
@@ -30,8 +30,8 @@ class DirectionScore:
 @dataclass(frozen=True)
 class EvalReport:
     k: int
-    overall: DirectionScore
-    by_direction: tuple[DirectionScore, ...]
+    overall: ScenarioScore
+    by_scenario: tuple[ScenarioScore, ...]
 
 
 def load_gold(path: str | Path) -> list[GoldCase]:
@@ -41,7 +41,7 @@ def load_gold(path: str | Path) -> list[GoldCase]:
             query=row["query"],
             query_lang=row["query_lang"],
             expected=tuple(row["expected"]),
-            direction=row["direction"],
+            scenario=row["scenario"],
         )
         for row in rows
     ]
@@ -56,12 +56,12 @@ def dedupe(paths: list[str]) -> list[str]:
     return seen
 
 
-def _aggregate(direction: str, rows: list[tuple[float, float]]) -> DirectionScore:
+def _aggregate(scenario: str, rows: list[tuple[float, float]]) -> ScenarioScore:
     n = len(rows)
     if n == 0:
-        return DirectionScore(direction=direction, n=0, recall_at_k=0.0, mrr=0.0)
-    return DirectionScore(
-        direction=direction,
+        return ScenarioScore(scenario=scenario, n=0, recall_at_k=0.0, mrr=0.0)
+    return ScenarioScore(
+        scenario=scenario,
         n=n,
         recall_at_k=sum(recall for recall, _ in rows) / n,
         mrr=sum(rr for _, rr in rows) / n,
@@ -70,27 +70,27 @@ def _aggregate(direction: str, rows: list[tuple[float, float]]) -> DirectionScor
 
 def evaluate(cases: list[GoldCase], search_fn: SearchFn, k: int) -> EvalReport:
     """Run every gold case through search_fn once and aggregate recall@k / MRR
-    overall and per direction. search_fn must return deduped note paths."""
+    overall and per scenario. search_fn must return deduped note paths."""
     scored: list[tuple[str, float, float]] = []
     for case in cases:
         ranked = search_fn(case.query, k)
         expected = set(case.expected)
         scored.append(
-            (case.direction, recall_at_k(expected, ranked, k), reciprocal_rank(expected, ranked))
+            (case.scenario, recall_at_k(expected, ranked, k), reciprocal_rank(expected, ranked))
         )
 
     overall = _aggregate("overall", [(r, rr) for _, r, rr in scored])
-    directions = sorted({direction for direction, _, _ in scored})
-    by_direction = tuple(
-        _aggregate(d, [(r, rr) for direction, r, rr in scored if direction == d])
-        for d in directions
+    scenarios = sorted({scenario for scenario, _, _ in scored})
+    by_scenario = tuple(
+        _aggregate(s, [(r, rr) for scenario, r, rr in scored if scenario == s])
+        for s in scenarios
     )
-    return EvalReport(k=k, overall=overall, by_direction=by_direction)
+    return EvalReport(k=k, overall=overall, by_scenario=by_scenario)
 
 
 def format_report(report: EvalReport) -> str:
-    header = f"{'direction':<10} {'n':>3}  recall@{report.k:<3}  mrr"
+    header = f"{'scenario':<12} {'n':>3}  recall@{report.k:<3}  mrr"
     lines = [header]
-    for d in (*report.by_direction, report.overall):
-        lines.append(f"{d.direction:<10} {d.n:>3}  {d.recall_at_k:>8.3f}  {d.mrr:.3f}")
+    for s in (*report.by_scenario, report.overall):
+        lines.append(f"{s.scenario:<12} {s.n:>3}  {s.recall_at_k:>8.3f}  {s.mrr:.3f}")
     return "\n".join(lines)

@@ -52,7 +52,7 @@ even need it.
 ### 4.1 Cross-lingual evaluation harness (new — Component 1)
 
 **What it does.** Runs a fixed set of queries through the real retrieval pipeline and reports
-quality metrics, broken down by language direction, so any change can be compared
+quality metrics, broken down by scenario, so any change can be compared
 before/after.
 
 **Pieces:**
@@ -62,13 +62,14 @@ before/after.
   `giochi da tavolo` note in IT). Committed so the eval is deterministic and shareable, and
   so it can gate CI without depending on anyone's personal vault.
 - **Gold set** — `eval/gold.yaml`: a list of cases, each
-  `{query, query_lang, expected: [note_path, ...], direction}` where `direction ∈
-  {en→it, it→en, same}`. ~15–25 cases, including same-language controls so we can see we
-  don't regress monolingual quality while fixing cross-lingual.
+  `{query, query_lang, expected: [note_path, ...], scenario}` where `scenario ∈
+  {same, en→it, es→it, it→en, es→en, en→es, it→es, accent, inflection}` (field renamed from
+  `direction` once accent/inflection scenarios were added). Includes same-language controls so
+  we can see we don't regress monolingual quality while fixing cross-lingual.
 - **Scorer** — `eval/run_eval.py`: builds a container against the fixture vault, indexes it,
   runs each gold query through `SearchKnowledge`, computes **recall@k** (is an expected note
   among the top-k results' notes) and **MRR** (reciprocal rank of the first expected note),
-  and prints a table aggregated overall and **per direction**. Exit non-zero if a configured
+  and prints a table aggregated overall and **per scenario**. Exit non-zero if a configured
   threshold regresses (so it can gate).
 - **Optional personal gold set** — `eval/gold.local.yaml` (gitignored) pointing at the real
   vault, for higher-signal spot checks.
@@ -131,6 +132,13 @@ relevance.
 > direction — 2 is noisy) before judging `en→it`. Default model is Jina (the design's named
 > alternative) because `bge-reranker-v2-m3` is absent from the installed fastembed.
 
+> **Result (measured 2026-06-28, per-channel gold-set eval, 17 cases, k=5).** The expanded
+> gold set (see [`2026-06-28-ariostea-gold-set-expansion-design.md`](2026-06-28-ariostea-gold-set-expansion-design.md))
+> confirmed the FTS diacritic fix end-to-end: sparse `accent` recall@5 = 1.000. It also
+> confirmed that dense embeddings already recover inflected forms that sparse misses (dense
+> `inflection` recall@5 = 1.000 vs. sparse = 0.000), so multilingual FTS stemming remains a
+> YAGNI backlog item — no evidence yet that it is needed.
+
 ### 4.3 `WeightedFuser` (Component 3 — optional interim, YAGNI)
 
 A `Fuser` adapter variant that tilts fusion toward the dense channel (or softens the
@@ -186,7 +194,7 @@ To apply to the PRD roadmap (§17) and §19:
 
 1. **New item, before Phase 6 — "Cross-lingual eval harness."**
    *Deliverable:* committed bilingual fixture vault + gold set + recall@k/MRR scorer with
-   per-direction breakdown. *Acceptance:* `run_eval.py` reports a baseline; scorer math unit-
+   per-scenario breakdown. *Acceptance:* `run_eval.py` reports a baseline; scorer math unit-
    tested. (Also satisfies the pre-existing "improves on eval set" acceptance language in
    Phases 5 and 6.)
 2. **Amend Phase 6 (Reranking).** Default reranker MUST be multilingual
