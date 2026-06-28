@@ -30,11 +30,18 @@ class SearchCfg(BaseModel):
     top_k: int = 10
 
 
+class RerankCfg(BaseModel):
+    enabled: bool = True
+    model: str = "jinaai/jina-reranker-v2-base-multilingual"
+    pool: int = 100  # candidates fused before reranking selects the final top_k
+
+
 class Config(BaseModel):
     vault: VaultCfg
     embedding: EmbeddingCfg = EmbeddingCfg()
     store: StoreCfg = StoreCfg()
     search: SearchCfg = SearchCfg()
+    rerank: RerankCfg = RerankCfg()
 
 
 def load_config(path: str | Path) -> Config:

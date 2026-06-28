@@ -39,3 +39,20 @@ top_k = 8
     assert cfg.embedding.model == "nomic-embed-text"
     assert cfg.vault.ignore == [".obsidian/"]
     assert cfg.search.k_dense == 40 and cfg.search.top_k == 8
+
+
+def test_rerank_defaults(tmp_path):
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text('[vault]\npath = "~/Vault"\n')
+    cfg = load_config(cfg_file)
+    assert cfg.rerank.enabled is True
+    assert cfg.rerank.model == "jinaai/jina-reranker-v2-base-multilingual"
+    assert cfg.rerank.pool == 100
+
+
+def test_rerank_can_be_disabled(tmp_path):
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text('[vault]\npath = "~/Vault"\n\n[rerank]\nenabled = false\npool = 40\n')
+    cfg = load_config(cfg_file)
+    assert cfg.rerank.enabled is False
+    assert cfg.rerank.pool == 40
