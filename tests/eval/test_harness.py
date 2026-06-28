@@ -8,7 +8,7 @@ def test_load_gold_parses_cases(tmp_path):
     # → is the "→" arrow; written escaped to keep the test ASCII-safe.
     gold.write_text(
         '[{"query": "dice game", "query_lang": "en", '
-        '"expected": ["dadi_it.md"], "direction": "en\\u2192it"}]',
+        '"expected": ["dadi_it.md"], "scenario": "en\\u2192it"}]',
         encoding="utf-8",
     )
 
@@ -19,7 +19,7 @@ def test_load_gold_parses_cases(tmp_path):
             query="dice game",
             query_lang="en",
             expected=("dadi_it.md",),
-            direction="en→it",
+            scenario="en→it",
         )
     ]
 
@@ -28,7 +28,7 @@ def test_dedupe_keeps_first_occurrence_in_order():
     assert dedupe(["a.md", "b.md", "a.md", "c.md", "b.md"]) == ["a.md", "b.md", "c.md"]
 
 
-def test_evaluate_aggregates_overall_and_by_direction():
+def test_evaluate_aggregates_overall_and_by_scenario():
     cases = [
         GoldCase("q1", "en", ("it1.md",), "en→it"),
         GoldCase("q2", "it", ("en1.md",), "it→en"),
@@ -48,13 +48,13 @@ def test_evaluate_aggregates_overall_and_by_direction():
     assert report.overall.recall_at_k == pytest.approx(2 / 3)
     assert report.overall.mrr == pytest.approx((1.0 + 0.0 + 0.5) / 3)
 
-    by = {d.direction: d for d in report.by_direction}
+    by = {s.scenario: s for s in report.by_scenario}
     assert by["en→it"].recall_at_k == 1.0 and by["en→it"].mrr == 1.0
     assert by["it→en"].recall_at_k == 0.0
     assert by["same"].mrr == 0.5
 
 
-def test_format_report_contains_directions_and_overall():
+def test_format_report_contains_scenarios_and_overall():
     cases = [GoldCase("q1", "en", ("a.md",), "same")]
     report = evaluate(cases, lambda query, k: ["a.md"], k=3)
 

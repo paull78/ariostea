@@ -1,10 +1,10 @@
 [
-  {"query": "how to cook spaghetti at home", "query_lang": "en", "expected": ["pasta_en.md"], "direction": "same"},
-  {"query": "come cuocere gli spaghetti in casa", "query_lang": "it", "expected": ["pasta_it.md"], "direction": "same"},
-  {"query": "rolling dice in a board game", "query_lang": "en", "expected": ["dice_en.md"], "direction": "same"},
-  {"query": "tirare i dadi in un gioco da tavolo", "query_lang": "it", "expected": ["dadi_it.md"], "direction": "same"},
-  {"query": "rolling dice board game pieces", "query_lang": "en", "expected": ["dadi_it.md"], "direction": "en→it"},
-  {"query": "cooking spaghetti al dente", "query_lang": "en", "expected": ["pasta_it.md"], "direction": "en→it"},
-  {"query": "tirare i dadi e muovere le pedine", "query_lang": "it", "expected": ["dice_en.md"], "direction": "it→en"},
-  {"query": "bollire la pasta con il sale", "query_lang": "it", "expected": ["pasta_en.md"], "direction": "it→en"}
+  {"query": "how to cook spaghetti at home", "query_lang": "en", "expected": ["pasta_en.md"], "scenario": "same"},
+  {"query": "come cuocere gli spaghetti in casa", "query_lang": "it", "expected": ["pasta_it.md"], "scenario": "same"},
+  {"query": "rolling dice in a board game", "query_lang": "en", "expected": ["dice_en.md"], "scenario": "same"},
+  {"query": "tirare i dadi in un gioco da tavolo", "query_lang": "it", "expected": ["dadi_it.md"], "scenario": "same"},
+  {"query": "rolling dice board game pieces", "query_lang": "en", "expected": ["dadi_it.md"], "scenario": "en→it"},
+  {"query": "cooking spaghetti al dente", "query_lang": "en", "expected": ["pasta_it.md"], "scenario": "en→it"},
+  {"query": "tirare i dadi e muovere le pedine", "query_lang": "it", "expected": ["dice_en.md"], "scenario": "it→en"},
+  {"query": "bollire la pasta con il sale", "query_lang": "it", "expected": ["pasta_en.md"], "scenario": "it→en"}
 ]

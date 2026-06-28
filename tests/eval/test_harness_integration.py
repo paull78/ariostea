@@ -33,10 +33,8 @@ def test_eval_harness_runs_and_same_language_is_perfect(tmp_path):
 
     # The harness produces a complete report over every gold case...
     assert report.overall.n == len(cases)
-    by = {d.direction: d for d in report.by_direction}
+    by = {s.scenario: s for s in report.by_scenario}
     assert set(by) == {"same", "en→it", "it→en"}
 
     # ...and same-language retrieval on the fixture is a stable 1.0 floor.
-    # Cross-lingual directions are reported but NOT asserted — lifting those
-    # numbers is exactly what the later multilingual-reranking work is for.
     assert by["same"].recall_at_k == 1.0
