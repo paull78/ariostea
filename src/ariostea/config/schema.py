@@ -36,12 +36,22 @@ class RerankCfg(BaseModel):
     pool: int = 100  # candidates fused before reranking selects the final top_k
 
 
+class ContextualCfg(BaseModel):
+    enabled: bool = False
+    base_url: str = "http://localhost:11434/v1"
+    api_key: str = ""
+    model: str = "llama3.1"
+    timeout: float = 30.0
+    max_tokens: int = 128
+
+
 class Config(BaseModel):
     vault: VaultCfg
     embedding: EmbeddingCfg = EmbeddingCfg()
     store: StoreCfg = StoreCfg()
     search: SearchCfg = SearchCfg()
     rerank: RerankCfg = RerankCfg()
+    contextual: ContextualCfg = ContextualCfg()
 
 
 def load_config(path: str | Path) -> Config:

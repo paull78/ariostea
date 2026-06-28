@@ -63,7 +63,8 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
                 ordinal INTEGER NOT NULL,
                 heading_path TEXT NOT NULL,
                 text TEXT NOT NULL,
-                token_count INTEGER NOT NULL
+                token_count INTEGER NOT NULL,
+                context_blurb TEXT
             );
             CREATE VIRTUAL TABLE IF NOT EXISTS chunks_vec USING vec0(
                 chunk_id INTEGER PRIMARY KEY,
@@ -98,9 +99,9 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
             for cc, vec in zip(chunks, embeddings):
                 ch = cc.chunk
                 cur.execute(
-                    "INSERT INTO chunks(note_id, ordinal, heading_path, text, token_count) "
-                    "VALUES (?,?,?,?,?)",
-                    (note_id, ch.ordinal, "/".join(ch.heading_path), ch.text, ch.token_count),
+                    "INSERT INTO chunks(note_id, ordinal, heading_path, text, token_count, context_blurb) "
+                    "VALUES (?,?,?,?,?,?)",
+                    (note_id, ch.ordinal, "/".join(ch.heading_path), ch.text, ch.token_count, cc.context_blurb),
                 )
                 chunk_id = cur.lastrowid
                 cur.execute(
