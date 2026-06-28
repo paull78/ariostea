@@ -16,4 +16,5 @@ def test_inflection_notes_contain_only_the_base_form():
     cucito = _read("cucito_it.md")
     assert "bottone" in cucito and "bottoni" not in cucito
     alfareria = _read("alfareria_es.md")
+    # "vasija" is a prefix of "vasijas", so the not-in check is the real guard here.
     assert "vasija" in alfareria and "vasijas" not in alfareria
