@@ -183,3 +183,34 @@ def test_contextualizer_output_flows_to_store(tmp_path):
     assert chunks[0].context_blurb == "Topic"
     assert chunks[0].embedding_text.startswith("Topic\n\n")
     assert store.fingerprint() == "fake:v1|titlectx"  # contextualizer in the fingerprint
+
+
+def test_index_reembeds_when_contextualizer_changes(tmp_path):
+    from ariostea.domain.models import ContextualizedChunk
+    from ariostea.ports.pipeline import Contextualizer
+
+    class StubCtx(Contextualizer):
+        def contextualize(self, note, full_doc, chunks):
+            return [
+                ContextualizedChunk(chunk=c, context_blurb="b", embedding_text=f"b\n\n{c.text}")
+                for c in chunks
+            ]
+
+        @property
+        def fingerprint(self):
+            return "stub"
+
+    (tmp_path / "a.md").write_text("# A\nalpha content here")
+    embed, store = FakeEmbed(), FakeStore()
+    # First index with Noop (combined fingerprint "fake:v1|noop").
+    IndexVault(
+        ObsidianMarkdownParser(), HeadingAwareChunker(max_tokens=200), embed, store, NoopContextualizer()
+    ).index(tmp_path, ignore=[])
+
+    # Same content, different contextualizer -> combined fingerprint changes -> re-embed.
+    embed.seen.clear()
+    IndexVault(
+        ObsidianMarkdownParser(), HeadingAwareChunker(max_tokens=200), embed, store, StubCtx()
+    ).index(tmp_path, ignore=[])
+    assert any("alpha" in t for t in embed.seen)  # re-embedded despite unchanged content
+    assert store.fingerprint() == "fake:v1|stub"

@@ -60,8 +60,10 @@ def _build_reranker(cfg: RerankCfg) -> Reranker:
 
 def _build_contextualizer(cfg: ContextualCfg) -> Contextualizer:
     """Build the configured contextualizer. When disabled, returns a
-    NoopContextualizer (plain chunks) silently; when enabled but the chat client
-    can't be built, degrades to NoopContextualizer with a warning."""
+    NoopContextualizer (plain chunks) silently. When enabled, builds the LLM
+    contextualizer; the try/except is defensive — today's constructors do no I/O
+    and won't raise, but a future eager-connecting client would degrade to
+    NoopContextualizer with a warning rather than break startup."""
     if not cfg.enabled:
         return NoopContextualizer()
     try:
