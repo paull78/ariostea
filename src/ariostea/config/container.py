@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -8,13 +9,18 @@ from ariostea.adapters.chunk.heading_aware import HeadingAwareChunker
 from ariostea.adapters.embedding.fastembed_local import FastEmbedEmbeddings
 from ariostea.adapters.fuse.rrf import RRFFuser
 from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
+from ariostea.adapters.rerank.fastembed_rerank import FastEmbedReranker
+from ariostea.adapters.rerank.noop import NoopReranker
 from ariostea.adapters.store.sqlite_store import SqliteStore
-from ariostea.config.schema import Config
+from ariostea.config.schema import Config, RerankCfg
 from ariostea.indexing.index_vault import IndexVault
 from ariostea.ports.embedding import EmbeddingProvider
+from ariostea.ports.rerank import Reranker
 from ariostea.ports.store import DocumentReader, IndexAdmin
 from ariostea.search.search_knowledge import SearchKnowledge
 from ariostea.search.search_sources import SearchSources
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -33,6 +39,19 @@ class Container:
 
 def _expand(p: str) -> str:
     return os.path.expanduser(p)
+
+
+def _build_reranker(cfg: RerankCfg) -> Reranker:
+    """Build the configured reranker, degrading to NoopReranker (fused order)
+    with a warning if the model cannot be loaded — a degraded ranking, never a
+    failed search."""
+    if not cfg.enabled:
+        return NoopReranker()
+    try:
+        return FastEmbedReranker(model_name=cfg.model)
+    except Exception as exc:  # model missing/offline/unsupported
+        logger.warning("reranker unavailable (%s); falling back to fused order", exc)
+        return NoopReranker()
 
 
 def build_container(config: Config) -> Container:
@@ -54,8 +73,10 @@ def build_container(config: Config) -> Container:
         embeddings=embeddings,
         retriever=store,
         fuser=RRFFuser(),
+        reranker=_build_reranker(config.rerank),
         k_dense=config.search.k_dense,
         k_sparse=config.search.k_sparse,
+        pool=config.rerank.pool,
     )
     sources = SearchSources(searcher=searcher, reader=store)
 
