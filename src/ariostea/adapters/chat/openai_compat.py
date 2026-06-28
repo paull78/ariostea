@@ -11,7 +11,9 @@ class ChatError(RuntimeError):
 
 class OpenAICompatChat(ChatProvider):
     """Chat via any OpenAI-compatible /chat/completions endpoint (OpenAI,
-    Ollama, LM Studio, vLLM, llama.cpp, …). The client is injectable for tests."""
+    Ollama, LM Studio, vLLM, llama.cpp, …). The client is injectable for tests
+    (when injected, ``timeout`` is ignored — the client owns it). Every failure
+    mode surfaces as ``ChatError`` so callers have a single exception to catch."""
 
     def __init__(
         self,
@@ -45,8 +47,11 @@ class OpenAICompatChat(ChatProvider):
             resp = self._client.post(
                 f"{self._base_url}/chat/completions", json=payload, headers=headers
             )
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, httpx.InvalidURL) as exc:
             raise ChatError(f"chat request failed: {exc}") from exc
         if resp.status_code >= 400:
             raise ChatError(f"chat completion failed: {resp.status_code} {resp.text}")
-        return resp.json()["choices"][0]["message"]["content"]
+        try:
+            return resp.json()["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, ValueError) as exc:  # ValueError covers JSONDecodeError
+            raise ChatError(f"unexpected chat response shape: {resp.text[:200]}") from exc
