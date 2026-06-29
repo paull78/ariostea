@@ -71,7 +71,7 @@ Note-level blurbs on short notes may show only a **modest** lift, concentrated o
 2. **Index twice** into separate throwaway temp DBs, both using the multilingual embedding model `sentence-transformers/paraphrase-multilingual-mpnet-base-v2` (same as `run_eval.py`):
    - **OFF:** `ContextualCfg(enabled=False)`
    - **ON:** `ContextualCfg(enabled=True, base_url=…, model=…, api_key=…)` from env.
-3. **Loud integrity guard.** `LLMContextualizer` silently degrades to Noop when the endpoint is unreachable — which would make ON == OFF and quietly invalidate the measurement. After the ON index, assert at least one stored chunk has a non-null `context_blurb`; if every blurb is null, **abort** with a clear error: `contextualization produced no blurbs — is Ollama running at <base_url>?`. This guard is what protects the result from being a false null.
+3. **Loud integrity guard.** `LLMContextualizer` silently degrades to Noop — per note — whenever a `complete` call fails or returns an empty blurb (the endpoint is unreachable, the model errors, a timeout). A *partial* ON index (some notes contextualized, some not) would quietly confound the OFF-vs-ON comparison just as badly as a fully-degraded one. So after the ON index, assert that **every** stored chunk has a non-null `context_blurb`; if **any** blurb is null, **abort** with a clear error naming how many notes were missed, e.g. `contextualization incomplete — 3/8 notes produced no blurb (is Ollama running at <base_url>?)`. Requiring all blurbs guarantees the ON index is uniformly contextualized, so any measured delta is attributable to contextualization and nothing else.
 4. **Evaluate** all three channels (dense / sparse / hybrid) over both the OFF and ON indexes via the existing `evaluate`, reading each throwaway DB through a second `SqliteStore` handle (same pattern as `run_eval.py`, keeping the production `Container` ports-only).
 5. **Output:** print the OFF per-channel report, the ON per-channel report, and a compact **delta** view.
 
@@ -83,7 +83,7 @@ A pure presentation helper (lives in the runner script). Given two reports for t
 The real-LLM `main()` is run manually — not a CI gate (per §1). The **pure pieces are TDD'd**:
 
 - **`format_delta`** — deterministic over two hand-built `EvalReport`s → asserts the Δ math and that scenarios are paired correctly.
-- **The blurb-presence guard** — a fake store/reader whose chunks all have `context_blurb=None` makes the guard raise; one non-null blurb makes it pass. (The guard is extracted as a small pure function over the store's chunk rows so it is testable without a live model.)
+- **The all-blurbs guard** — extracted as a small pure function over the store's chunk rows so it is testable without a live model. Chunks all non-null → passes; **any** `context_blurb=None` → raises, and the error reports the missed-note count. (Covers all-null, partial-null, and all-present.)
 - **Corpus/gold integrity** (fast) — every `expected` path in `contextual_gold.json` exists in `eval/contextual_corpus/`, and each `buried`-scenario target note chunks into ≥2 chunks via `HeadingAwareChunker` (so the "buried section" premise actually holds).
 
 No threshold assertion on the lift itself (flaky against a live model).
