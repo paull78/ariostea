@@ -1,0 +1,10 @@
+[
+  {"query": "how to play the piano", "query_lang": "en", "expected": ["piano.md"], "scenario": "buried"},
+  {"query": "the rules of the game of chess", "query_lang": "en", "expected": ["chess.md"], "scenario": "buried"},
+  {"query": "how to ride a bicycle", "query_lang": "en", "expected": ["bicycle.md"], "scenario": "buried"},
+  {"query": "learning to play the guitar", "query_lang": "en", "expected": ["guitar.md"], "scenario": "buried"},
+  {"query": "taking photos with a camera", "query_lang": "en", "expected": ["camera.md"], "scenario": "buried"},
+
+  {"query": "playing the violin", "query_lang": "en", "expected": ["violin.md"], "scenario": "direct"},
+  {"query": "playing checkers on a board", "query_lang": "en", "expected": ["checkers.md"], "scenario": "direct"}
+]
