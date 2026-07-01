@@ -16,8 +16,17 @@ if TYPE_CHECKING:
     from ariostea.config.container import Container
 
 
-def build_server(container: "Container") -> FastMCP:
-    mcp = FastMCP("ariostea")
+def resolve_transport(name: str) -> str:
+    """Map a CLI transport name to the FastMCP transport string."""
+    mapping = {"stdio": "stdio", "http": "streamable-http"}
+    try:
+        return mapping[name]
+    except KeyError:
+        raise ValueError(f"unknown transport {name!r}; choose 'stdio' or 'http'") from None
+
+
+def build_server(container: "Container", host: str = "127.0.0.1", port: int = 8000) -> FastMCP:
+    mcp = FastMCP("ariostea", host=host, port=port)
 
     @mcp.tool()
     def status() -> dict:
