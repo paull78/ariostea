@@ -1,5 +1,9 @@
 from ariostea.domain.models import Chunk, RetrievedChunk
-from ariostea.eval.channels import make_dense_search_fn, make_sparse_search_fn
+from ariostea.eval.channels import (
+    make_dense_search_fn,
+    make_hybrid_search_fn,
+    make_sparse_search_fn,
+)
 
 
 def _rc(note_path, ordinal):
@@ -54,3 +58,46 @@ def test_sparse_search_fn_passes_raw_query_and_dedupes():
 def test_sparse_search_fn_truncates_to_k():
     fn = make_sparse_search_fn(FakeRetriever(), pool=30)
     assert fn("dice", 1) == ["c.md"]
+
+
+class _Chunk:
+    def __init__(self, note_path):
+        self.note_path = note_path
+        self.heading_path = ()
+        self.text = "t"
+
+
+class _Ranked:
+    def __init__(self, note_path):
+        self.chunk = _Chunk(note_path)
+        self.score = 1.0
+
+
+class _Result:
+    def __init__(self, chunks):
+        self.chunks = chunks
+
+
+class _Searcher:
+    def __init__(self, ranked):
+        self._ranked = ranked
+        self.last = None
+
+    def search(self, query):
+        self.last = query
+        return _Result(self._ranked)
+
+
+class _Container:
+    def __init__(self, ranked):
+        self.searcher = _Searcher(ranked)
+
+
+def test_hybrid_search_fn_dedupes_to_notes_and_truncates():
+    c = _Container([_Ranked("a.md"), _Ranked("a.md"), _Ranked("b.md")])
+    fn = make_hybrid_search_fn(c, pool=50)
+
+    assert fn("q", 5) == ["a.md", "b.md"]
+    assert fn("q", 1) == ["a.md"]
+    assert c.searcher.last.text == "q"
+    assert c.searcher.last.k == 50

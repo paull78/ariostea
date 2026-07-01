@@ -17,9 +17,13 @@ from ariostea.adapters.embedding.fastembed_local import FastEmbedEmbeddings
 from ariostea.adapters.store.sqlite_store import SqliteStore
 from ariostea.config.container import build_container
 from ariostea.config.schema import Config, EmbeddingCfg, StoreCfg, VaultCfg
-from ariostea.eval.channels import make_dense_search_fn, make_sparse_search_fn
-from ariostea.eval.harness import dedupe, evaluate, format_report, load_gold
-from ariostea.mcp.handlers import reindex_payload, search_payload
+from ariostea.eval.channels import (
+    make_dense_search_fn,
+    make_hybrid_search_fn,
+    make_sparse_search_fn,
+)
+from ariostea.eval.harness import evaluate, format_report, load_gold
+from ariostea.mcp.handlers import reindex_payload
 
 EVAL_DIR = Path(__file__).resolve().parent
 CORPUS = EVAL_DIR / "corpus"
@@ -27,14 +31,6 @@ GOLD = EVAL_DIR / "gold.json"
 MULTILINGUAL_MODEL = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 # Pull a generous chunk pool, then dedupe to notes before taking the top k.
 CHUNK_POOL = 50
-
-
-def make_hybrid_search_fn(container):
-    def search_fn(query: str, k: int) -> list[str]:
-        payload = search_payload(container, query=query, k=CHUNK_POOL)
-        return dedupe([r["note_path"] for r in payload["results"]])[:k]
-
-    return search_fn
 
 
 def main() -> None:
@@ -57,7 +53,7 @@ def main() -> None:
         channels = {
             "DENSE": make_dense_search_fn(embeddings, store, CHUNK_POOL),
             "SPARSE": make_sparse_search_fn(store, CHUNK_POOL),
-            "HYBRID": make_hybrid_search_fn(container),
+            "HYBRID": make_hybrid_search_fn(container, CHUNK_POOL),
         }
 
         for label, search_fn in channels.items():
