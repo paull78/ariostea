@@ -1,4 +1,10 @@
-from ariostea.eval.contextual import find_uncontextualized_notes, format_delta
+import sqlite3
+
+from ariostea.eval.contextual import (
+    find_uncontextualized_notes,
+    format_delta,
+    read_blurb_rows,
+)
 from ariostea.eval.harness import EvalReport, ScenarioScore
 
 
@@ -52,3 +58,29 @@ def test_partial_and_empty_blurbs_flagged_and_sorted():
     # z.md has an empty-string blurb; a.md has one null among its chunks.
     rows = [("z.md", ""), ("a.md", None), ("a.md", "ok")]
     assert find_uncontextualized_notes(rows) == ["a.md", "z.md"]
+
+
+def test_read_blurb_rows_joins_notes_and_chunks(tmp_path):
+    db = tmp_path / "t.db"
+    con = sqlite3.connect(db)
+    con.executescript(
+        """
+        CREATE TABLE notes (id INTEGER PRIMARY KEY, path TEXT, title TEXT,
+                            content_hash TEXT, mtime REAL);
+        CREATE TABLE chunks (id INTEGER PRIMARY KEY, note_id INTEGER, ordinal INTEGER,
+                             heading_path TEXT, text TEXT, token_count INTEGER,
+                             context_blurb TEXT);
+        """
+    )
+    con.execute("INSERT INTO notes(id, path, title, content_hash, mtime) VALUES (1,'a.md','A','h',0.0)")
+    con.execute(
+        "INSERT INTO chunks(note_id, ordinal, heading_path, text, token_count, context_blurb) "
+        "VALUES (1,0,'A','t',1,'blurb'), (1,1,'B','t2',1,NULL)"
+    )
+    con.commit()
+    con.close()
+
+    rows = read_blurb_rows(str(db))
+
+    assert ("a.md", "blurb") in rows
+    assert ("a.md", None) in rows
