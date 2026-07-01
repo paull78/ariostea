@@ -28,3 +28,14 @@ def format_delta(off: EvalReport, on: EvalReport) -> str:
         mrr = _pair(b.mrr, s.mrr)
         lines.append(f"{s.scenario:<12} {s.n:>3}  {recall:<24} {mrr}")
     return "\n".join(lines)
+
+
+def find_uncontextualized_notes(rows: list[tuple[str, str | None]]) -> list[str]:
+    """Given (note_path, context_blurb) rows (one per chunk), return the sorted,
+    distinct note paths that have any null/empty blurb.
+
+    A non-empty result means the ON index is only partially contextualized, so
+    an OFF-vs-ON comparison would be confounded — the runner aborts on it.
+    """
+    missed = {path for path, blurb in rows if not blurb}
+    return sorted(missed)
