@@ -45,6 +45,11 @@ class ContextualCfg(BaseModel):
     max_tokens: int = 128
 
 
+class ServerCfg(BaseModel):
+    host: str = "127.0.0.1"
+    port: int = 8000
+
+
 class Config(BaseModel):
     vault: VaultCfg
     embedding: EmbeddingCfg = EmbeddingCfg()
@@ -52,6 +57,7 @@ class Config(BaseModel):
     search: SearchCfg = SearchCfg()
     rerank: RerankCfg = RerankCfg()
     contextual: ContextualCfg = ContextualCfg()
+    server: ServerCfg = ServerCfg()
 
 
 def load_config(path: str | Path) -> Config:

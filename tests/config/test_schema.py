@@ -66,3 +66,19 @@ def test_contextual_defaults_off():
     assert cfg.contextual.base_url == "http://localhost:11434/v1"
     assert cfg.contextual.model == "llama3.1"
     assert cfg.contextual.max_tokens == 128
+
+
+def test_server_defaults_are_localhost_8000(tmp_path):
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text('[vault]\npath = "~/Vault"\n')
+    cfg = load_config(cfg_file)
+    assert cfg.server.host == "127.0.0.1"
+    assert cfg.server.port == 8000
+
+
+def test_server_section_parses(tmp_path):
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text('[vault]\npath = "~/Vault"\n\n[server]\nhost = "0.0.0.0"\nport = 9001\n')
+    cfg = load_config(cfg_file)
+    assert cfg.server.host == "0.0.0.0"
+    assert cfg.server.port == 9001
