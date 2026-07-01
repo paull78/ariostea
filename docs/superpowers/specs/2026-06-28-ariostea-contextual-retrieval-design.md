@@ -106,6 +106,26 @@ Added to `Config` as `contextual: ContextualCfg = ContextualCfg()`. Documented i
 **Skippable real-LLM integration test:**
 - `tests/adapters/chat/test_openai_compat_integration.py` (`integration`): if an endpoint is configured via env (e.g. `ARIOSTEA_TEST_CHAT_BASE_URL`), call a real OpenAI-compatible model and assert a non-empty blurb; otherwise `pytest.skip`.
 
+## 9a. Measured lift (real-LLM, 2026-07-01)
+
+Measured with the dedicated contextual-lift eval (`eval/run_contextual_eval.py`, design: [`2026-06-29-ariostea-contextual-lift-eval-design.md`](2026-06-29-ariostea-contextual-lift-eval-design.md)) against a context-dependent English corpus — 5 `buried` cases (query names the topic; the matching section never does) + 2 `direct` control cases. Contextualizer: **`qwen2.5-14b-instruct-mlx`** via LM Studio. `k=5`, note-level recall@k / MRR, OFF (no contextualization) → ON.
+
+| Channel | scenario | recall@5 OFF→ON | MRR OFF→ON |
+|---|---|---|---|
+| **Dense** | buried | 1.000 → 1.000 (+0.000) | **0.450 → 1.000 (+0.550)** |
+| Dense | direct | 1.000 → 1.000 | 1.000 → 1.000 |
+| **Sparse** | buried | **0.200 → 0.800 (+0.600)** | **0.067 → 0.567 (+0.500)** |
+| Sparse | direct | 1.000 → 1.000 | 1.000 → 1.000 |
+| Hybrid | buried | 1.000 → 1.000 (+0.000) | 0.417 → 0.417 (+0.000) |
+| Hybrid | direct | 1.000 → 1.000 | 1.000 → 1.000 |
+
+**Findings.**
+- **Sparse — the predicted headline lift.** Buried recall@5 jumps **0.200 → 0.800** and MRR **0.067 → 0.567**: the LLM blurb injects the topic word the buried section lacks, so FTS can finally match it. The `direct` control stays flat (1.000/1.000), confirming the gain is the real effect, not global inflation.
+- **Dense — a strong *ranking* lift.** Buried recall was already 1.000 OFF (a multilingual embedding finds the note semantically even without the topic word), but the blurb sharpens ranking: MRR **0.450 → 1.000**, i.e. the right note moves to rank #1. Control flat.
+- **Hybrid — flat, and this is the actionable finding.** Recall is 1.000 both ways and MRR does **not** move (0.417 both). The blended pipeline (RRF fuse → reranker) does not capture the per-channel gains, because **the reranker re-scores raw `chunk.text`, not `embedding_text`, so it never sees the blurb** — and RRF then rewards cross-channel agreement rather than the blurb-boosted signal. Hybrid MRR (0.417) is *worse* than dense-ON (1.000), echoing the known "RRF suppresses strong single-channel matches" failure mode (PRD §19).
+
+**Conclusion.** Contextual Retrieval works as designed at the retrieval-channel level — clear sparse recall lift and dense ranking lift, with a clean control. The note-level blurb is sufficient on these short notes (no need for per-chunk yet, §10). The one gap is that the current reranker/fusion masks the benefit: a worthwhile Phase 6 follow-up is to **feed the contextualized text (or the blurb) to the reranker** so the hybrid path inherits the lift.
+
 ## 10. Future enhancements (recorded, not in scope)
 
 - **Per-chunk Contextual Retrieval (Anthropic's canonical method).** Generate a *chunk-specific* blurb (full doc + that chunk → blurb situating that chunk) instead of one note-level summary. Higher fidelity on **long, multi-topic documents** where chunks are diverse, at the cost of N calls per note (mitigated by automatic prompt-prefix caching when the doc is the stable `system` prefix). Note-level was chosen because Obsidian skews toward short, single-topic notes (many single-chunk), where a note summary captures most of the benefit far more cheaply, and a shared blurb risks **homogenizing** a note's chunks in embedding space. This swap is purely an `LLMContextualizer` internal change — the `Contextualizer` port, store, wiring, and fingerprint scheme are unchanged. **Gate:** pursue only if eval on a richer, multi-chunk vault shows note-level leaving measurable recall on the table.
