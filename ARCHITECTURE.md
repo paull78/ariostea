@@ -35,8 +35,6 @@ flowchart TB
         end
     end
 
-    FD -.->|depends on| IA -.->|depends on| UC -.->|depends on| PO -.->|depends on| DM
-
     classDef fd fill:#fde8e8,stroke:#d33,color:#000;
     classDef ia fill:#fef3c7,stroke:#d97706,color:#000;
     classDef uc fill:#dcfce7,stroke:#16a34a,color:#000;

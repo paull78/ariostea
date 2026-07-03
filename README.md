@@ -38,14 +38,18 @@ flowchart TB
             end
         end
     end
-    FD -.->|depends on| IA -.->|depends on| UC -.->|depends on| PO -.->|depends on| DM
 
     classDef fd fill:#fde8e8,stroke:#d33,color:#000;
     classDef ia fill:#fef3c7,stroke:#d97706,color:#000;
     classDef uc fill:#dcfce7,stroke:#16a34a,color:#000;
     classDef po fill:#dbeafe,stroke:#2563eb,color:#000;
+    classDef dm fill:#ede9fe,stroke:#7c3aed,color:#000;
     class FD fd; class IA ia; class UC uc; class PO po; class DM dm;
 ```
+
+> Concentric layers, not a call graph: each layer may depend **only on the layers inside it**.
+> The innermost `domain` knows nothing about anything outside it; the outermost shell knows
+> about everything. Dependencies point strictly inward.
 
 The payoff, in one line each:
 
