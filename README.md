@@ -29,11 +29,11 @@ place, the composition root (`config/container.py`).
 
 ```mermaid
 flowchart TB
-    subgraph FD["🖥️ Frameworks & Drivers — cli · mcp · container"]
-        subgraph IA["🔌 Interface Adapters — adapters/*"]
-            subgraph UC["⚙️ Use Cases — indexing/ · search/"]
-                subgraph PO["🧩 Ports — ports/* (abstractions)"]
-                    DM["💎 Domain — domain/models.py"]
+    subgraph FD["🖥️ Frameworks & Drivers<br/><i>Typer CLI · FastMCP server · composition root</i>"]
+        subgraph IA["🔌 Interface Adapters — adapters/*<br/><i>ObsidianMarkdownParser · SqliteStore · FastEmbedEmbeddings</i>"]
+            subgraph UC["⚙️ Use Cases — indexing/ · search/<br/><i>IndexVault · SearchKnowledge · SearchSources</i>"]
+                subgraph PO["🧩 Ports — ports/*<br/><i>EmbeddingProvider · ChunkRetriever · Fuser · Reranker</i>"]
+                    DM["💎 Domain — domain/models.py<br/><i>Note · Chunk · Query · RetrievedChunk</i>"]
                 end
             end
         end
