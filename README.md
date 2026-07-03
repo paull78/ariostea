@@ -29,11 +29,15 @@ place, the composition root (`config/container.py`).
 
 ```mermaid
 flowchart TB
-    subgraph FD["🖥️ Frameworks & Drivers<br/><i>Typer CLI · FastMCP server · composition root</i>"]
-        subgraph IA["🔌 Interface Adapters — adapters/*<br/><i>ObsidianMarkdownParser · SqliteStore · FastEmbedEmbeddings</i>"]
-            subgraph UC["⚙️ Use Cases — indexing/ · search/<br/><i>IndexVault · SearchKnowledge · SearchSources</i>"]
-                subgraph PO["🧩 Ports — ports/*<br/><i>EmbeddingProvider · ChunkRetriever · Fuser · Reranker</i>"]
-                    DM["💎 Domain — domain/models.py<br/><i>Note · Chunk · Query · RetrievedChunk</i>"]
+    subgraph FD["🖥️ Frameworks & Drivers"]
+        FDex["Typer CLI · FastMCP server · composition root"]
+        subgraph IA["🔌 Interface Adapters — adapters/*"]
+            IAex["ObsidianMarkdownParser · SqliteStore · FastEmbedEmbeddings"]
+            subgraph UC["⚙️ Use Cases — indexing/ · search/"]
+                UCex["IndexVault · SearchKnowledge · SearchSources"]
+                subgraph PO["🧩 Ports — ports/* (abstractions)"]
+                    POex["EmbeddingProvider · ChunkRetriever · Fuser · Reranker"]
+                    DM["💎 Domain — domain/models.py<br/>Note · Chunk · Query · RetrievedChunk"]
                 end
             end
         end
@@ -44,7 +48,9 @@ flowchart TB
     classDef uc fill:#dcfce7,stroke:#16a34a,color:#000;
     classDef po fill:#dbeafe,stroke:#2563eb,color:#000;
     classDef dm fill:#ede9fe,stroke:#7c3aed,color:#000;
+    classDef ex fill:transparent,stroke-width:0px,color:#334155,font-size:13px;
     class FD fd; class IA ia; class UC uc; class PO po; class DM dm;
+    class FDex,IAex,UCex,POex ex;
 ```
 
 > Concentric layers, not a call graph: each layer may depend **only on the layers inside it**.
