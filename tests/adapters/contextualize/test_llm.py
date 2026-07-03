@@ -3,11 +3,19 @@ from ariostea.domain.models import Chunk, Note
 
 
 def _note():
-    return Note(path="a.md", title="A", frontmatter={}, tags=(), wikilinks=(), content_hash="h", mtime=1.0)
+    return Note(
+        path="a.md", title="A", frontmatter={}, tags=(), wikilinks=(), content_hash="h", mtime=1.0
+    )
 
 
 def _chunk(ordinal, text):
-    return Chunk(note_path="a.md", ordinal=ordinal, heading_path=("A",), text=text, token_count=len(text.split()))
+    return Chunk(
+        note_path="a.md",
+        ordinal=ordinal,
+        heading_path=("A",),
+        text=text,
+        token_count=len(text.split()),
+    )
 
 
 class FakeChat:

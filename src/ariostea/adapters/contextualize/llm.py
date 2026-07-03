@@ -41,9 +41,7 @@ class LLMContextualizer(Contextualizer):
                 for c in chunks
             ]
         return [
-            ContextualizedChunk(
-                chunk=c, context_blurb=blurb, embedding_text=f"{blurb}\n\n{c.text}"
-            )
+            ContextualizedChunk(chunk=c, context_blurb=blurb, embedding_text=f"{blurb}\n\n{c.text}")
             for c in chunks
         ]
 

@@ -1,127 +1,69 @@
 # Ariostea
 
+[![CI](https://github.com/paull78/ariostea/actions/workflows/ci.yml/badge.svg)](https://github.com/paull78/ariostea/actions/workflows/ci.yml)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 Local-first, Obsidian-aware **RAG MCP server**. Point it at an Obsidian vault and it
 indexes your notes incrementally, then exposes retrieval to any MCP client (e.g. Claude)
-through five tools. Built on Anthropic's Contextual Retrieval method.
+through five tools. Everything runs on-device with local, keyless models by default; the
+optional LLM step follows Anthropic's [Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval)
+method.
 
 Two retrieval modes:
 
-- **`search_knowledge`** — the most relevant *passages* (hybrid dense + BM25, fused with RRF).
+- **`search_knowledge`** — the most relevant *passages* (hybrid dense + BM25, fused with RRF, then reranked).
 - **`search_sources`** — *which notes* a concept appears in (provenance rollup), plus `get_note` to fetch one in full.
+
+> This is a personal learning project — a from-scratch, dependency-light study in building a
+> production-shaped RAG pipeline (hybrid retrieval, contextual retrieval, cross-encoder
+> reranking) on top of a strict **Clean Architecture** (ports & adapters) skeleton.
 
 ## Architecture
 
-Ariostea follows **Clean Architecture** (ports & adapters). Source-code dependencies point
-**only inward** — every arrow below goes toward more abstract, more stable code. Inner layers
-know nothing about the outer ones: the domain has zero framework imports, use cases depend on
-*ports* (not concrete adapters), and concrete details (SQLite, fastembed, the MCP framework)
-are wired together in exactly one place — the composition root.
+Ariostea follows **Clean Architecture**: source-code dependencies point **only inward**,
+toward more abstract and more stable code. The domain has zero framework imports, use cases
+depend on *ports* (abstract Protocols) rather than concrete adapters, and every concrete
+detail — SQLite, the embedding model, the MCP framework — is wired together in exactly one
+place, the composition root (`config/container.py`).
 
 ```mermaid
 flowchart TB
-    subgraph FD["🖥️ Frameworks & Drivers"]
-        direction TB
-        FDnodes["cli.py · mcp/server.py · mcp/handlers.py<br/>config/container.py (composition root)"]
+    subgraph FD["🖥️ Frameworks & Drivers — cli · mcp · container"]
         subgraph IA["🔌 Interface Adapters — adapters/*"]
-            direction TB
-            IAnodes["ObsidianMarkdownParser · HeadingAwareChunker<br/>FastEmbedEmbeddings · SqliteStore · RRFFuser"]
-            subgraph UC["⚙️ Use Cases — search/ · indexing/"]
-                direction TB
-                UCnodes["IndexVault · SearchKnowledge · SearchSources"]
+            subgraph UC["⚙️ Use Cases — indexing/ · search/"]
                 subgraph PO["🧩 Ports — ports/* (abstractions)"]
-                    direction TB
-                    POnodes["MarkdownParser · Chunker · EmbeddingProvider · Fuser<br/>DocumentWriter · ChunkRetriever · DocumentReader · IndexAdmin"]
-                    subgraph DM["💎 Domain — domain/models.py"]
-                        DMnodes["Note · Chunk · Query · RetrievedChunk<br/>SourceHit · NoteDocument · IndexStats"]
-                    end
+                    DM["💎 Domain — domain/models.py"]
                 end
             end
         end
     end
-
     FD -.->|depends on| IA -.->|depends on| UC -.->|depends on| PO -.->|depends on| DM
 
     classDef fd fill:#fde8e8,stroke:#d33,color:#000;
     classDef ia fill:#fef3c7,stroke:#d97706,color:#000;
     classDef uc fill:#dcfce7,stroke:#16a34a,color:#000;
     classDef po fill:#dbeafe,stroke:#2563eb,color:#000;
-    classDef dm fill:#ede9fe,stroke:#7c3aed,color:#000;
-    class FDnodes fd;
-    class IAnodes ia;
-    class UCnodes uc;
-    class POnodes po;
-    class DMnodes dm;
+    class FD fd; class IA ia; class UC uc; class PO po; class DM dm;
 ```
 
-> Every dependency arrow points **inward**, toward more abstract and more stable code.
-> The domain has zero framework imports; use cases depend on *ports*, never on the
-> concrete adapters that implement them.
+The payoff, in one line each:
 
-### Ports → Adapters
+- **Swappable everything** — the embedding model, store, fusion, reranking, and
+  contextualization all sit behind ports; swapping English → multilingual embeddings, or
+  adding the whole BM25 + RRF + reranking stack, touched zero use-case code.
+- **Testable without frameworks** — use cases run against in-memory fakes, so the fast suite
+  needs no SQLite file and no model download.
+- **One composition root** — `config/container.py` is the only module that imports concrete
+  adapters and injects each into a use case as its narrow role.
 
-Each use case depends on a **narrow role-port** (Interface Segregation). The same
-`SqliteStore` implements four of them; consumers only see the face they need.
+The retrieval pipeline is **hybrid + reranked**: dense vector search and BM25 run in
+parallel, RRF fuses them into a high-recall pool, and a cross-encoder reranker picks the
+final results by true query-passage relevance.
 
-| Port (abstraction)      | Implemented by         | Used by                          |
-| ----------------------- | ---------------------- | -------------------------------- |
-| `MarkdownParser`        | `ObsidianMarkdownParser` | `IndexVault`                   |
-| `Chunker`               | `HeadingAwareChunker`  | `IndexVault`                     |
-| `EmbeddingProvider`     | `FastEmbedEmbeddings`  | `IndexVault`, `SearchKnowledge`  |
-| `DocumentWriter`        | `SqliteStore`          | `IndexVault`                     |
-| `ChunkRetriever`        | `SqliteStore`          | `SearchKnowledge`                |
-| `DocumentReader`        | `SqliteStore`          | `SearchSources`, `get_note`      |
-| `IndexAdmin`            | `SqliteStore`          | status / fingerprint guard       |
-| `Fuser`                 | `RRFFuser`             | `SearchKnowledge`                |
-
-> `IndexStore` is a composite port (`DocumentWriter` + `IndexAdmin`) — Python has no
-> intersection type, so the combination the indexer needs is named as one Protocol.
-
-### Request flow
-
-**Indexing** (`reindex` tool / CLI):
-
-```mermaid
-flowchart LR
-    A[scan_vault] --> B[MarkdownParser]
-    B --> C[Chunker]
-    C --> D[EmbeddingProvider]
-    D --> E[DocumentWriter<br/>upsert]
-    E --> F[deletion sweep<br/>IndexAdmin]
-```
-
-**Knowledge search** (`search_knowledge` tool):
-
-```mermaid
-flowchart LR
-    Q[Query] --> SK[SearchKnowledge]
-    SK --> EQ[EmbeddingProvider<br/>embed_query]
-    EQ --> DE[ChunkRetriever.dense]
-    SK --> SP[ChunkRetriever.sparse]
-    DE --> FU[Fuser.fuse]
-    SP --> FU
-    FU --> R[ranked passages]
-```
-
-**Source search** (`search_sources` tool):
-
-```mermaid
-flowchart LR
-    Q[Query] --> SS[SearchSources]
-    SS -->|broad query| SK[SearchKnowledge]
-    SK --> G[group hits by note<br/>count · best score · snippets]
-    G --> DR[DocumentReader<br/>titles]
-    DR --> R[ranked source notes]
-```
-
-### Why this shape
-
-- **Swappable everything.** The embedding model, store, and fusion strategy are all behind
-  ports — swapping the embedder (English → multilingual) or adding BM25+RRF touched zero
-  use-case code.
-- **Testable without frameworks.** Use cases are tested against in-memory fakes of the ports;
-  no SQLite or model download required for the fast suite.
-- **One composition root.** `config/container.py` is the *only* module that imports concrete
-  adapters; it injects each store into a use case as its narrow role.
+📖 **For the full design — every port and adapter, the indexing/search request flows, the
+config-fingerprint guard, and the rationale behind each ranking stage — see
+[ARCHITECTURE.md](ARCHITECTURE.md).**
 
 ## MCP tools
 
@@ -135,15 +77,17 @@ flowchart LR
 
 ## Quick start
 
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
+
 ```bash
 # 1. Configure — point at your vault
 cp ariostea.example.toml ariostea.toml   # then edit [vault] path
 
 # 2. Build the index
-uv run ariostea reindex                  # or: uvx ariostea reindex
+uv run ariostea reindex
 
 # 3. Run the stdio MCP server
-uv run ariostea serve                    # or: uvx ariostea serve
+uv run ariostea serve
 
 # Other commands
 uv run ariostea watch                    # index, then auto-reindex on vault edits
@@ -151,5 +95,36 @@ uv run ariostea status                   # print index health
 uv run pytest -m "not integration"       # fast test suite
 ```
 
-Configuration lives in `ariostea.toml` (`[vault]`, `[embedding]`, `[store]`, `[search]`);
-see [`ariostea.example.toml`](ariostea.example.toml) for all options and defaults.
+Configuration lives in `ariostea.toml`. Only `[vault].path` is required; every other value
+has a built-in default (`[embedding]`, `[store]`, `[search]`, `[rerank]`, `[contextual]`,
+`[server]`). See [`ariostea.example.toml`](ariostea.example.toml) for all options and
+defaults.
+
+### Connecting an MCP client
+
+**Claude Code / Claude Desktop** — register the stdio server:
+
+```bash
+claude mcp add ariostea -- uv run --directory /path/to/ariostea ariostea serve
+```
+
+**HTTP clients (e.g. n8n)** — serve over Streamable HTTP instead of stdio:
+
+```bash
+uv run ariostea serve --transport http --host 0.0.0.0 --port 8000
+# MCP endpoint: http://<host>:8000/mcp
+```
+
+## Development
+
+```bash
+uv sync                             # install deps
+uv run pytest -m "not integration"  # fast unit suite (no model downloads)
+uv run pytest                       # full suite, incl. tests that load real models
+uv run ruff check .                 # lint
+uv run ruff format .                # format
+```
+
+## License
+
+[MIT](LICENSE).

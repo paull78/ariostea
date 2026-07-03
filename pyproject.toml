@@ -2,7 +2,18 @@
 name = "ariostea"
 version = "0.0.1"
 description = "Local-first, Obsidian-aware RAG MCP server"
+readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Paolo" }]
+keywords = ["rag", "mcp", "obsidian", "retrieval", "embeddings", "clean-architecture"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Text Processing :: Indexing",
+]
 dependencies = [
   "mcp>=1.2",
   "fastembed>=0.4",
@@ -12,6 +23,9 @@ dependencies = [
   "watchfiles>=0.24",
   "httpx>=0.27",
 ]
+
+[project.urls]
+Repository = "https://github.com/paull78/ariostea"
 
 [project.scripts]
 ariostea = "ariostea.cli:main"

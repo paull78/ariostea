@@ -101,7 +101,14 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
                 cur.execute(
                     "INSERT INTO chunks(note_id, ordinal, heading_path, text, token_count, context_blurb) "
                     "VALUES (?,?,?,?,?,?)",
-                    (note_id, ch.ordinal, "/".join(ch.heading_path), ch.text, ch.token_count, cc.context_blurb),
+                    (
+                        note_id,
+                        ch.ordinal,
+                        "/".join(ch.heading_path),
+                        ch.text,
+                        ch.token_count,
+                        cc.context_blurb,
+                    ),
                 )
                 chunk_id = cur.lastrowid
                 cur.execute(

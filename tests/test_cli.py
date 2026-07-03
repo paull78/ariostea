@@ -72,7 +72,9 @@ def test_serve_stdio_is_the_default(monkeypatch):
         def run(self, transport="stdio"):
             recorded["transport"] = transport
 
-    monkeypatch.setattr(cli, "build_server", lambda container, host="127.0.0.1", port=8000: FakeServer())
+    monkeypatch.setattr(
+        cli, "build_server", lambda container, host="127.0.0.1", port=8000: FakeServer()
+    )
 
     result = CliRunner().invoke(cli.app, ["serve", "--config", "x.toml"])
 
@@ -84,7 +86,9 @@ def test_serve_rejects_unknown_transport(monkeypatch):
     fake_cfg = SimpleNamespace(server=SimpleNamespace(host="127.0.0.1", port=8000))
     monkeypatch.setattr(cli, "load_config", lambda path: fake_cfg)
     monkeypatch.setattr(cli, "build_container", lambda cfg: object())
-    monkeypatch.setattr(cli, "build_server", lambda container, host="127.0.0.1", port=8000: object())
+    monkeypatch.setattr(
+        cli, "build_server", lambda container, host="127.0.0.1", port=8000: object()
+    )
 
     result = CliRunner().invoke(cli.app, ["serve", "--transport", "grpc", "--config", "x.toml"])
 

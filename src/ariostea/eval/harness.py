@@ -82,8 +82,7 @@ def evaluate(cases: list[GoldCase], search_fn: SearchFn, k: int) -> EvalReport:
     overall = _aggregate("overall", [(r, rr) for _, r, rr in scored])
     scenarios = sorted({scenario for scenario, _, _ in scored})
     by_scenario = tuple(
-        _aggregate(s, [(r, rr) for scenario, r, rr in scored if scenario == s])
-        for s in scenarios
+        _aggregate(s, [(r, rr) for scenario, r, rr in scored if scenario == s]) for s in scenarios
     )
     return EvalReport(k=k, overall=overall, by_scenario=by_scenario)
 

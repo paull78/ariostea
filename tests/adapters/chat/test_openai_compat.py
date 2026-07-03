@@ -45,7 +45,9 @@ def test_omits_auth_header_without_key():
 
 def test_raises_on_error_status():
     chat = OpenAICompatChat(
-        base_url="http://x/v1", model="m", client=_client(lambda r: httpx.Response(500, text="boom"))
+        base_url="http://x/v1",
+        model="m",
+        client=_client(lambda r: httpx.Response(500, text="boom")),
     )
     with pytest.raises(ChatError):
         chat.complete(system="s", user="u")
@@ -62,7 +64,9 @@ def test_raises_on_transport_error():
 
 def test_raises_on_malformed_response():
     chat = OpenAICompatChat(
-        base_url="http://x/v1", model="m", client=_client(lambda r: httpx.Response(200, json={"choices": []}))
+        base_url="http://x/v1",
+        model="m",
+        client=_client(lambda r: httpx.Response(200, json={"choices": []})),
     )
     with pytest.raises(ChatError):
         chat.complete(system="s", user="u")

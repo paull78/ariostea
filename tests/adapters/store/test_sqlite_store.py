@@ -164,7 +164,9 @@ def test_upsert_persists_context_blurb(tmp_path):
     store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
     note = _note()
     chunk = Chunk(note_path=note.path, ordinal=0, heading_path=("A",), text="bare", token_count=1)
-    cc = ContextualizedChunk(chunk=chunk, context_blurb="the blurb", embedding_text="the blurb\n\nbare")
+    cc = ContextualizedChunk(
+        chunk=chunk, context_blurb="the blurb", embedding_text="the blurb\n\nbare"
+    )
     store.upsert_note(note, [cc], [[1.0, 0.0, 0.0]])
 
     rows = store.db.execute("SELECT context_blurb FROM chunks").fetchall()

@@ -72,7 +72,9 @@ def test_read_blurb_rows_joins_notes_and_chunks(tmp_path):
                              context_blurb TEXT);
         """
     )
-    con.execute("INSERT INTO notes(id, path, title, content_hash, mtime) VALUES (1,'a.md','A','h',0.0)")
+    con.execute(
+        "INSERT INTO notes(id, path, title, content_hash, mtime) VALUES (1,'a.md','A','h',0.0)"
+    )
     con.execute(
         "INSERT INTO chunks(note_id, ordinal, heading_path, text, token_count, context_blurb) "
         "VALUES (1,0,'A','t',1,'blurb'), (1,1,'B','t2',1,NULL)"

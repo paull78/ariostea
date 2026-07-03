@@ -75,9 +75,9 @@ def test_index_vault_indexes_each_note(tmp_path):
 def test_embedding_text_defaults_to_chunk_text(tmp_path):
     (tmp_path / "a.md").write_text("# A\nplain text")
     store = FakeStore()
-    IndexVault(ObsidianMarkdownParser(), HeadingAwareChunker(), FakeEmbed(), store, NoopContextualizer()).index(
-        tmp_path, ignore=[]
-    )
+    IndexVault(
+        ObsidianMarkdownParser(), HeadingAwareChunker(), FakeEmbed(), store, NoopContextualizer()
+    ).index(tmp_path, ignore=[])
     _, chunks, _ = store.notes["a.md"]
     assert chunks[0].context_blurb is None
     assert chunks[0].embedding_text == chunks[0].chunk.text
@@ -110,7 +110,11 @@ def test_index_skips_unchanged_notes_on_reindex(tmp_path):
     (tmp_path / "b.md").write_text("# B\nbeta content here")
     embed, store = FakeEmbed(), FakeStore()
     indexer = IndexVault(
-        ObsidianMarkdownParser(), HeadingAwareChunker(max_tokens=200), embed, store, NoopContextualizer()
+        ObsidianMarkdownParser(),
+        HeadingAwareChunker(max_tokens=200),
+        embed,
+        store,
+        NoopContextualizer(),
     )
     indexer.index(tmp_path, ignore=[])
 
@@ -127,7 +131,11 @@ def test_index_reembeds_only_the_changed_note(tmp_path):
     (tmp_path / "b.md").write_text("# B\nbeta content here")
     embed, store = FakeEmbed(), FakeStore()
     indexer = IndexVault(
-        ObsidianMarkdownParser(), HeadingAwareChunker(max_tokens=200), embed, store, NoopContextualizer()
+        ObsidianMarkdownParser(),
+        HeadingAwareChunker(max_tokens=200),
+        embed,
+        store,
+        NoopContextualizer(),
     )
     indexer.index(tmp_path, ignore=[])
 
@@ -141,9 +149,13 @@ def test_index_reembeds_only_the_changed_note(tmp_path):
 def test_index_reembeds_all_when_fingerprint_changes(tmp_path):
     (tmp_path / "a.md").write_text("# A\nalpha content here")
     embed, store = FakeEmbed(), FakeStore()
-    IndexVault(ObsidianMarkdownParser(), HeadingAwareChunker(max_tokens=200), embed, store, NoopContextualizer()).index(
-        tmp_path, ignore=[]
-    )
+    IndexVault(
+        ObsidianMarkdownParser(),
+        HeadingAwareChunker(max_tokens=200),
+        embed,
+        store,
+        NoopContextualizer(),
+    ).index(tmp_path, ignore=[])
 
     # Simulate a model swap: same content, different fingerprint -> must re-embed.
     class FakeEmbed2(FakeEmbed):
@@ -152,9 +164,13 @@ def test_index_reembeds_all_when_fingerprint_changes(tmp_path):
             return "fake:v2"
 
     embed2 = FakeEmbed2()
-    IndexVault(ObsidianMarkdownParser(), HeadingAwareChunker(max_tokens=200), embed2, store, NoopContextualizer()).index(
-        tmp_path, ignore=[]
-    )
+    IndexVault(
+        ObsidianMarkdownParser(),
+        HeadingAwareChunker(max_tokens=200),
+        embed2,
+        store,
+        NoopContextualizer(),
+    ).index(tmp_path, ignore=[])
     assert any("alpha" in t for t in embed2.seen)  # re-embedded despite unchanged content
 
 
@@ -165,7 +181,9 @@ def test_contextualizer_output_flows_to_store(tmp_path):
     class TitleCtx(Contextualizer):
         def contextualize(self, note, full_doc, chunks):
             return [
-                ContextualizedChunk(chunk=c, context_blurb=note.title, embedding_text=f"{note.title}\n\n{c.text}")
+                ContextualizedChunk(
+                    chunk=c, context_blurb=note.title, embedding_text=f"{note.title}\n\n{c.text}"
+                )
                 for c in chunks
             ]
 
@@ -175,9 +193,9 @@ def test_contextualizer_output_flows_to_store(tmp_path):
 
     (tmp_path / "a.md").write_text("# Topic\nbody text")
     store = FakeStore()
-    IndexVault(ObsidianMarkdownParser(), HeadingAwareChunker(), FakeEmbed(), store, TitleCtx()).index(
-        tmp_path, ignore=[]
-    )
+    IndexVault(
+        ObsidianMarkdownParser(), HeadingAwareChunker(), FakeEmbed(), store, TitleCtx()
+    ).index(tmp_path, ignore=[])
 
     _, chunks, _ = store.notes["a.md"]
     assert chunks[0].context_blurb == "Topic"
@@ -204,7 +222,11 @@ def test_index_reembeds_when_contextualizer_changes(tmp_path):
     embed, store = FakeEmbed(), FakeStore()
     # First index with Noop (combined fingerprint "fake:v1|noop").
     IndexVault(
-        ObsidianMarkdownParser(), HeadingAwareChunker(max_tokens=200), embed, store, NoopContextualizer()
+        ObsidianMarkdownParser(),
+        HeadingAwareChunker(max_tokens=200),
+        embed,
+        store,
+        NoopContextualizer(),
     ).index(tmp_path, ignore=[])
 
     # Same content, different contextualizer -> combined fingerprint changes -> re-embed.
