@@ -80,8 +80,16 @@ so the corpus is frozen and reproducible. Conversion to Obsidian-flavored Markdo
 - Strip infoboxes, reference lists, and navigation chrome.
 - Frontmatter records source URL, revision ID, and license.
 
-Output: `eval/corpus/<cluster>/<article>.md`, with `eval/corpus/NOTICE` giving CC BY-SA
-attribution per article. The corpus data is CC BY-SA; repository code remains MIT.
+Output: `eval/wiki/<cluster>/<article>.md`, kept separate from the existing flat
+`eval/corpus/*.md` smoke fixtures. `eval/wiki/NOTICE` gives CC BY-SA attribution per article
+(see "Attribution" below). The corpus data is CC BY-SA; repository code remains MIT.
+
+**Attribution.** `eval/wiki/NOTICE` is authored before any Wikipedia text is committed. It
+states the CC BY-SA 4.0 license, records that articles were modified (converted to Markdown,
+links rewritten to wikilinks, infoboxes/references stripped), and carries a per-article table
+of title + revision-permalink. The corpus build script appends one row per fetched article,
+so attribution is maintained mechanically as the snapshot is pinned. The README notes that
+`eval/wiki/` is third-party CC BY-SA data distinct from the MIT-licensed code.
 
 ### 2. Gold generation pipeline
 
@@ -127,7 +135,7 @@ Extends the current format with `type` and span-level labels:
 }
 ```
 
-Committed as `eval/gold_wiki.json`. The existing gold sets are retained as a fast smoke test.
+Committed as `eval/wiki/gold.json`. The existing gold sets are retained as a fast smoke test.
 
 ### 4. Harness upgrade
 
