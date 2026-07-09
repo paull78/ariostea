@@ -85,6 +85,33 @@ config-fingerprint guard, and the rationale behind each ranking stage — see
 | `search_sources`   | Which notes a concept appears in — hit count, best score, snippets.|
 | `get_note`         | A full note's reconstructed text and title by vault-relative path. |
 
+## Example
+
+Once connected, an MCP client calls the tools. Asking for passages about a concept:
+
+```jsonc
+// search_knowledge(query="how does reciprocal rank fusion combine results", k=3)
+{
+  "results": [
+    {
+      "note_path": "notes/retrieval/hybrid-search.md",
+      "heading_path": ["Fusion", "RRF"],
+      "text": "Reciprocal Rank Fusion merges two ranked lists by summing 1/(k + rank) for each result across lists, so an item ranked highly by either channel floats up without needing comparable raw scores.",
+      "score": 0.94   // reranker relevance score
+    },
+    {
+      "note_path": "notes/retrieval/bm25.md",
+      "heading_path": ["Lexical search"],
+      "text": "BM25 scores are not comparable to cosine distances, which is why fusion works on ranks rather than raw scores.",
+      "score": 0.61
+    }
+  ]
+}
+```
+
+Asking *which notes* discuss a concept (`search_sources`) instead returns notes with hit
+counts, best score, and snippets — a provenance rollup rather than individual passages.
+
 ## Quick start
 
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
