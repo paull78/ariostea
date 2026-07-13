@@ -36,3 +36,9 @@ def test_sparse_chunk_fn_returns_note_text_pairs():
     hits = [_rc("guitar.md", "six strings")]
     fn = make_sparse_chunk_fn(_FakeRetriever(hits), pool=10)
     assert fn("q", k=5) == [("guitar.md", "six strings")]
+
+
+def test_dense_chunk_fn_does_not_dedupe_repeated_notes():
+    hits = [_rc("violin.md", "first chunk"), _rc("violin.md", "second chunk", ordinal=1)]
+    fn = make_dense_chunk_fn(_FakeEmbeddings(), _FakeRetriever(hits), pool=10)
+    assert fn("q", k=2) == [("violin.md", "first chunk"), ("violin.md", "second chunk")]
