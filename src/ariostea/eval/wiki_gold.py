@@ -4,6 +4,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from ariostea.eval.normalize import normalize_ws
+
 # Query types that stress a specific retrieval track (see the eval-corpus design doc).
 SPAN_TYPES = ("paraphrase", "exact_term", "buried", "cross_lingual")
 
@@ -49,8 +51,6 @@ def validate_wiki_gold(cases: list[WikiGoldCase], notes: dict[str, str]) -> list
     references a corpus note and appears verbatim (whitespace/case-insensitive)
     in that note.
     """
-    from ariostea.eval.span_metrics import normalize_ws
-
     errors: list[str] = []
     for i, case in enumerate(cases):
         if not case.expected_notes:
