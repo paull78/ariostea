@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from ariostea.eval.wiki_gold import AnswerSpan, WikiGoldCase, load_wiki_gold, validate_wiki_gold
 
@@ -72,3 +73,16 @@ def test_validate_flags_missing_span_text_unknown_type_and_empty_notes():
     assert any("expected_notes is empty" in e for e in errors)
     assert any("not in corpus" in e for e in errors)
     assert any("no answer_spans" in e for e in errors)
+
+
+SAMPLE = Path(__file__).resolve().parents[2] / "eval" / "wiki" / "gold.sample.json"
+
+
+def test_committed_schema_sample_loads_and_has_expected_shape():
+    cases = load_wiki_gold(SAMPLE)
+    assert len(cases) == 2
+    assert {c.type for c in cases} == {"buried", "cross_lingual"}
+    assert all(c.expected_notes and c.answer_spans for c in cases)
+    for case in cases:
+        for span in case.answer_spans:
+            assert span.note in case.expected_notes
