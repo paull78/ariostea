@@ -1,3 +1,8 @@
+"""Span-anchored gold schema for the eval corpus: dataclasses, a JSON loader,
+and a validator that checks each case's notes and answer spans against the
+corpus before it's trusted for evaluation.
+"""
+
 from __future__ import annotations
 
 import json
@@ -59,9 +64,14 @@ def validate_wiki_gold(cases: list[WikiGoldCase], notes: dict[str, str]) -> list
             errors.append(f"case {i}: unknown type {case.type!r}")
         if not case.answer_spans:
             errors.append(f"case {i}: no answer_spans")
+        for note_path in case.expected_notes:
+            if note_path not in notes:
+                errors.append(f"case {i}: expected note {note_path!r} not in corpus")
         for span in case.answer_spans:
             if span.note not in notes:
                 errors.append(f"case {i}: span note {span.note!r} not in corpus")
             elif normalize_ws(span.text) not in normalize_ws(notes[span.note]):
                 errors.append(f"case {i}: span text not found in {span.note!r}")
+            if span.note not in case.expected_notes:
+                errors.append(f"case {i}: span note {span.note!r} not in expected_notes")
     return errors

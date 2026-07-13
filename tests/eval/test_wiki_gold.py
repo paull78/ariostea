@@ -75,6 +75,26 @@ def test_validate_flags_missing_span_text_unknown_type_and_empty_notes():
     assert any("no answer_spans" in e for e in errors)
 
 
+def test_validate_flags_expected_note_missing_from_corpus():
+    notes = {"violin.md": "tuned in perfect fifths"}
+    case = _case(
+        expected_notes=("ghost.md",),
+        answer_spans=(AnswerSpan(note="ghost.md", text="perfect fifths"),),
+    )
+    errors = validate_wiki_gold([case], notes)
+    assert any("expected note" in e and "not in corpus" in e for e in errors)
+
+
+def test_validate_flags_span_note_not_in_expected_notes():
+    notes = {"violin.md": "perfect fifths", "cello.md": "four strings"}
+    case = _case(
+        expected_notes=("violin.md",),
+        answer_spans=(AnswerSpan(note="cello.md", text="four strings"),),
+    )
+    errors = validate_wiki_gold([case], notes)
+    assert any("not in expected_notes" in e for e in errors)
+
+
 SAMPLE = Path(__file__).resolve().parents[2] / "eval" / "wiki" / "gold.sample.json"
 
 
