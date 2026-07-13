@@ -1,8 +1,14 @@
+"""Span-level evaluation: run gold cases through a chunk-returning search
+function and report retrieval quality at two granularities — note-level (did we
+find the right note) and span-level (did a retrieved chunk actually contain the
+answer) — overall and grouped by query type.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ariostea.eval.harness import SpanSearchFn
+from ariostea.eval.harness import SpanSearchFn, dedupe
 from ariostea.eval.metrics import recall_at_k, reciprocal_rank
 from ariostea.eval.span_metrics import span_recall_at_k, span_reciprocal_rank
 from ariostea.eval.wiki_gold import WikiGoldCase
@@ -10,7 +16,7 @@ from ariostea.eval.wiki_gold import WikiGoldCase
 
 @dataclass(frozen=True)
 class SpanScore:
-    group: str
+    type: str
     n: int
     note_recall_at_k: float
     note_mrr: float
@@ -25,21 +31,13 @@ class SpanEvalReport:
     by_type: tuple[SpanScore, ...]
 
 
-def _dedupe_notes(retrieved: list[tuple[str, str]]) -> list[str]:
-    seen: list[str] = []
-    for note, _ in retrieved:
-        if note not in seen:
-            seen.append(note)
-    return seen
-
-
 # Each scored row is (note_recall, note_mrr, span_recall, span_mrr).
-def _aggregate(group: str, rows: list[tuple[float, float, float, float]]) -> SpanScore:
+def _aggregate(type_: str, rows: list[tuple[float, float, float, float]]) -> SpanScore:
     n = len(rows)
     if n == 0:
-        return SpanScore(group, 0, 0.0, 0.0, 0.0, 0.0)
+        return SpanScore(type_, 0, 0.0, 0.0, 0.0, 0.0)
     return SpanScore(
-        group=group,
+        type=type_,
         n=n,
         note_recall_at_k=sum(r[0] for r in rows) / n,
         note_mrr=sum(r[1] for r in rows) / n,
@@ -48,13 +46,22 @@ def _aggregate(group: str, rows: list[tuple[float, float, float, float]]) -> Spa
     )
 
 
-def evaluate_spans(cases: list[WikiGoldCase], span_fn: SpanSearchFn, k: int) -> SpanEvalReport:
+def evaluate_spans(
+    cases: list[WikiGoldCase], span_fn: SpanSearchFn, k: int, pool: int = 50
+) -> SpanEvalReport:
     """Run every case through span_fn once and aggregate note-level and
-    span-level recall@k / MRR, overall and grouped by query type."""
+    span-level recall@k / MRR, overall and grouped by query type.
+
+    span_fn is asked for a generous `pool` of ranked chunks (pool >= k). Span
+    metrics use the top-k chunks; note metrics dedupe the full pool to notes and
+    take the top-k distinct notes — so note-level scoring counts k *notes*, not k
+    *chunks*, and stays comparable to the note-level channels regardless of how
+    many chunks a single note contributes.
+    """
     scored: list[tuple[str, tuple[float, float, float, float]]] = []
     for case in cases:
-        retrieved = span_fn(case.query, k)
-        notes = _dedupe_notes(retrieved)
+        retrieved = span_fn(case.query, pool)
+        notes = dedupe([note for note, _ in retrieved])
         expected = set(case.expected_notes)
         row = (
             recall_at_k(expected, notes, k),
@@ -75,7 +82,7 @@ def format_span_report(report: SpanEvalReport) -> str:
     lines = [header]
     for s in (*report.by_type, report.overall):
         lines.append(
-            f"{s.group:<14} {s.n:>3}  "
+            f"{s.type:<14} {s.n:>3}  "
             f"{s.note_recall_at_k:>7.3f} {s.note_mrr:>7.3f}  "
             f"{s.span_recall_at_k:>7.3f} {s.span_mrr:>7.3f}"
         )
