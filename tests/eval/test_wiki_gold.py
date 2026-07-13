@@ -64,9 +64,11 @@ def test_validate_flags_missing_span_text_unknown_type_and_empty_notes():
         _case(type="mystery"),
         _case(expected_notes=()),
         _case(answer_spans=(AnswerSpan(note="missing.md", text="perfect fifths"),)),
+        _case(answer_spans=()),
     ]
     errors = validate_wiki_gold(cases, notes)
     assert any("span text not found" in e for e in errors)
     assert any("unknown type" in e for e in errors)
     assert any("expected_notes is empty" in e for e in errors)
     assert any("not in corpus" in e for e in errors)
+    assert any("no answer_spans" in e for e in errors)
