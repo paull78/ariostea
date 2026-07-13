@@ -39,3 +39,29 @@ def load_wiki_gold(path: str | Path) -> list[WikiGoldCase]:
         )
         for row in rows
     ]
+
+
+def validate_wiki_gold(cases: list[WikiGoldCase], notes: dict[str, str]) -> list[str]:
+    """Return a list of human-readable errors; an empty list means valid.
+
+    `notes` maps a note path to its full text. A case is valid when it names at
+    least one expected note, uses a known query type, and every answer span both
+    references a corpus note and appears verbatim (whitespace/case-insensitive)
+    in that note.
+    """
+    from ariostea.eval.span_metrics import normalize_ws
+
+    errors: list[str] = []
+    for i, case in enumerate(cases):
+        if not case.expected_notes:
+            errors.append(f"case {i}: expected_notes is empty")
+        if case.type not in SPAN_TYPES:
+            errors.append(f"case {i}: unknown type {case.type!r}")
+        if not case.answer_spans:
+            errors.append(f"case {i}: no answer_spans")
+        for span in case.answer_spans:
+            if span.note not in notes:
+                errors.append(f"case {i}: span note {span.note!r} not in corpus")
+            elif normalize_ws(span.text) not in normalize_ws(notes[span.note]):
+                errors.append(f"case {i}: span text not found in {span.note!r}")
+    return errors
