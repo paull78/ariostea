@@ -1,3 +1,11 @@
+"""Span-level retrieval metrics for the eval harness.
+
+A retrieved chunk counts as a hit only if it is in the answer span's own note
+*and* its text contains the span text, matching by normalized-whitespace,
+case-insensitive **substring containment**. This ensures the same gold survives
+re-chunking: a span may land in differently-sized chunks across policies.
+"""
+
 from __future__ import annotations
 
 import re
