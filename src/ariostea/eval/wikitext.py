@@ -17,7 +17,8 @@ Callers (Task 3's `wikitext_to_markdown`) must run these functions in this
 order:
 
     comments -> refs -> html containers -> templates -> tables -> media
-    -> inline html tags
+    -> inline html tags -> lists -> headings -> [Task 3: wikilinks]
+    -> emphasis -> drop_sections -> normalize_blank_lines
 
 - comments first: a half-edited article can have a stray `{{` or `[[` sitting
   inside an HTML comment. If the comment survives past this step, that brace
@@ -32,9 +33,32 @@ order:
 - media after templates/tables: a `[[File:...]]` caption can itself hold a
   `{{...}}` template (rare, but real); clearing templates and tables first
   means the media scanner only has to worry about nested `[[...]]` links.
-- inline html tags last: by the time this runs, every structural block is
-  already gone, so a generic catch-all tag pattern can't accidentally eat a
-  tag that was still guarding content meant to survive.
+- inline html tags last among the strip stages: by the time this runs, every
+  structural block is already gone, so a generic catch-all tag pattern can't
+  accidentally eat a tag that was still guarding content meant to survive.
+- lists before headings: a wikitext numbered item starts with `#`, which
+  Markdown reads as a heading marker. Converting lists first consumes that
+  `#` into a `1. ` prefix before `convert_headings` — or `drop_sections`,
+  downstream — ever sees the line as a bare hash. See `convert_lists`'s
+  docstring for the sharper failure mode this avoids.
+- lists before emphasis: `'''bold'''` becomes `**bold**`, and a line-leading
+  `**` is indistinguishable from a two-deep wikitext bullet (`^(\\*+)`) to
+  `convert_lists`. Every article's lede reads `'''Title''' is a ...`, so this
+  isn't a corner case — it's the first line of every note. Nothing in either
+  function enforces the order structurally; it's pinned by
+  `test_lists_before_emphasis_keeps_the_lede_intact` and
+  `test_emphasis_before_lists_corrupts_the_lede_into_a_bullet`.
+- headings before drop_sections: `drop_sections` recognizes a boilerplate
+  section by matching a Markdown `#`-heading line — it has no notion of
+  wikitext's `==` heading syntax at all.
+- drop_sections before normalize_blank_lines: dropping a section leaves a
+  gap where the blank line that used to separate it from its neighbors is
+  now doubled up. `normalize_blank_lines` is what collapses that back down,
+  so it has to run after, last of all.
+- Task 3 adds two more stages not implemented in this module yet: wikilink
+  rewriting (`convert_links`), which runs between headings and emphasis, and
+  external-link flattening (`strip_external_links`), grouped with the strip
+  stages above.
 
 Invariant: this pipeline never removes text it did not positively identify as
 markup. Every stage either matches a construct it can name (a ref, a
@@ -229,7 +253,11 @@ def strip_html_tags(text: str) -> str:
 # still matches: `(={2,6})` backtracks to the *shorter* run, and the leftover
 # `=` characters on the longer side fall into `(.+?)` as literal title text.
 # That mirrors MediaWiki's own heading parser (level = min of the two runs),
-# without this module having to special-case it.
+# without this module having to special-case it. The lower bound of 2 (not 1)
+# is deliberate, not just the mismatched-run case above: a level-1 `=Heading=`
+# passes through untouched, since every note already gets one H1 from its
+# title in `wikitext_to_markdown` — a second one would be a duplicate, not a
+# missing conversion.
 _HEADING = re.compile(r"^[ \t]*(={2,6})[ \t]*(.+?)[ \t]*\1[ \t]*$", re.MULTILINE)
 _BULLET = re.compile(r"^(\*+)[ \t]*(.*)$", re.MULTILINE)
 _NUMBERED = re.compile(r"^(#+)[ \t]*(.*)$", re.MULTILINE)
@@ -239,6 +267,12 @@ _DEF_LINE = re.compile(r"^[;:]+[ \t]*", re.MULTILINE)
 _BOLD = re.compile(r"'''(.+?)'''")
 _ITALIC = re.compile(r"''(.+?)''")
 _MD_HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
+# Strips every `*`/`_` from the title before the DROP_SECTIONS lookup: under
+# Task 3's composition, headings convert before emphasis, so a wikitext
+# heading written as `== '''References''' ==` arrives at `drop_sections` as
+# `## **References**`, and the wrapping emphasis marks must not hide the
+# title from the comparison.
+_EMPHASIS_STRIP = str.maketrans("", "", "*_")
 _TRAILING_WS = re.compile(r"[ \t]+$", re.MULTILINE)
 _BLANK_RUN = re.compile(r"\n{3,}")
 
@@ -288,7 +322,18 @@ def convert_lists(text: str) -> str:
     """Bullets to `-`, numbered items to `1.`, two spaces per nesting level.
 
     Must run before `convert_headings`: a wikitext numbered item starts with
-    `#`, which Markdown would otherwise read as a heading.
+    `#`, which Markdown would otherwise read as a heading. Must also run
+    before `convert_emphasis` — see that function's docstring.
+
+    `_DEF_LINE` (definition-list markers `;`/`:`) runs *first*, before the
+    bullet/numbered passes, not after. `:#`/`:*` are real wikitext — an
+    indented numbered or bulleted item, common in bibliography and notes
+    sections. If `_DEF_LINE` ran last, stripping the leading `:` would
+    re-expose a bare `#`/`*` that `_NUMBERED`/`_BULLET` had already skipped
+    over (they don't match a line starting with `:`), leaking an unconverted
+    Markdown heading/bullet marker into the output instead of converting it —
+    and a leaked `#` is exactly the collision this function exists to
+    prevent `drop_sections` from misreading downstream.
 
     Known limitation, accepted: a literal `#REDIRECT [[Target]]` directive —
     valid wikitext only as an article's very first line — is read the same as
@@ -297,26 +342,53 @@ def convert_lists(text: str) -> str:
     `wiki_fetch.fetch_article` requests `redirects=1`, so a redirect page's
     wikitext is never what gets fetched in the first place.
     """
+    text = _DEF_LINE.sub("", text)
     text = _BULLET.sub(lambda m: "  " * (len(m.group(1)) - 1) + "- " + m.group(2), text)
     text = _NUMBERED.sub(lambda m: "  " * (len(m.group(1)) - 1) + "1. " + m.group(2), text)
-    return _DEF_LINE.sub("", text)
+    return text
 
 
-def convert_formatting(text: str) -> str:
+def convert_emphasis(text: str) -> str:
     """Map `'''bold'''` / `''italic''` to `**bold**` / `*italic*`.
+
+    Must run after `convert_lists`: a bold span at the start of a line
+    becomes `**...`, and a line-leading `**` is indistinguishable from a
+    two-deep wikitext bullet (`^(\\*+)`) to `convert_lists`. Every article's
+    lede reads `'''Title''' is a ...`, so running emphasis first wouldn't be
+    a corner case — it would corrupt the opening sentence of every note in
+    the corpus. See `test_emphasis_before_lists_corrupts_the_lede_into_a_bullet`.
 
     Bold is substituted first so a `'''...'''` span never gets read as
     italic-then-stray-quote. The two compose for the `'''''both'''''`
     convention: bold strips the outer three quotes from each end first,
     leaving `''both''` for the italic pass to close — Markdown's own
     `***both***` for the combination falls out for free.
+
+    Known limitation, accepted: MediaWiki's real apostrophe parser is more
+    involved than "count runs of 2 or 3 quote characters" — it resolves
+    ambiguous runs by looking at the whole line, not just the nearest pair.
+    The construct this diverges on most, and the one likeliest to appear in
+    this corpus's it/es prose, is an elision immediately before bold text:
+    `l''''Italia''' è bella` (4 quotes — `l'` elision + `'''` bold). MediaWiki
+    attaches the surplus apostrophe to the word before the bold
+    (`l'**Italia**`); this function's two independent regex passes instead
+    fold it into the bold span (`l**'Italia**`). No text is lost either way —
+    only the rendered boundary of the emphasis differs — so retrieval quality
+    is unaffected.
     """
     return _ITALIC.sub(r"*\1*", _BOLD.sub(r"**\1**", text))
 
 
 def drop_sections(markdown: str, titles: frozenset[str] = DROP_SECTIONS) -> str:
     """Drop each named section together with everything nested under it, up to
-    the next heading at the same or a shallower level."""
+    the next heading at the same or a shallower level.
+
+    Must run after `convert_headings`: sections are recognized by matching a
+    Markdown `#`-heading line, not wikitext's `==` syntax. The title is
+    compared stripped, lower-cased, and with `*`/`_` emphasis markers
+    removed, since Task 3's composition converts emphasis after headings —
+    `== '''References''' ==` arrives here as `## **References**`.
+    """
     kept: list[str] = []
     skip_level = 0
     for line in markdown.splitlines():
@@ -325,7 +397,8 @@ def drop_sections(markdown: str, titles: frozenset[str] = DROP_SECTIONS) -> str:
             level = len(heading.group(1))
             if skip_level and level <= skip_level:
                 skip_level = 0
-            if not skip_level and heading.group(2).strip().lower() in titles:
+            title = heading.group(2).strip().lower().translate(_EMPHASIS_STRIP)
+            if not skip_level and title in titles:
                 skip_level = level
                 continue
         if not skip_level:
@@ -334,6 +407,12 @@ def drop_sections(markdown: str, titles: frozenset[str] = DROP_SECTIONS) -> str:
 
 
 def normalize_blank_lines(text: str) -> str:
-    """Trim trailing whitespace per line and collapse 3+ blank lines to one —
-    tidy-up for the residue that stripping/dropping leaves behind."""
+    """Trim trailing whitespace per line and collapse runs of 2+ blank lines
+    (3+ consecutive newlines) down to a single blank line.
+
+    Also strips leading and trailing whitespace from the whole document, so
+    the result has no leading blank lines and — notably — no trailing
+    newline. A caller that needs one (e.g. writing a note file) has to add it
+    back itself; this function does not assume one.
+    """
     return _BLANK_RUN.sub("\n\n", _TRAILING_WS.sub("", text)).strip()

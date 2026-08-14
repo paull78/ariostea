@@ -1,5 +1,5 @@
 from ariostea.eval.wikitext import (
-    convert_formatting,
+    convert_emphasis,
     convert_headings,
     convert_lists,
     drop_sections,
@@ -212,9 +212,9 @@ def test_convert_lists_handles_bullets_numbers_and_definitions():
     assert convert_lists(raw) == "- one\n  - two\n1. first\n  1. second\nindented"
 
 
-def test_convert_formatting_maps_quotes_to_asterisks():
+def test_convert_emphasis_maps_quotes_to_asterisks():
     raw = "The '''violin''' is a ''chordophone''."
-    assert convert_formatting(raw) == "The **violin** is a *chordophone*."
+    assert convert_emphasis(raw) == "The **violin** is a *chordophone*."
 
 
 def test_drop_sections_removes_the_section_and_its_subsections():
@@ -246,33 +246,83 @@ def test_convert_headings_caps_at_level_six_for_a_deeper_marker_run():
     assert convert_headings("======= Deep =======") == "###### = Deep ="
 
 
-def test_convert_formatting_leaves_single_apostrophes_in_prose_untouched():
+def test_convert_emphasis_leaves_single_apostrophes_in_prose_untouched():
     # Italian and Spanish prose is full of single apostrophes (elisions,
     # contractions); only a *pair* of quote characters means emphasis.
     raw = "L'archetto è fatto di legno, non d'acciaio. El violín no es la viola."
-    assert convert_formatting(raw) == raw
+    assert convert_emphasis(raw) == raw
 
 
-def test_convert_formatting_preserves_an_apostrophe_inside_bold_text():
-    assert convert_formatting("'''dell'arte''' è bello") == "**dell'arte** è bello"
+def test_convert_emphasis_preserves_an_apostrophe_inside_bold_text():
+    assert convert_emphasis("'''dell'arte''' è bello") == "**dell'arte** è bello"
 
 
-def test_convert_formatting_handles_combined_bold_and_italic():
+def test_convert_emphasis_handles_combined_bold_and_italic():
     # `'''''both'''''` (5 quotes) is real Wikipedia convention for bold+italic
     # together. The bold pass strips the outer 3 quotes from each end first,
     # leaving `''both''` for the italic pass — Markdown's own `***both***`
     # falls out without special-casing the 5-quote form.
-    assert convert_formatting("'''''both'''''") == "***both***"
+    assert convert_emphasis("'''''both'''''") == "***both***"
 
 
-def test_convert_lists_reads_a_redirect_directive_as_a_numbered_item():
-    # Known, accepted limitation: `#REDIRECT [[Target]]` is only valid
-    # wikitext as an article's first line, and this function has no notion
-    # of "first line of the article" — it reads it as an ordinary numbered
-    # item. Not a real risk for this corpus: wiki_fetch.fetch_article
-    # requests `redirects=1`, so a redirect page's wikitext is never handed
-    # to this pipeline in the first place.
-    assert convert_lists("#REDIRECT [[Target]]") == "1. REDIRECT [[Target]]"
+def test_convert_emphasis_leaves_an_unmatched_bold_marker_in_place():
+    # Same invariant as the strip functions above: an unmatched opener is
+    # left untouched rather than guessed at.
+    assert convert_emphasis("a '''unclosed bold here") == "a '''unclosed bold here"
+
+
+# --- list-prefix ordering: item 1 --------------------------------------------
+#
+# `:#` and `:*` are real wikitext (an indented numbered/bulleted item, common
+# in bibliography and notes sections). `_DEF_LINE` must run *first* inside
+# `convert_lists`: if it ran last, stripping the leading `:` would re-expose
+# a bare `#`/`*` line for `_NUMBERED`/`_BULLET` to have already skipped over,
+# leaking a Markdown heading/bullet marker downstream instead of converting
+# it. See `convert_lists`'s docstring.
+
+
+def test_convert_lists_does_not_leak_a_bare_hash_from_an_indented_numbered_item():
+    assert convert_lists(":# Smith 2001") == "1. Smith 2001"
+
+
+def test_convert_lists_output_does_not_get_misread_as_a_heading_by_drop_sections():
+    # The defect at the point it actually destroys prose: `:# See also`
+    # inside a *kept* section, if list-converted wrong, becomes a bare
+    # `# See also` — a real Markdown H1 whose title `drop_sections` would
+    # skip to end-of-article on, silently deleting everything after it.
+    md = "== Construction ==\nbody\n:# See also\nmore body\n== Playing ==\nmusic"
+    converted = convert_headings(convert_lists(md))
+    assert converted == "## Construction\nbody\n1. See also\nmore body\n## Playing\nmusic"
+    assert drop_sections(converted) == converted
+
+
+def test_convert_lists_output_does_not_undrop_a_boilerplate_section():
+    # `:# Smith 2001` is a real bibliography line inside a References
+    # section. If `_DEF_LINE` ran last, the surviving `# Smith 2001` would
+    # be a level-1 heading *inside* the dropped level-2 References section —
+    # shallower than it, which would end the skip early and un-drop the rest
+    # of the section.
+    md = "== References ==\n:# Smith 2001\nmore citations"
+    converted = convert_headings(convert_lists(md))
+    assert drop_sections(converted) == ""
+
+
+# --- lists-before-emphasis ordering: item 2 ----------------------------------
+
+
+def test_lists_before_emphasis_keeps_the_lede_intact():
+    # Every article's lede reads `'''Title''' is a ...`. This is the order
+    # Task 3's composition actually uses.
+    raw = "'''Violin''' is a string instrument."
+    assert convert_emphasis(convert_lists(raw)) == "**Violin** is a string instrument."
+
+
+def test_emphasis_before_lists_corrupts_the_lede_into_a_bullet():
+    # Demonstrates *why* the order matters: run emphasis first and `'''`
+    # becomes `**`, which `_BULLET`'s `^(\*+)` then reads as a two-deep
+    # bullet prefix, eating the emphasis and the article's opening sentence.
+    raw = "'''Violin''' is a string instrument."
+    assert convert_lists(convert_emphasis(raw)) == "  - Violin** is a string instrument."
 
 
 def test_drop_sections_drops_to_end_of_article_when_the_section_is_last():
@@ -293,3 +343,48 @@ def test_drop_sections_matches_an_accented_title_regardless_of_case():
 def test_drop_sections_drops_a_boilerplate_subsection_nested_in_a_kept_section():
     md = "## Construction\nbody\n### See also\nx\n## Playing\nmusic"
     assert drop_sections(md) == "## Construction\nbody\n## Playing\nmusic"
+
+
+def test_drop_sections_matches_a_title_wrapped_in_emphasis_markers():
+    # Task 3 converts emphasis after headings, so a wikitext heading written
+    # as `== '''References''' ==` arrives here as `## **References**`. The
+    # wrapping `**`/`_` must not hide the title from the boilerplate lookup.
+    assert drop_sections("## Storia\nc\n## **References**\nx") == "## Storia\nc"
+
+
+def test_drop_sections_ends_the_skip_at_a_shallower_heading_not_just_equal_depth():
+    # The `level <= skip_level` branch is only ever exercised at *equal*
+    # depth by the tests above; a strictly shallower heading must end the
+    # skip too, even though its own title isn't boilerplate.
+    md = "## References\nstuff\n# Playing\nmusic"
+    assert drop_sections(md) == "# Playing\nmusic"
+
+
+def test_drop_sections_accepts_a_custom_titles_set():
+    # `titles` compares against a stripped, lower-cased heading — a caller
+    # supplying its own set has to lower-case its own titles to match.
+    assert drop_sections("## Keep\nx\n## Drop\ny", titles=frozenset({"drop"})) == "## Keep\nx"
+
+
+def test_structure_conversion_leaves_a_later_paragraph_intact():
+    # Every hazard test above is one or two lines of input. This fixture
+    # checks that converting one paragraph's structure (list, heading,
+    # emphasis) doesn't bleed into the next one — the recurring failure mode
+    # Task 1 guards against with test_strip_html_tags_catch_all_does_not_cross_a_newline.
+    raw = (
+        "== Construction ==\n"
+        "* four strings\n"
+        "* tuned in fifths\n"
+        "\n"
+        "The '''violin''' body is carved from spruce and maple.\n"
+    )
+    text = raw
+    for step in (convert_lists, convert_headings, convert_emphasis):
+        text = step(text)
+    assert text == (
+        "## Construction\n"
+        "- four strings\n"
+        "- tuned in fifths\n"
+        "\n"
+        "The **violin** body is carved from spruce and maple.\n"
+    )
