@@ -71,6 +71,12 @@ Pipeline order, and why
   every *convert* stage that could touch a shared span before the emphasis
   pass, which is the last content-shaping stage, keeps that ordering
   invariant simple to state and check.
+- wikilinks after media: `convert_links` has no notion of a File-link's
+  multi-parameter syntax (`[[File:...|thumb|300px|caption]]`), so an
+  unrewritten one gets read as an ordinary link whose "label" is
+  `thumb|300px|caption` — and since `File:...` never resolves against
+  `targets`, that raw fragment leaks into the prose. See
+  `convert_links`'s docstring and the reorder-pin test pair named there.
 
 Invariant: this pipeline never removes text it did not positively identify as
 markup. Every stage either matches a construct it can name (a ref, a
@@ -168,13 +174,22 @@ _LEADING_COLON = re.compile(r"^:\s*")
 # module follows that.
 _CATEGORY = re.compile(r"^(?:category|categoria|categoría)\s*:", re.IGNORECASE)
 
-# `[url label]` / `[url]`. The label half excludes `\n` for the identical
-# reason `_LINK`'s label does: `[^\]]*` with no line bound would let an
-# unterminated `[http://...` scan past a blank line hunting for some
-# unrelated later `]` (e.g. a stray "]" that's just ordinary prose
-# punctuation in the *next* paragraph) and read everything in between as the
-# link's label.
-_EXT_LINK = re.compile(r"\[(?:https?:)?//\S+?(?:[ \t]+([^\]\n]*))?\]")
+# `[url label]` / `[url]`. The scheme is matched shape-wise
+# (`[a-z][a-z0-9+.-]*:`), not from a hand-maintained `http(s)` allowlist —
+# the same catch-all-beats-an-allowlist principle `_INLINE_TAG` above
+# states explicitly. MediaWiki's real external-link protocols include
+# `ftp://`, `mailto:`, `news:`, `irc://`, `magnet:` and more, several of
+# which (`mailto:`, `news:`, `magnet:`) have no `//` at all, hence the
+# scheme's own `//` being optional; `|//` is the separate protocol-relative
+# case (no scheme, just `//host/path`), which the original pattern already
+# supported. The label half excludes `\n` for the identical reason `_LINK`'s
+# label does: `[^\]]*` with no line bound would let an unterminated
+# `[http://...` scan past a blank line hunting for some unrelated later `]`
+# (e.g. a stray "]" that's just ordinary prose punctuation in the *next*
+# paragraph) and read everything in between as the link's label.
+_EXT_LINK = re.compile(
+    r"\[(?:[a-z][a-z0-9+.-]*:(?://)?|//)\S+?(?:[ \t]+([^\]\n]*))?\]", re.IGNORECASE
+)
 
 
 def strip_comments(text: str) -> str:
@@ -254,7 +269,15 @@ def strip_media_links(text: str) -> str:
     their own `[[links]]`, so the closing `]]` has to be found by depth, not
     by regex. An embed with no closing `]]` (truncated article) is emitted
     verbatim from its opening `[[` to end-of-input rather than discarded —
-    same rationale as `_strip_balanced`."""
+    same rationale as `_strip_balanced`.
+
+    Known limitation, accepted: the depth scan counts `[[`/`]]` pairs, not
+    the individual `[`/`]` characters — a caption with an odd bracket count
+    of its own (`[[File:X.jpg|thumb|Violin [sic]]]`, one stray `]`) can close
+    the embed one bracket early or late, leaking or eating a character or two
+    at the boundary. Real but low-frequency; bracket-balancing the scanner to
+    handle it would cost more than the pollution it prevents.
+    """
     out: list[str] = []
     i = 0
     n = len(text)
@@ -443,33 +466,43 @@ def convert_links(text: str, targets: dict[str, str]) -> str:
     section link — degrades to its rendered label as plain text, the same way
     a Markdown reader with no graph would see it.
 
-    Must run after `convert_headings` (so a link inside a heading line is
-    still rewritten) and before `convert_emphasis` — see the module
+    Must run after `strip_media_links` — an unrewritten `[[File:...|thumb|
+    300px|caption]]` has no pipe count `_LINK` knows to respect, so it reads
+    the whole thing as one link whose "label" is `thumb|300px|caption`; since
+    `File:...` never resolves against `targets`, that raw fragment leaks
+    straight into the prose. See `test_wikilinks_before_media_links_leaks_the_caption_into_prose`
+    / `test_media_links_before_wikilinks_keeps_the_caption_out_of_prose`.
+    Must also run after `convert_headings` (so a link inside a heading line
+    is still rewritten) and before `convert_emphasis` — see the module
     docstring's pipeline-order note.
 
-    Known limitation, accepted: a bare interlanguage link (`[[fr:Violon]]`,
-    no leading colon) is, like a category link, invisible in the rendered
-    article — MediaWiki treats it as a hint for the "In other languages"
-    sidebar, not as inline content. This function doesn't special-case it the
-    way it does `_CATEGORY`, so one would flatten to its raw target
-    (`fr:Violon`) instead of vanishing. Accepted because Wikipedia has fetched
-    interlanguage links from Wikidata rather than storing them in article
-    wikitext since ~2013; a live fetch essentially never produces this
-    construct today, so building and maintaining a language-code table to
-    special-case a form the source no longer emits would be speculative
-    complexity for a hazard this corpus is not expected to hit.
+    Known limitation, accepted: a bare interlanguage link (`[[fr:Violon]]`)
+    is invisible in real MediaWiki output; this function flattens it to
+    `fr:Violon` instead. Modern wikitext essentially never contains one
+    (Wikidata replaced this mechanism around 2013), so it's left unhandled.
     """
 
     def replace(match: re.Match[str]) -> str:
-        target, label, trail = match.group(1), match.group(2), match.group(3)
+        # MediaWiki trims a wikilink target's surrounding whitespace before
+        # parsing its namespace, so `[[ Category:X ]]` is valid, real
+        # wikitext. `_CATEGORY`/`_LEADING_COLON` are both `^`-anchored;
+        # stripping here first is what lets that anchor actually land on the
+        # namespace instead of on leading whitespace the regex capture
+        # doesn't trim on its own.
+        target = match.group(1).strip()
+        label, trail = match.group(2), match.group(3)
 
-        forced_visible = bool(_LEADING_COLON.match(target))
-        if forced_visible:
-            target = _LEADING_COLON.sub("", target, count=1)
+        if _LEADING_COLON.match(target):
+            target = _LEADING_COLON.sub("", target)
         elif _CATEGORY.match(target):
             # Invisible in rendered article text — see `_CATEGORY` above.
             return ""
 
+        # MediaWiki renders `_` as a space in a link's visible text (it's
+        # just the URL-safe stand-in for a space in a page title) — apply
+        # this before splitting off the section and before it's used for
+        # display, not only at the lookup site below.
+        target = target.replace("_", " ")
         page = target.split("#", 1)[0].strip()
         # A same-page section link ([[#Construction]]) has an *empty* page —
         # the whole target is the "#Section" part. Falling back to that empty
@@ -478,10 +511,25 @@ def convert_links(text: str, targets: dict[str, str]) -> str:
         # untouched target instead, and never look such a page up in
         # `targets` (it can't resolve to a title match).
         fallback = page if page else target.strip()
-        display = (label or fallback).strip() + trail
-        slug = targets.get(normalize_ws(page.replace("_", " "))) if page else None
+        # `label` can be a *whitespace-only* string, not just empty or None:
+        # a template inside a link's label (`{{lang|it|...}}`, `{{sic}}` —
+        # common idioms) is reduced to bare whitespace by `strip_templates`,
+        # six stages before this one runs. A bare `label or fallback` treats
+        # "  " as truthy and never falls back, so `.strip()` then empties the
+        # display outright — silently deleting reader-visible text. Stripping
+        # `label` *before* the `or` is what makes the fallback actually fire.
+        stripped_label = label.strip() if label else ""
+        display = (stripped_label or fallback) + trail
+        slug = targets.get(normalize_ws(page)) if page else None
         if slug is None:
             return display
+        if not display:
+            # Defense in depth: `fallback` is always non-empty whenever
+            # `slug` resolves (that only happens when `page` is truthy, and
+            # `fallback` is `page` in that case), so this shouldn't be
+            # reachable — but a resolved link must never render invisibly,
+            # so fall back to the slug itself rather than trust that.
+            display = slug
         return f"[[{slug}]]" if display == slug else f"[[{slug}|{display}]]"
 
     return _LINK.sub(replace, text)
@@ -495,30 +543,14 @@ def strip_external_links(text: str) -> str:
     Grouped with the strip stages (see the module docstring): it removes
     markup it can positively identify, the same as `strip_refs` or
     `strip_media_links`.
+
+    Known limitation, accepted: `[[https://x.org]]` isn't a real wikilink
+    (MediaWiki wikilinks don't take URLs), but this pattern can match
+    starting at the *second* `[` and consuming through the *first* `]`,
+    leaving the outer `[`/`]` behind as stray literal characters (`[]`).
+    Real but rare, and not worth the complexity of a fix.
     """
     return _EXT_LINK.sub(lambda m: m.group(1) or "", text)
-
-
-def wikitext_to_markdown(raw: str, title: str, targets: dict[str, str]) -> str:
-    """Full pipeline: raw wikitext in, note body (H1 + Markdown) out.
-
-    Stage order is pinned by the module docstring's "Pipeline order, and why"
-    section; see it before reordering anything here.
-    """
-    text = strip_comments(raw)
-    text = strip_refs(text)
-    text = strip_html_containers(text)
-    text = strip_templates(text)
-    text = strip_tables(text)
-    text = strip_media_links(text)
-    text = strip_html_tags(text)
-    text = strip_external_links(text)
-    text = convert_lists(text)
-    text = convert_headings(text)
-    text = convert_links(text, targets)
-    text = convert_emphasis(text)
-    text = drop_sections(text)
-    return f"# {title}\n\n{normalize_blank_lines(text)}".rstrip() + "\n"
 
 
 def drop_sections(markdown: str, titles: frozenset[str] = DROP_SECTIONS) -> str:
@@ -558,3 +590,26 @@ def normalize_blank_lines(text: str) -> str:
     back itself; this function does not assume one.
     """
     return _BLANK_RUN.sub("\n\n", _TRAILING_WS.sub("", text)).strip()
+
+
+def wikitext_to_markdown(raw: str, title: str, targets: dict[str, str]) -> str:
+    """Full pipeline: raw wikitext in, note body (H1 + Markdown) out.
+
+    Stage order is pinned by the module docstring's "Pipeline order, and why"
+    section; see it before reordering anything here. Defined last, after
+    every stage it composes, so the file itself reads in pipeline order.
+    """
+    text = strip_comments(raw)
+    text = strip_refs(text)
+    text = strip_html_containers(text)
+    text = strip_templates(text)
+    text = strip_tables(text)
+    text = strip_media_links(text)
+    text = strip_html_tags(text)
+    text = strip_external_links(text)
+    text = convert_lists(text)
+    text = convert_headings(text)
+    text = convert_links(text, targets)
+    text = convert_emphasis(text)
+    text = drop_sections(text)
+    return f"# {title}\n\n{normalize_blank_lines(text)}".rstrip() + "\n"

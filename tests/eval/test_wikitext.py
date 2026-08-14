@@ -438,6 +438,52 @@ def test_wikitext_to_markdown_end_to_end():
     )
 
 
+def test_wikitext_to_markdown_produces_just_the_heading_when_the_body_strips_to_nothing():
+    # An article that's all chrome (template + citation, no prose) must still
+    # produce a valid note, not a trailing blank line or a crash — exercises
+    # the final `.rstrip()` path with an empty stripped body.
+    raw = "{{Infobox instrument|name=X}}\n<ref>Smith</ref>\n"
+    assert wikitext_to_markdown(raw, title="Ghost", targets=TARGETS) == "# Ghost\n"
+
+
+def test_wikitext_to_markdown_drops_a_trailing_category_link_inside_a_kept_section():
+    # Item 1's fix, exercised through the full pipeline rather than
+    # `convert_links` in isolation: a category link at the end of a section
+    # that's otherwise kept must vanish without taking any of the real prose
+    # around it with it.
+    raw = (
+        "The '''violin''' is a string instrument.\n"
+        "\n"
+        "== Construction ==\n"
+        "It has four strings.[[ Category:String instruments ]]\n"
+    )
+    result = wikitext_to_markdown(raw, title="Violin", targets=TARGETS)
+    assert "Category" not in result
+    assert "It has four strings." in result
+
+
+def test_wikitext_to_markdown_rewrites_a_wikilink_inside_a_heading():
+    # The stated reason `convert_links` runs after `convert_headings`: only
+    # unit-level coverage existed for this before (feeding pre-converted
+    # `## `-heading text straight to `convert_links`), never proof that the
+    # full pipeline's heading conversion happens first and the link inside
+    # survives to be rewritten.
+    raw = "The instrument.\n\n== The [[Violin]] Family ==\nMore text.\n"
+    result = wikitext_to_markdown(raw, title="Strings", targets=TARGETS)
+    assert "## The [[violin|Violin]] Family" in result
+
+
+def test_wikitext_to_markdown_does_not_leak_a_resolved_link_from_a_dropped_section():
+    # A "See also" section is dropped whole by `drop_sections`, which runs
+    # *after* `convert_links`. A resolved, in-corpus wikilink sitting inside
+    # it must still be dropped along with the rest of the section, not
+    # survive because it was already rewritten to a "real" wikilink by then.
+    raw = "Body text.\n\n== See also ==\n* [[Double bass]]\n"
+    result = wikitext_to_markdown(raw, title="Violin", targets=TARGETS)
+    assert "double-bass" not in result
+    assert "Double bass" not in result
+
+
 # --- real-input hazards probed for Task 3 ------------------------------------
 
 
@@ -464,8 +510,14 @@ def test_convert_links_same_page_section_link_with_no_label_keeps_the_hash_as_te
 
 
 def test_convert_links_pipe_trick_empty_label_falls_back_to_the_page():
-    # `[[Violin|]]` is MediaWiki's "pipe trick": an empty label still renders
-    # the base page name, same as no label at all.
+    # `[[Violin|]]` is MediaWiki's "pipe trick" syntax. Real MediaWiki doesn't
+    # just repeat the page name for it — it also strips parenthetical
+    # disambiguators, namespaces, and comma suffixes (`[[Violin
+    # (instrument)|]]` renders "Violin", not "Violin (instrument)"). This
+    # function only does the simple case (repeat the page name); that's fine
+    # because MediaWiki's pre-save transform expands the pipe trick into a
+    # literal label the moment an editor saves the page, so fetched article
+    # wikitext essentially never contains an empty pipe like this one.
     assert convert_links("a [[Violin|]] b", TARGETS) == "a [[violin|Violin]] b"
 
 
@@ -521,6 +573,88 @@ def test_convert_links_media_link_is_an_ordinary_inline_link():
     assert convert_links("[[Media:song.ogg|listen]] here", TARGETS) == "listen here"
 
 
+# --- quality-review round 2: whitespace, template-collapsed labels, schemes,
+# reorder pin, underscores ----------------------------------------------------
+
+
+def test_convert_links_category_check_tolerates_surrounding_whitespace_in_the_target():
+    # MediaWiki trims wikilink target whitespace before parsing the
+    # namespace, so `[[ Category:X ]]` is valid, real wikitext (and does
+    # occur) — `_CATEGORY` is `^`-anchored against the *raw* regex capture,
+    # which still has its surrounding whitespace, so the leading space
+    # defeats the anchor and the category link leaks straight into prose
+    # instead of vanishing. Fixed by stripping the target before the check.
+    assert convert_links("Strings.[[ Category:String instruments ]]", TARGETS) == "Strings."
+    # A space on *either* side of the colon is also valid, real wikitext.
+    assert convert_links("Strings.[[ Category : String instruments ]]", TARGETS) == "Strings."
+
+
+def test_convert_links_leading_colon_check_tolerates_surrounding_whitespace_too():
+    # Same anchor-vs-untrimmed-capture bug, for the leading-colon override:
+    # without stripping first, `[[ :Category:X ]]` leaks a literal leading
+    # colon into the display (`:Category:X`) instead of being recognized as
+    # the colon-forced-visible case and stripped to `Category:X`.
+    assert convert_links("See [[ :Category:Strings ]] for a list.", TARGETS) == (
+        "See Category:Strings for a list."
+    )
+
+
+def test_convert_links_whitespace_only_label_falls_back_instead_of_vanishing():
+    # A template inside a link's label — a common idiom (`{{lang|it|...}}`,
+    # `{{nowrap|...}}`, `{{sic}}`) — is reduced to bare whitespace by
+    # `strip_templates`, six stages before `convert_links` ever runs. A label
+    # of "  " is truthy, so `label or fallback` never falls back, and then
+    # `.strip()` empties it — silently deleting reader-visible text for both
+    # the in-corpus and out-of-corpus cases. `strip_templates` isn't run here
+    # directly; the whitespace-only label is constructed by hand to isolate
+    # the defect in `convert_links` itself, since that's the stage actually
+    # responsible for the fix.
+    assert convert_links("A [[Violin| ]] here.", TARGETS) == "A [[violin|Violin]] here."
+    assert convert_links("A [[Spruce| ]] top.", TARGETS) == "A Spruce top."
+
+
+def test_convert_links_never_returns_an_empty_display_for_a_resolved_link():
+    # Direct invariant check (not just the specific whitespace-label repro
+    # above): whenever a link resolves against `targets` — the visible,
+    # in-corpus case — the rendered text must never come out empty, no
+    # matter what arrived in the label after five earlier stripping stages.
+    for raw in ("[[Violin|]]", "[[Violin| ]]", "[[Violin|   ]]", "[[Violin]]"):
+        result = convert_links(raw, TARGETS)
+        assert result.strip() != ""
+
+
+def test_convert_links_underscored_target_displays_with_spaces():
+    # MediaWiki renders `_` as a space in an unpiped link's visible text —
+    # `_` is just the URL-safe stand-in for a space in a page title.
+    # Underscored targets show up whenever wikitext is pasted from a URL
+    # (`https://en.wikipedia.org/wiki/Violin_(music)` -> `[[Violin_(music)]]`).
+    # The lookup already normalized underscores away; the display text didn't.
+    assert convert_links("a [[Violin_(music)]] b", TARGETS) == "a Violin (music) b"
+
+
+def test_media_links_before_wikilinks_keeps_the_caption_out_of_prose():
+    # This is the order `wikitext_to_markdown` actually uses.
+    raw = "[[File:Violin.jpg|thumb|300px|A violin resting on a stand.]] Real prose follows."
+    text = strip_media_links(raw)
+    text = convert_links(text, TARGETS)
+    assert text == " Real prose follows."
+
+
+def test_wikilinks_before_media_links_leaks_the_caption_into_prose():
+    # Demonstrates why the order matters: `convert_links`'s `_LINK` pattern
+    # has no notion of File-link multi-parameter syntax (`|thumb|300px|...`).
+    # Its label group has no reason to stop at a second or third pipe, so it
+    # greedily swallows the whole "thumb|300px|caption" run as if it were an
+    # ordinary link's label. "File:Violin.jpg" resolves to nothing in
+    # `targets`, so that raw "thumb|300px" fragment gets flattened straight
+    # into the prose instead of being removed by `strip_media_links` — which
+    # never gets the chance, because the nested brackets it needs to depth-
+    # scan are already gone.
+    raw = "[[File:Violin.jpg|thumb|300px|A violin resting on a stand.]] Real prose follows."
+    text = convert_links(raw, TARGETS)
+    assert "thumb|300px" in text
+
+
 def test_strip_external_links_unterminated_link_does_not_cross_a_paragraph_break():
     # Same newline-crossing hazard as above, for the *other* link stripper:
     # `[^\]]*` has no line bound, so an unterminated `[http://...` could scan
@@ -529,6 +663,43 @@ def test_strip_external_links_unterminated_link_does_not_cross_a_paragraph_break
     # eat everything in between as the "label". Left unmatched instead.
     raw = "See [https://x.org broken and\n\nA new paragraph with a stray ] bracket kept intact."
     assert strip_external_links(raw) == raw
+
+
+def test_strip_external_links_supports_protocol_relative_urls():
+    # `//x.org` with no scheme at all is real wikitext (MediaWiki accepts a
+    # protocol-relative URL as external-link syntax); already supported by
+    # the original pattern, but never exercised by a test.
+    assert strip_external_links("[//x.org the mirror]") == "the mirror"
+
+
+def test_strip_external_links_supports_non_http_schemes():
+    # The original pattern only recognized `http(s)://`, contradicting this
+    # module's own stated design principle (see `_INLINE_TAG`'s comment: a
+    # catch-all beats a hand-maintained allowlist). `ftp://`, `mailto:` and
+    # friends are real MediaWiki external-link protocols; without the fix,
+    # a non-http link survives untouched, leaking raw `[ftp://... label]`
+    # bracket syntax into the corpus.
+    assert strip_external_links("[ftp://ftp.example.org the archive]") == "the archive"
+    assert strip_external_links("[mailto:info@example.org contact us]") == "contact us"
+
+
+def test_strip_external_links_leaves_bracketed_editorial_notes_alone():
+    # The highest-frequency non-match in real prose: an editorial `[sic]` in
+    # a quotation, or a leftover citation-style `[1]`. Neither starts with a
+    # scheme, so the widened pattern must still leave both alone.
+    assert strip_external_links("The violin [sic] was old.") == "The violin [sic] was old."
+    assert strip_external_links("A famous claim.[1]") == "A famous claim.[1]"
+
+
+def test_strip_external_links_double_bracketed_url_leaves_stray_brackets():
+    # Accepted, not fixed (per review): `[[https://x.org]]` isn't a real
+    # wikilink (MediaWiki wikilinks don't take URLs), but the way the two
+    # patterns tile means `_EXT_LINK` can match starting at the *second* `[`
+    # (its own `[url]` shape fits from there), consuming through the *first*
+    # `]`, and leaving the outer `[` and the second `]` behind as orphaned
+    # literal characters. Real but rare; the fix would cost more than the
+    # symptom, so this is documented, not corrected.
+    assert strip_external_links("[[https://x.org]]") == "[]"
 
 
 def test_structure_conversion_leaves_a_later_paragraph_intact():
