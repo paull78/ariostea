@@ -9,14 +9,17 @@ rewriting is a lookup, not a URL-resolution problem.
 Most templates are *removed* whole, not expanded: citation and navigation
 chrome ({{cite web}}, {{isbn}}, {{see also}}, {{main}}) carries no prose a
 reader would want back. `_DISPLAY_TEMPLATES` is the deliberate, narrow
-exception — a handful of *inline display* templates (`{{convert}}`,
-`{{frac}}`, `{{lang}}`/`{{wikt-lang}}`, `{{circa}}`, `{{music}}`,
-`{{nowrap}}`) whose rendered output *is* article prose: a measurement, a
-fraction, a foreign term, a musical symbol. `expand_templates` turns those
-into their plain-text output before `strip_templates` removes everything
-else, so a fact like "the body is 14 in (36 cm) long" survives as text
-instead of silently vanishing along with the citation chrome around it.
-`eval/wiki/NOTICE` records the modification.
+exception — inline display templates (`{{convert}}`/`{{cvt}}`, `{{frac}}`,
+`{{lang}}`/`{{wikt-lang}}`/`{{langx}}`, `{{circa}}`/`{{floruit}}`,
+`{{siglo}}`, `{{music}}`, `{{nowrap}}`/`{{nobr}}`, `{{blockquote}}`, `{{'}}`,
+and the `{{formatnum:N}}` parser function) whose rendered output *is*
+article prose: a measurement, a fraction, a foreign term, a date
+abbreviation, a Spanish century, a musical symbol, a quotation, an escaped
+apostrophe. `expand_templates` turns those into their plain-text output
+before `strip_templates` removes everything else, so a fact like "the body
+is 14 in (36 cm) long" survives as text instead of silently vanishing along
+with the citation chrome around it. `eval/wiki/NOTICE` records the
+modification.
 
 Pipeline order, and why
 ------------------------
@@ -25,7 +28,8 @@ Pipeline order, and why
     comments -> refs -> html containers -> display-template expansion
     -> templates -> tables -> media -> inline html tags -> external links
     -> empty-emphasis cleanup -> lists -> headings -> wikilinks -> emphasis
-    -> drop_sections -> normalize_blank_lines
+    -> apostrophe-placeholder restoration -> drop_sections
+    -> normalize_blank_lines
 
 - comments first: a half-edited article can have a stray `{{` or `[[` sitting
   inside an HTML comment. If the comment survives past this step, that brace
@@ -88,6 +92,18 @@ Pipeline order, and why
   that was a span's whole content would leave the same shape) and before
   `convert_emphasis`, which is the stage the artifact corrupts — see
   `strip_empty_emphasis`'s docstring for the failure mode this prevents.
+- apostrophe-placeholder restoration right after emphasis, before
+  drop_sections: `{{'}}` (a real escape for a literal apostrophe) expands to
+  a placeholder, not a literal `'`, specifically so it can't form an
+  artificial three-quote run next to a real `''...''` span and send
+  `convert_emphasis`'s BOLD regex scanning ahead for an unrelated `'''` much
+  later in the article — the same failure class empty-emphasis cleanup
+  exists for, just triggered by a present character instead of an absent
+  one. Restoring it has no ordering dependency on `drop_sections` or
+  `normalize_blank_lines`; it only has to happen after `convert_emphasis`,
+  the one stage it exists to stay invisible to. See `_expand_apostrophe`'s
+  docstring for the full failure mode, confirmed by running it before this
+  stage existed.
 - wikilinks after headings, before emphasis: a wikilink can appear inside a
   heading line (`== The [[Violin]] Family ==`), and `convert_links` doesn't
   care whether the surrounding line is a heading or prose, so running it
@@ -314,6 +330,26 @@ def _strip_balanced(text: str, open_tok: str, close_tok: str) -> str:
 # failure this whole allowlist exists to prevent, just at paragraph scale
 # instead of a measurement's. Both fixed below, from the report, before a
 # single one of the other 61 articles was ever fetched.
+#
+# A second read of that same report -- filtered this time to only the
+# highest-confidence, highest-frequency names, deliberately leaving out
+# anything that would require guessing how MediaWiki renders it -- added
+# six more: `cvt`/`langx` (documented aliases of `convert`/`lang`), `siglo`
+# (Spanish "century", confirmed against the *live* template via
+# MediaWiki's own expandtemplates API rather than guessed, since its real
+# invocations split three ways -- see `_expand_siglo`), `floruit` (same
+# shape as the already-handled `circa`), `{{formatnum:N}}` (a different
+# syntax family entirely -- MediaWiki's colon-separated parser-function
+# form, not the pipe-separated `name|args` shape every other entry here
+# assumes), and `{{'}}` (a literal-apostrophe escape that turned out to
+# need its own placeholder-and-restore mechanism, not a direct
+# substitution -- see `_expand_apostrophe` for a defect this one caught
+# before it ever reached a committed file). Left alone, deliberately: `val`,
+# `mvar`, `respell`, `ipac-en`, `gloss`, `transliteration`, the bare `w`/`m`
+# link shortcuts, and every ambiguous name (`en`/`de`/`fr`, `lingue`,
+# `simbolo`, `vt`, `f`, `-`) -- none carries retrieval value worth the risk
+# of rendering it wrong from an 18-article sample, and they stay visible in
+# the report for Task 9's full-corpus run to make the case for or against.
 
 
 def _split_template_args(arg_str: str) -> list[str]:
@@ -432,6 +468,11 @@ def _expand_convert(
     keeps both values: `VALUE1 JOINER VALUE2 UNIT`. See `_convert_joiner`
     and `_CONVERT_MIXED_NUMBER` above for the two extensions the real data
     required beyond the plain single-value form.
+
+    `{{cvt|...}}` is a documented alias with the identical argument shape
+    (real in the sample, including its own `and(-)` range form:
+    `{{cvt|1.5|and(-)|2|mm|2}}`, Lute) -- shares this handler in
+    `_DISPLAY_TEMPLATES` rather than a near-duplicate copy.
     """
     if not positional:
         return ""
@@ -478,24 +519,82 @@ _NUMERIC_FRACTION_NAME = re.compile(r"\d+/\d+")
 def _expand_lang(
     positional: list[str], _named: dict[str, str], _dropped: Counter[str] | None
 ) -> str:
-    """`{{lang|it|violino}}` / `{{wikt-lang|fr|luthier}}` -> the last
-    positional arg (the actual foreign-language text; the earlier args are
-    just language-tag metadata). That text can itself be a wikilink
-    (`{{lang|it|[[Viola da gamba]]}}`, real in the sample) — left intact
-    here, since `expand_templates` runs long before `convert_links` and the
-    wikilink is still real, unconverted wikitext at this point in the
-    pipeline.
+    """`{{lang|it|violino}}` / `{{wikt-lang|fr|luthier}}` / `{{langx|it|
+    mandolino}}` -> the last positional arg (the actual foreign-language
+    text; the earlier args are just language-tag metadata, and a `link=no`
+    named arg -- real in the sample -- is simply ignored since it isn't
+    positional). That text can itself be a wikilink (`{{lang|it|[[Viola da
+    gamba]]}}`, real in the sample) — left intact here, since
+    `expand_templates` runs long before `convert_links` and the wikilink is
+    still real, unconverted wikitext at this point in the pipeline.
+    `langx` is `lang`'s modern successor template, same argument shape,
+    real in the sample (`{{langx|it|mandolino}}`) -- shares this handler
+    rather than getting a near-duplicate one of its own, same reasoning as
+    `nobr` sharing `_expand_nowrap`.
     """
     return positional[-1] if positional else ""
 
 
-def _expand_circa(
-    positional: list[str], _named: dict[str, str], _dropped: Counter[str] | None
+def _prefixed_date_expander(prefix: str) -> _Handler:
+    """Build a handler for a template whose entire job is prepending a
+    fixed abbreviation to an optional year: `{{circa}}` -> `c.`,
+    `{{circa|1700}}` -> `c. 1700`.
+
+    `{{floruit}}` (real, Lute rev 1361649316, always invoked bare -- "fl."
+    the same way `{{circa}}` -> "c." -- MediaWiki's abbreviation for a
+    person's known active period, printed the identical way as circa's
+    "uncertain date" abbreviation) shares this factory rather than getting
+    a hand-duplicated copy of the same four lines.
+    """
+
+    def _expand(
+        positional: list[str], _named: dict[str, str], _dropped: Counter[str] | None
+    ) -> str:
+        if not positional:
+            return prefix
+        return f"{prefix} {positional[0]}"
+
+    return _expand
+
+
+_expand_circa = _prefixed_date_expander("c.")
+_expand_floruit = _prefixed_date_expander("fl.")
+
+
+# `{{siglo|ROMAN}}` / `{{siglo|ROMAN||s}}` / `{{Siglo|ROMAN||S}}` (Spanish
+# "century"). The third positional arg (or its `3=` named equivalent)
+# controls whether the numeral gets a "siglo"/"Siglo" prefix at all --
+# confirmed against the *live* template via MediaWiki's own
+# `action=expandtemplates` API, not guessed from parameter names, because
+# the real invocations across all three es articles split three ways and
+# guessing wrong here means silently mislabeling a date:
+#   {{siglo|XVII}}          -> "XVII"        (bare: no word at all)
+#   {{siglo|XVI||s}}        -> "siglo XVI"   (lowercase word)
+#   {{Siglo|XVI|3=s}}       -> "siglo XVI"   (named form of the same)
+#   {{Siglo|XIX||S}}        -> "Siglo XIX"   (capital S -> capitalized word)
+# The second positional arg is always empty in every real invocation seen
+# in this corpus; not handled here since there is no real shape to confirm
+# it against, only Template:Siglo's own documentation to guess from -- the
+# same "don't implement past what's confirmed" discipline as the rest of
+# this module. `style` is matched case-*sensitively* against exactly "s"/
+# "S", deliberately not lower-cased first the way every other lookup in
+# this module normalizes case: here the case *is* the signal MediaWiki
+# itself reads to choose lowercase vs. capitalized output.
+def _expand_siglo(
+    positional: list[str], named: dict[str, str], _dropped: Counter[str] | None
 ) -> str:
-    """`{{circa}}` -> `c.`; `{{circa|1700}}` -> `c. 1700`."""
+    """`{{siglo|...}}`: a bare Roman numeral, or the numeral prefixed with
+    a lowercase or capitalized "siglo" depending on the third arg -- see
+    the module comment above for the three confirmed real shapes."""
     if not positional:
-        return "c."
-    return f"c. {positional[0]}"
+        return ""
+    roman = positional[0]
+    style = named.get("3", positional[2] if len(positional) >= 3 else "")
+    if style == "s":
+        return f"siglo {roman}"
+    if style == "S":
+        return f"Siglo {roman}"
+    return roman
 
 
 # `{{music|...}}` covers far more than accidentals in real MediaWiki, but
@@ -557,7 +656,7 @@ def _expand_nowrap(
 ) -> str:
     """`{{nowrap|some text}}` -> `some text` (no line-wrapping concept
     survives a Markdown note anyway, so there's nothing to preserve beyond
-    the content). `{{nobr|...}}` is a real, real alias (11 times across the
+    the content). `{{nobr|...}}` is a real alias (11 times across the
     18-article trial corpus, caught by the dropped-template report, not the
     original six-article survey) -- `Nobr` redirects to `Nowrap` on
     Wikipedia itself, so it shares this handler in `_DISPLAY_TEMPLATES`
@@ -599,6 +698,49 @@ def _expand_blockquote(
     return f'"{quote}"'
 
 
+# `{{'}}` is a hand-written escape wikitext editors use to keep a real
+# apostrophe from being misread as the start of italic/bold markup (`''`/
+# `'''`). Real, and always in the identical shape (violino-it.md,
+# violoncello-it.md, mandolino-it.md, all `l{{'}}''word''` -- "the"
+# elision immediately before an italicized word). That shape is exactly
+# why this can't just emit a literal `'` here: `expand_templates` runs long
+# before `convert_emphasis`, so a literal apostrophe sitting directly next
+# to a real `''...''` span turns into an artificial three-quote run
+# (`'''word''`) indistinguishable from a genuine `'''bold'''` opener to
+# `convert_emphasis`'s regex -- confirmed by running it: the BOLD pattern,
+# finding no closing `'''` nearby, scans ahead to the *next* unrelated
+# `'''...'''` anywhere later in the article and swallows every real
+# sentence in between as fake bold content. The same failure class as the
+# empty-emphasis defect `strip_empty_emphasis` exists for, just triggered
+# by a present apostrophe instead of an absent template.
+#
+# Fixed by never letting a literal `'` reach `convert_emphasis` at all: a
+# NUL placeholder stands in for it during every quote-counting stage, and
+# `restore_apostrophe_placeholders` swaps it for a real `'` afterward, once
+# there is no more emphasis markup left to misparse it. A NUL byte can't
+# collide with real wikitext -- it isn't valid content in an article Wikipedia
+# actually serves. This also happens to reproduce MediaWiki's own real
+# rendering for the elision-before-italic case exactly (`l'*word*`, the
+# apostrophe attached to the word before), which no direct regex fix to
+# `convert_emphasis` achieves without the placeholder's help.
+_APOSTROPHE_PLACEHOLDER = "\x00"
+
+
+def _expand_apostrophe(
+    _positional: list[str], _named: dict[str, str], _dropped: Counter[str] | None
+) -> str:
+    """`{{'}}` -> the apostrophe placeholder; see the module comment above
+    for why this can't just return `"'"` directly."""
+    return _APOSTROPHE_PLACEHOLDER
+
+
+def restore_apostrophe_placeholders(text: str) -> str:
+    """Swap `_APOSTROPHE_PLACEHOLDER` back for a real `'`. Must run after
+    `convert_emphasis` — see `_expand_apostrophe`'s docstring for what
+    running it any earlier would corrupt."""
+    return text.replace(_APOSTROPHE_PLACEHOLDER, "'")
+
+
 # The split this allowlist exists to draw: citation and navigation chrome
 # ({{cite web}}, {{isbn}}, {{see also}}, {{main}}, ...) stays with
 # `strip_templates` below and is removed whole — its output was never
@@ -608,14 +750,19 @@ def _expand_blockquote(
 # template turns out to matter for retrieval.
 _DISPLAY_TEMPLATES: dict[str, _Handler] = {
     "convert": _expand_convert,
+    "cvt": _expand_convert,
     "frac": _expand_frac,
     "lang": _expand_lang,
     "wikt-lang": _expand_lang,
+    "langx": _expand_lang,
     "circa": _expand_circa,
+    "floruit": _expand_floruit,
+    "siglo": _expand_siglo,
     "music": _expand_music,
     "nowrap": _expand_nowrap,
     "nobr": _expand_nowrap,
     "blockquote": _expand_blockquote,
+    "'": _expand_apostrophe,
 }
 
 # Matches a template with no nested `{{...}}` inside it — i.e. one whose
@@ -631,6 +778,17 @@ _INNERMOST_TEMPLATE = re.compile(r"\{\{([^{}]*)\}\}")
 # against a pathological input looping forever rather than converging,
 # consistent with this module never trusting wikitext to be well-formed.
 _MAX_EXPANSION_PASSES = 20
+
+# MediaWiki's parser-function syntax: `{{formatnum:1234}}`, colon-separated
+# rather than pipe-separated, real (mandolino-it.md: "fino a
+# {{formatnum:3000}} km di distanza"). "Emit the number" per the task that
+# added this case -- no thousands-separator formatting is applied, since
+# nothing here has confirmed which locale's separator convention (or
+# whether one at all) MediaWiki would have used for this specific value.
+# `[^|]*` stops at a possible `|R}}` reverse-parse flag (a real, documented
+# form of this parser function) without needing to understand it -- the
+# flag simply isn't captured, so it never reaches the output.
+_FORMATNUM = re.compile(r"^formatnum\s*:\s*([^|]*)", re.IGNORECASE)
 
 
 def _expand_one(match: re.Match[str], dropped: Counter[str] | None) -> str:
@@ -657,7 +815,18 @@ def _expand_one(match: re.Match[str], dropped: Counter[str] | None) -> str:
     the first place — `_INNERMOST_TEMPLATE` can't match without a close, so
     it falls through to `strip_templates`'s own unclosed-brace handling,
     which leaks it verbatim per this module's invariant.
+
+    `{{formatnum:1234}}` is checked before any of that: it's MediaWiki's
+    parser-function syntax, which separates the "function name" from its
+    argument with `:` instead of `|` -- a shape nothing else in this module
+    handles, so `partition("|")` below would read the whole `formatnum:1234`
+    string as one template *name* (confirmed: that's exactly what showed up
+    as a single dropped-report entry, `formatnum:3000`, before this case was
+    added -- see `_FORMATNUM`).
     """
+    formatnum = _FORMATNUM.match(match.group(1).strip())
+    if formatnum is not None:
+        return formatnum.group(1).strip()
     name, _, arg_str = match.group(1).partition("|")
     key = name.strip().lower()
     handler = _DISPLAY_TEMPLATES.get(key)
@@ -1140,5 +1309,6 @@ def wikitext_to_markdown(
     text = convert_headings(text)
     text = convert_links(text, targets)
     text = convert_emphasis(text)
+    text = restore_apostrophe_placeholders(text)
     text = drop_sections(text)
     return f"# {title}\n\n{normalize_blank_lines(text)}".rstrip() + "\n"

@@ -8,6 +8,7 @@ from ariostea.eval.wikitext import (
     drop_sections,
     expand_templates,
     normalize_blank_lines,
+    restore_apostrophe_placeholders,
     strip_comments,
     strip_empty_emphasis,
     strip_external_links,
@@ -504,6 +505,98 @@ def test_wikitext_to_markdown_no_longer_drops_the_real_blockquote_paragraph():
     assert "The last guitarist to follow in Segovia's footsteps" in body
     assert "Bernard Hebb" in body
     assert "{{" not in body
+
+
+# --- cvt/langx/siglo/floruit/formatnum/apostrophe: second dropped-report
+# review -----------------------------------------------------------------
+#
+# High-confidence, high-frequency names only, filtered from the same
+# dropped-template report: aliases of handlers that already exist, or a
+# trivial one-token expansion whose correct output could be stated (or, for
+# siglo, confirmed against the live template) without guessing. Everything
+# else the report turned up stays dropped and visible in it -- see the
+# module comment above `_split_template_args` for the full list and why.
+
+
+def test_expand_templates_cvt_is_a_real_convert_alias():
+    # {{cvt|1.5|and(-)|2|mm|2}}, real (Lute, rev 1361649316) -- shares
+    # _expand_convert, including its and(-) generic joiner handling.
+    assert expand_templates("{{cvt|26.25|in|mm}}") == "26.25 in"
+    assert expand_templates("{{cvt|1.5|and(-)|2|mm|2}}") == "1.5 and 2 mm"
+
+
+def test_expand_templates_langx_is_a_real_lang_alias():
+    # {{langx|it|mandolino}} and {{langx|de|link=no|Bratsche}}, both real
+    # (Viola rev 1364838851, Mandolin rev 1368537001).
+    assert expand_templates("{{langx|it|mandolino}}") == "mandolino"
+    assert expand_templates("{{langx|de|link=no|Bratsche}}") == "Bratsche"
+
+
+def test_expand_templates_floruit_matches_circas_shape():
+    # {{floruit}}, real (Lute, rev 1361649316) -- always invoked bare in
+    # the sample, e.g. "Francesco Spinacino ({{floruit}} 1507)".
+    assert expand_templates("{{floruit}}") == "fl."
+    assert expand_templates("{{floruit|1507}}") == "fl. 1507"
+
+
+def test_expand_templates_siglo_bare_form_has_no_word():
+    # {{siglo|XVII}}, real (Guitarra clásica, rev 174381319). Confirmed
+    # against the live template via MediaWiki's own expandtemplates API,
+    # not guessed: the bare form renders as just the numeral.
+    assert expand_templates("{{siglo|XVII}}") == "XVII"
+
+
+def test_expand_templates_siglo_lowercase_style_positional_and_named():
+    # {{siglo|XVI||s}}, real (Violín, rev 174121807); {{Siglo|XVI|3=s}},
+    # the equivalent named form, also real in the same article.
+    assert expand_templates("{{siglo|XVI||s}}") == "siglo XVI"
+    assert expand_templates("{{Siglo|XVI|3=s}}") == "siglo XVI"
+
+
+def test_expand_templates_siglo_uppercase_style_capitalizes_the_word():
+    # {{Siglo|XIX||S}}, real (Violonchelo, rev 173779642) -- the case of
+    # the third arg is the signal MediaWiki itself reads; matched
+    # case-sensitively here for exactly that reason.
+    assert expand_templates("{{Siglo|XIX||S}}") == "Siglo XIX"
+
+
+def test_expand_templates_formatnum_parser_function_emits_the_number():
+    # {{formatnum:3000}}, real (Mandolino, rev 150920416) -- MediaWiki's
+    # colon-separated parser-function syntax, not the pipe-separated
+    # name|args shape every other template in this module assumes.
+    assert expand_templates("a {{formatnum:3000}} km") == "a 3000 km"
+
+
+def test_expand_templates_apostrophe_escape_is_not_a_literal_quote_yet():
+    # expand_templates alone must not produce a literal "'" -- see the
+    # module comment above _DISPLAY_TEMPLATES for why a direct substitution
+    # this early in the pipeline corrupts unrelated prose. The placeholder
+    # only becomes a real apostrophe after restore_apostrophe_placeholders
+    # runs, post-convert_emphasis (see the round-trip tests below).
+    assert "'" not in expand_templates("l{{'}}amore")
+
+
+def test_wikitext_to_markdown_apostrophe_escape_does_not_corrupt_later_bold():
+    # The exact real construct (violino-it.md, violoncello-it.md,
+    # mandolino-it.md all use this identical l{{'}}''word'' idiom) and the
+    # defect it would cause without the placeholder mechanism: a literal
+    # apostrophe directly before a real ''italic'' span forms an artificial
+    # three-quote run that sends convert_emphasis's BOLD regex hunting for
+    # the next unrelated '''...''' anywhere later in the article, eating
+    # every real sentence in between as fake bold content.
+    raw = (
+        "Sono famosi l{{'}}''abete di risonanza'' della Val di Fiemme. "
+        "Il '''violino''' è uno strumento musicale."
+    )
+    body = wikitext_to_markdown(raw, title="Test", targets={})
+    assert "l'*abete di risonanza*" in body
+    assert "**violino**" in body
+    assert "\x00" not in body
+
+
+def test_restore_apostrophe_placeholders_after_expand_templates_bare_case():
+    raw = "l{{'}}arte"
+    assert restore_apostrophe_placeholders(expand_templates(raw)) == "l'arte"
 
 
 def test_expand_templates_is_case_and_whitespace_insensitive_on_the_name():
