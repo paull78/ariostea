@@ -414,9 +414,13 @@ def convert_lists(text: str) -> str:
     Known limitation, accepted: a literal `#REDIRECT [[Target]]` directive —
     valid wikitext only as an article's very first line — is read the same as
     any other numbered item and becomes `1. REDIRECT [[Target]]` rather than
-    being recognized as a redirect. In practice this corpus never sees one:
-    `wiki_fetch.fetch_article` requests `redirects=1`, so a redirect page's
-    wikitext is never what gets fetched in the first place.
+    being recognized as a redirect. In practice this corpus never sees one,
+    but not because of `redirects=1`: that flag only resolves redirects on a
+    `titles` lookup, and is a documented no-op on the `revids` lookup that
+    every normal (non-`--refresh`) rebuild uses. What actually keeps a
+    redirect's wikitext out of the corpus is that the manifest pins each
+    article's already-resolved `revid` — `wiki_fetch.fetch_article` fetches
+    that exact revision directly, so there is no redirect left to follow.
     """
     text = _DEF_LINE.sub("", text)
     text = _BULLET.sub(lambda m: "  " * (len(m.group(1)) - 1) + "- " + m.group(2), text)
