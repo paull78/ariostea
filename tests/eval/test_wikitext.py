@@ -1,3 +1,5 @@
+from collections import Counter
+
 from ariostea.eval.wikitext import (
     convert_emphasis,
     convert_headings,
@@ -368,17 +370,29 @@ def test_expand_templates_convert_handles_the_x_and_en_dash_range_forms():
 
 
 def test_expand_templates_convert_handles_the_and_joiner():
-    # {{convert|20|and|22|in}}, real (Cello). Not in the original task spec
-    # -- added because dropping it silently would render "20" with the
-    # "22 in" half of the measurement gone, not just an unconverted joiner.
+    # {{convert|20|and|22|in}}, real (Viola, Mandolin). Not in the original
+    # task spec -- added because dropping it silently would render "20"
+    # with the "22 in" half of the measurement gone, not just an
+    # unconverted joiner.
     assert expand_templates("{{convert|20|and|22|in}}") == "20 and 22 in"
 
 
 def test_expand_templates_convert_normalizes_the_to_hyphen_variant():
-    # {{convert|60|to(-)|75|cm|in}}, real (Cello). MediaWiki's own notation
-    # for "join with a hyphen instead of the word 'to'"; normalized to the
-    # same "to" text as the plain form rather than reproduced literally.
+    # {{convert|60|to(-)|75|cm|in}}, real (Double bass). MediaWiki's own
+    # notation for "join with a hyphen instead of the word 'to'";
+    # normalized to the same "to" text as the plain form rather than
+    # reproduced literally.
     assert expand_templates("{{convert|60|to(-)|75|cm|in}}") == "60 to 75 cm"
+
+
+def test_expand_templates_convert_generically_strips_the_hyphen_suffix_from_any_joiner():
+    # {{convert|38|and(-)|46|cm|in|abbr=on|disp=sqbr}}, real (Viola,
+    # viola.md's committed trial build). The first cut of this fix only
+    # special-cased "to(-)" as its own dict key, which is exactly why this
+    # one slipped through: "and(-)" wasn't a key either. Fixed generically
+    # (see _convert_joiner) so any "<word>(-)" variant resolves without
+    # needing its own entry.
+    assert expand_templates("{{convert|38|and(-)|46|cm|in|abbr=on|disp=sqbr}}") == "38 and 46 cm"
 
 
 def test_expand_templates_convert_expands_the_mixed_number_value_syntax():
@@ -448,6 +462,50 @@ def test_expand_templates_nowrap_emits_its_contents():
     assert expand_templates("{{nowrap|100 mm}}") == "100 mm"
 
 
+def test_expand_templates_nobr_is_a_real_nowrap_alias():
+    # {{nobr}}, real (11x across the 18-article trial corpus, found via the
+    # dropped-template report -- Wikipedia's own Nobr template redirects to
+    # Nowrap, so this module treats them the same way.
+    assert expand_templates("{{nobr|100 mm}}") == "100 mm"
+
+
+def test_expand_templates_blockquote_quotes_the_text_with_attribution():
+    # {{blockquote|text|author|source}}, real (Classical guitar, rev
+    # 1368953989) -- found via the dropped-template report after an entire
+    # multi-sentence quoted interview silently vanished from
+    # classical-guitar.md in the committed trial build.
+    raw = "{{blockquote|Do not understand me wrong.|Bernard Hebb|Interview}}"
+    assert expand_templates(raw) == '"Do not understand me wrong." — Bernard Hebb, Interview'
+
+
+def test_expand_templates_blockquote_with_no_attribution():
+    assert expand_templates("{{blockquote|Just the quote.}}") == '"Just the quote."'
+
+
+def test_expand_templates_blockquote_handles_the_named_arg_form():
+    # Wikipedia's real Template:Blockquote documents text=/author=/source=
+    # as the canonical form; the one construct actually seen in this corpus
+    # uses positional args instead (see the test above), so both are
+    # supported.
+    raw = "{{blockquote|text=Named form.|author=Someone}}"
+    assert expand_templates(raw) == '"Named form." — Someone'
+
+
+def test_wikitext_to_markdown_no_longer_drops_the_real_blockquote_paragraph():
+    # End-to-end regression for the classical-guitar.md defect: a whole
+    # paragraph of unique prose must survive, not just a value or symbol.
+    raw = (
+        "Julian Bream is admired. "
+        "{{blockquote|The last guitarist to follow in Segovia's footsteps "
+        "was Julian Bream.|Bernard Hebb|Interview}} "
+        "He remains influential today."
+    )
+    body = wikitext_to_markdown(raw, title="Classical guitar", targets={})
+    assert "The last guitarist to follow in Segovia's footsteps" in body
+    assert "Bernard Hebb" in body
+    assert "{{" not in body
+
+
 def test_expand_templates_is_case_and_whitespace_insensitive_on_the_name():
     assert expand_templates("{{ Convert | 4 | ft }}") == "4 ft"
 
@@ -489,6 +547,135 @@ def test_wikitext_to_markdown_expands_a_real_music_symbol_in_context():
     raw = "The instrument is tuned to B{{music|flat}} major."
     body = wikitext_to_markdown(raw, title="Test", targets={})
     assert "B♭ major" in body
+
+
+# --- numeric-fraction-named templates: spec-review defect 2 -----------------
+#
+# Wikipedia also has standalone templates literally *named* `3/4`, `1/2`,
+# `1/4` -- the same inline-fraction concept as {{frac}}, under a different
+# name. Real (Double bass, rev 1365602377): "the more common {{3/4}} size
+# bass ... such as a {{1/2}} size or {{1/4}} size ... a {{1/2}} bass is not
+# half the length". Missed on the first pass because `_DISPLAY_TEMPLATES`
+# is a fixed-name dict and none of these names were in the six-article
+# convert/frac/lang/circa/music/nowrap survey -- caught by a second review
+# reading the committed trial output, not by re-deriving the allowlist.
+
+
+def test_expand_templates_numeric_fraction_named_template():
+    assert expand_templates("{{3/4}}") == "3/4"
+    assert expand_templates("{{1/2}}") == "1/2"
+    assert expand_templates("{{1/4}}") == "1/4"
+
+
+def test_expand_templates_numeric_fraction_named_template_inline_with_prose():
+    # "{{1/4}}-inch cable", real (Double bass) -- the template sits directly
+    # against surrounding punctuation with no separating space.
+    assert expand_templates("a {{1/4}}-inch cable") == "a 1/4-inch cable"
+
+
+def test_wikitext_to_markdown_expands_the_real_double_bass_size_sentence():
+    # The exact double-bass.md:32 construct the spec review flagged as
+    # nonsense before this fix: "the more common  size bass" with both
+    # numeric-fraction templates and the trailing {{frac|4|4}} silently
+    # emptied.
+    raw = (
+        'Whereas the traditional "full-size" ({{frac|4|4}} size) bass stands '
+        "on average {{convert|74.8|in|cm}}, the more common {{3/4}} size bass "
+        "stands on average {{convert|71.6|in|cm}}. Other sizes are also "
+        "available, such as a {{1/2}} size or {{1/4}} size; a {{1/2}} bass is "
+        "not half the length of a {{frac|4|4}} bass."
+    )
+    body = wikitext_to_markdown(raw, title="Double bass", targets={})
+    assert "the more common 3/4 size bass" in body
+    assert "such as a 1/2 size or 1/4 size" in body
+    assert "a 1/2 bass is not half the length of a 4/4 bass" in body
+    assert "{{" not in body
+
+
+def test_wikitext_to_markdown_expands_the_real_viola_and_hyphen_joiner_sentence():
+    # The exact viola.md:22 construct the spec review flagged: "and(-)"
+    # wasn't a _CONVERT_JOINERS key, so the second value and unit were
+    # silently dropped and the literal joiner text leaked into the prose.
+    raw = (
+        "A full-size viola's body is between {{convert|25|and|100|mm|in|0|abbr=on}} "
+        "longer than the body of a full-size violin (i.e., between "
+        "{{convert|38|and(-)|46|cm|in|abbr=on|disp=sqbr}}), with an average "
+        "length of {{convert|41|cm|in|abbr=on}}."
+    )
+    body = wikitext_to_markdown(raw, title="Viola", targets={})
+    assert "between 38 and 46 cm" in body
+    assert "and(-)" not in body
+
+
+# --- dropped-template reporting: spec-review defect 3 ------------------------
+#
+# The systemic fix behind both defects above: a display template not on the
+# allowlist is indistinguishable from real citation chrome by shape alone,
+# so it vanishes with no signal. `dropped` makes that visible instead of
+# relying on someone reading 79 converted files by eye.
+
+
+def test_expand_templates_tallies_an_unallowlisted_name_into_dropped():
+    dropped: Counter[str] = Counter()
+    expand_templates("{{cite web|url=x|title=y}}", dropped)
+    assert dropped == {"cite web": 1}
+
+
+def test_expand_templates_tallies_are_case_and_whitespace_normalized():
+    dropped: Counter[str] = Counter()
+    expand_templates("{{Cite Web|x=1}} {{ cite web |y=2}}", dropped)
+    assert dropped == {"cite web": 2}
+
+
+def test_expand_templates_does_not_tally_an_allowlisted_or_fraction_name():
+    dropped: Counter[str] = Counter()
+    expand_templates("{{convert|4|ft}} {{frac|1|2}} {{3/4}}", dropped)
+    assert dropped == {}
+
+
+def test_expand_templates_does_not_double_count_across_convergence_passes():
+    # Regression for the overcounting bug this fix's first draft had: a
+    # chrome template sitting alongside a *nested* display template
+    # (convert wrapping frac) needs several convergence passes before the
+    # text is stable. Naively tallying inside that loop would count the
+    # untouched chrome template once per pass instead of once per
+    # occurrence.
+    dropped: Counter[str] = Counter()
+    text = "{{cite web|x=1}} {{convert|4|{{frac|1|2}} ft}} {{convert|5|ft}}"
+    result = expand_templates(text, dropped)
+    assert dropped == {"cite web": 1}
+    assert result == "{{cite web|x=1}} 4 1/2 ft 5 ft"
+
+
+def test_expand_templates_tallies_a_nested_unallowlisted_template_once_for_the_outer_name():
+    dropped: Counter[str] = Counter()
+    expand_templates("{{cite book|quote={{something unhandled}}}}", dropped)
+    assert dropped == {"cite book": 1}
+
+
+def test_expand_templates_does_not_tally_an_unclosed_template_left_leaked():
+    # An unclosed template is leaked verbatim by strip_templates, not
+    # removed -- it should not appear in a report of what was dropped.
+    dropped: Counter[str] = Counter()
+    expand_templates("{{cite web|url=x unclosed", dropped)
+    assert dropped == {}
+
+
+def test_expand_templates_tallies_an_unrecognized_music_argument_by_its_own_key():
+    # Unlike an unallowlisted template *name*, an unrecognized *argument* to
+    # an allowlisted one (music) is only visible to that handler -- it
+    # empties the span immediately rather than leaving `{{...}}` behind for
+    # the post-convergence sweep to find, so it has to tally itself.
+    dropped: Counter[str] = Counter()
+    expand_templates("{{music|breve}}", dropped)
+    assert dropped == {"music|breve": 1}
+
+
+def test_wikitext_to_markdown_passes_dropped_through_to_the_caller():
+    dropped: Counter[str] = Counter()
+    raw = "{{cite web|url=x}} A **violin** is a chordophone."
+    wikitext_to_markdown(raw, title="Test", targets={}, dropped=dropped)
+    assert dropped == {"cite web": 1}
 
 
 # --- list-prefix ordering: item 1 --------------------------------------------

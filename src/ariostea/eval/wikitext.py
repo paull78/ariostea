@@ -114,6 +114,7 @@ prose resumes.
 from __future__ import annotations
 
 import re
+from collections import Counter
 from collections.abc import Callable
 
 from ariostea.eval.normalize import normalize_ws
@@ -287,10 +288,32 @@ def _strip_balanced(text: str, open_tok: str, close_tok: str) -> str:
 # bass, Classical guitar, Mandolin) before this allowlist was written, not
 # guessed at — every shape below is a real invocation seen in that sample,
 # and every deviation from the shapes this module was first asked to handle
-# (the `and`/`to(-)` convert joiners, `{{music|time|N|D}}`, the `N+M/D`
-# mixed-number value syntax) is a real construct that sample turned up, not
-# speculative future-proofing. See the docstrings below for what each one
-# is and why it's handled the way it is.
+# (the `and` convert joiner and its `(-)` hyphen-suffix variants,
+# `{{music|time|N|D}}`, the `N+M/D` mixed-number value syntax, and the
+# numeric-fraction-*named* templates `{{3/4}}`/`{{1/2}}`/`{{1/4}}`) is a real
+# construct that sample turned up, not speculative future-proofing. See the
+# docstrings below for what each one is and why it's handled the way it is.
+#
+# Even a sample built this way missed two of these on the first pass — an
+# `and(-)` joiner (viola.md) and the numeric-fraction templates
+# (double-bass.md) both survived into a committed trial build before a
+# second review caught them by reading the output, not by re-deriving the
+# allowlist from the wikitext. Six articles cannot prove an allowlist is
+# complete, and the corpus is about to grow to 79 across five clusters this
+# sample says nothing about (cheese, cycling, sailing, board games...).
+# `expand_templates`'s `dropped` parameter and the build script's summary of
+# it (see `eval/build_wiki_corpus.py`) exist because reading is not a
+# control: a template not on this list has to make itself visible in a
+# report, not wait to be noticed by eye in one of 79 files.
+#
+# That report immediately earned its keep: reading it against the trial
+# build's own 18 articles turned up `nobr` (Wikipedia's alias for `nowrap`,
+# already handled) and `blockquote` -- and `blockquote` was not a minor
+# miss. classical-guitar.md had silently lost an entire multi-sentence
+# quoted interview to it, the same "real text disappears mid-article"
+# failure this whole allowlist exists to prevent, just at paragraph scale
+# instead of a measurement's. Both fixed below, from the report, before a
+# single one of the other 61 articles was ever fetched.
 
 
 def _split_template_args(arg_str: str) -> list[str]:
@@ -354,15 +377,34 @@ def _parse_template_args(arg_str: str) -> tuple[list[str], dict[str, str]]:
 
 
 # `{{convert}}`'s range form (`{{convert|4|to|6|ft}}`) puts a joiner keyword
-# in the second positional slot instead of a unit. `and` and `to(-)` are
-# real, both seen in the sample (`{{convert|20|and|22|in}}`,
-# `{{convert|60|to(-)|75|cm|in}}`) alongside the `to`/`x`/en-dash forms this
-# fix was originally scoped to cover. `to(-)` is MediaWiki's own notation
-# for "join with a hyphen instead of the word 'to'"; normalized to the same
-# `to` text as the plain form rather than reproduced literally, since a
-# literal `to(-)` in prose would read as nonsense, not as either of the two
-# things it could mean here (a joiner directive or a hyphen).
-_CONVERT_JOINERS = {"to": "to", "to(-)": "to", "and": "and", "x": "x", "–": "–"}
+# in the second positional slot instead of a unit. `and` is real
+# (`{{convert|20|and|22|in}}`, Cello, Mandolin) alongside the `to`/`x`/
+# en-dash forms this fix was originally scoped to cover.
+#
+# MediaWiki also lets *any* joiner take a `(-)` suffix (`to(-)`, `and(-)`,
+# ...) meaning "join with a hyphen instead of the word" — both are real in
+# the sample (`{{convert|60|to(-)|75|cm|in}}` in Double bass,
+# `{{convert|38|and(-)|46|cm|in}}` in Viola). The first cut of this fix only
+# special-cased `to(-)`, which is exactly why `and(-)` slipped through: a
+# literal `and(-)` isn't a key in any plain dict of joiner strings. Stripped
+# generically below instead, so any future `<word>(-)` variant resolves the
+# same way without needing its own entry.
+_CONVERT_JOINERS = {"to": "to", "and": "and", "x": "x", "–": "–"}
+_CONVERT_JOINER_HYPHEN_SUFFIX = re.compile(r"\(-\)$")
+
+
+def _convert_joiner(token: str) -> str | None:
+    """Normalize a `{{convert}}` range-form joiner token and look it up.
+
+    Strips a trailing `(-)` (MediaWiki's "join with a hyphen instead of the
+    word" directive) before the dict lookup, so `to(-)` and `and(-)` resolve
+    to the same display text as their plain forms without either needing a
+    separate dict entry — see `_CONVERT_JOINERS` above for why that matters.
+    """
+    key = _CONVERT_JOINER_HYPHEN_SUFFIX.sub("", token.strip().lower())
+    return _CONVERT_JOINERS.get(key)
+
+
 # `{{convert|13+7/8|in}}`'s value can itself carry a mixed number in
 # MediaWiki's own compact `N+M/D` notation — seen three times in the sample,
 # not a one-off. Rendered as `N M/D` (space instead of `+`) for readability.
@@ -372,12 +414,22 @@ _CONVERT_JOINERS = {"to": "to", "to(-)": "to", "and": "and", "x": "x", "–": "�
 _CONVERT_MIXED_NUMBER = re.compile(r"(\d+)\+(\d+/\d+)")
 
 
-def _expand_convert(positional: list[str], _named: dict[str, str]) -> str:
+# Every handler below shares this signature, even the ones that ignore
+# `dropped` (all but `_expand_music`) -- one calling convention for
+# `_expand_one` to dispatch through, rather than special-casing the one
+# handler that needs to report something. See `_expand_music` for the case
+# that actually uses it.
+_Handler = Callable[[list[str], dict[str, str], "Counter[str] | None"], str]
+
+
+def _expand_convert(
+    positional: list[str], _named: dict[str, str], _dropped: Counter[str] | None
+) -> str:
     """`{{convert|VALUE|UNIT|...}}` -> `VALUE UNIT`, dropping the output-unit
     target, the precision digit, and every named arg (`abbr=on`, `sp=us`,
     `order=flip`) — none of them are visible prose, all three are real in
     the sample. The range form (`{{convert|VALUE1|JOINER|VALUE2|UNIT}}`)
-    keeps both values: `VALUE1 JOINER VALUE2 UNIT`. See `_CONVERT_JOINERS`
+    keeps both values: `VALUE1 JOINER VALUE2 UNIT`. See `_convert_joiner`
     and `_CONVERT_MIXED_NUMBER` above for the two extensions the real data
     required beyond the plain single-value form.
     """
@@ -386,15 +438,17 @@ def _expand_convert(positional: list[str], _named: dict[str, str]) -> str:
     value = _CONVERT_MIXED_NUMBER.sub(r"\1 \2", positional[0])
     if len(positional) < 2:
         return value
-    joiner = _CONVERT_JOINERS.get(positional[1].strip().lower())
-    if joiner is not None and len(positional) >= 3:
+    joiner = _convert_joiner(positional[1]) if len(positional) >= 3 else None
+    if joiner is not None:
         value2 = _CONVERT_MIXED_NUMBER.sub(r"\1 \2", positional[2])
         unit = f" {positional[3]}" if len(positional) >= 4 else ""
         return f"{value} {joiner} {value2}{unit}"
     return f"{value} {positional[1]}"
 
 
-def _expand_frac(positional: list[str], _named: dict[str, str]) -> str:
+def _expand_frac(
+    positional: list[str], _named: dict[str, str], _dropped: Counter[str] | None
+) -> str:
     """`{{frac|1|2}}` -> `1/2` (a bare fraction); `{{frac|3|1|2}}` ->
     `3 1/2` (a whole number plus a fraction). A bare `{{frac}}` (no
     positional args) drops to nothing — there is no number to render. More
@@ -411,7 +465,19 @@ def _expand_frac(positional: list[str], _named: dict[str, str]) -> str:
     return f"{positional[0]} {positional[1]}/{positional[2]}"
 
 
-def _expand_lang(positional: list[str], _named: dict[str, str]) -> str:
+# Wikipedia also has standalone templates literally *named* `3/4`, `1/2`,
+# `1/4` (and more) -- the same inline-fraction concept as `{{frac}}`, under
+# a different name, always invoked bare with no arguments in the sample
+# (`{{3/4}} size bass`, `a {{1/4}}-inch cable`, both real in Double bass).
+# `_DISPLAY_TEMPLATES` is name-keyed and can't enumerate every fraction
+# anyone might write a template for, so this is matched by shape in
+# `_expand_one` instead of being one more dict entry.
+_NUMERIC_FRACTION_NAME = re.compile(r"\d+/\d+")
+
+
+def _expand_lang(
+    positional: list[str], _named: dict[str, str], _dropped: Counter[str] | None
+) -> str:
     """`{{lang|it|violino}}` / `{{wikt-lang|fr|luthier}}` -> the last
     positional arg (the actual foreign-language text; the earlier args are
     just language-tag metadata). That text can itself be a wikilink
@@ -423,7 +489,9 @@ def _expand_lang(positional: list[str], _named: dict[str, str]) -> str:
     return positional[-1] if positional else ""
 
 
-def _expand_circa(positional: list[str], _named: dict[str, str]) -> str:
+def _expand_circa(
+    positional: list[str], _named: dict[str, str], _dropped: Counter[str] | None
+) -> str:
     """`{{circa}}` -> `c.`; `{{circa|1700}}` -> `c. 1700`."""
     if not positional:
         return "c."
@@ -453,12 +521,25 @@ _MUSIC_SYMBOLS = {
 }
 
 
-def _expand_music(positional: list[str], _named: dict[str, str]) -> str:
+def _expand_music(
+    positional: list[str], _named: dict[str, str], dropped: Counter[str] | None
+) -> str:
     """A recognized symbol argument expands to its Unicode glyph; a
     `time|N|D` argument expands to `N/D`, the same shape `_expand_frac`
-    produces for an ordinary fraction. Anything else — an unrecognized
-    symbol name, a wrong argument count — drops the whole template rather
-    than guessing at a glyph that might be wrong.
+    produces for an ordinary fraction.
+
+    Anything else — an unrecognized symbol name, a wrong argument count —
+    drops the whole template rather than guessing at a glyph that might be
+    wrong. Unlike an unallowlisted template name (invisible to any handler —
+    `_expand_one` never dispatches to one for those, so `expand_templates`
+    tallies them itself in a single post-convergence sweep, see
+    `_tally_dropped_templates`), an unrecognized *argument* to a name that
+    *is* allowlisted only this function can see, and the span vanishes
+    (replaced with `""`) the moment it's dropped, leaving nothing in the
+    final text for that sweep to find — so this function has to tally its
+    own drop, here, right when it happens. Keyed on the argument, not just
+    `"music"`, so the report says exactly which shape needs a new entry in
+    `_MUSIC_SYMBOLS` rather than just that something was dropped.
     """
     if len(positional) == 3 and positional[0].strip().lower() == "time":
         return f"{positional[1]}/{positional[2]}"
@@ -466,19 +547,56 @@ def _expand_music(positional: list[str], _named: dict[str, str]) -> str:
         symbol = _MUSIC_SYMBOLS.get(positional[0].strip().lower())
         if symbol is not None:
             return symbol
+    if dropped is not None:
+        dropped[f"music|{'|'.join(positional)}"] += 1
     return ""
 
 
-def _expand_nowrap(positional: list[str], named: dict[str, str]) -> str:
-    """`{{nowrap|some text}}` -> `some text`. Not seen in the six-article
-    sample at all; included because the task that built this allowlist
-    named it explicitly, kept deliberately simple (no line-wrapping concept
-    survives a Markdown note anyway) rather than speculatively hardened
-    against a real construct nothing here has actually observed.
+def _expand_nowrap(
+    positional: list[str], named: dict[str, str], _dropped: Counter[str] | None
+) -> str:
+    """`{{nowrap|some text}}` -> `some text` (no line-wrapping concept
+    survives a Markdown note anyway, so there's nothing to preserve beyond
+    the content). `{{nobr|...}}` is a real, real alias (11 times across the
+    18-article trial corpus, caught by the dropped-template report, not the
+    original six-article survey) -- `Nobr` redirects to `Nowrap` on
+    Wikipedia itself, so it shares this handler in `_DISPLAY_TEMPLATES`
+    rather than getting a near-duplicate one of its own.
     """
     if positional:
         return positional[0]
     return named.get("1", "")
+
+
+# `{{blockquote|TEXT|AUTHOR|SOURCE}}`: unlike every other entry in this
+# allowlist, dropping this one doesn't just lose a value or a symbol -- it
+# loses whole sentences of unique prose no other part of the article
+# repeats. Confirmed in the trial build via the dropped-template report,
+# not the original six-article survey: classical-guitar.md silently lost an
+# entire multi-sentence Bernard Hebb interview quote to this template
+# before this handler existed (the exact "real text mid-clause disappears"
+# failure class this whole allowlist exists to prevent, just for a whole
+# paragraph instead of a measurement). The one real invocation seen uses
+# three purely positional args (quote text, author, source); the named
+# `text=`/`author=`/`source=` form documented for Wikipedia's real
+# Template:Blockquote is handled too, on the same "why guess when the
+# template already tells you" grounds as the rest of this module, since
+# nothing about supporting it costs extra complexity here.
+def _expand_blockquote(
+    positional: list[str], named: dict[str, str], _dropped: Counter[str] | None
+) -> str:
+    """The quote text, quoted, with an em-dash attribution appended when an
+    author and/or source is given. `{{blockquote|text}}` -> `"text"`;
+    `{{blockquote|text|author|source}}` -> `"text" — author, source`.
+    """
+    quote = named.get("text") or (positional[0] if positional else "")
+    if not quote:
+        return ""
+    attribution = [p for p in (named.get("author"), named.get("source")) if p]
+    attribution += [p for p in positional[1:] if p.strip()]
+    if attribution:
+        return f'"{quote}" — {", ".join(attribution)}'
+    return f'"{quote}"'
 
 
 # The split this allowlist exists to draw: citation and navigation chrome
@@ -488,7 +606,7 @@ def _expand_nowrap(positional: list[str], named: dict[str, str]) -> str:
 # display template whose rendered output *is* prose a reader would see.
 # Extend this dict, not `strip_templates`, when a new inline display
 # template turns out to matter for retrieval.
-_DISPLAY_TEMPLATES: dict[str, Callable[[list[str], dict[str, str]], str]] = {
+_DISPLAY_TEMPLATES: dict[str, _Handler] = {
     "convert": _expand_convert,
     "frac": _expand_frac,
     "lang": _expand_lang,
@@ -496,6 +614,8 @@ _DISPLAY_TEMPLATES: dict[str, Callable[[list[str], dict[str, str]], str]] = {
     "circa": _expand_circa,
     "music": _expand_music,
     "nowrap": _expand_nowrap,
+    "nobr": _expand_nowrap,
+    "blockquote": _expand_blockquote,
 }
 
 # Matches a template with no nested `{{...}}` inside it — i.e. one whose
@@ -513,24 +633,81 @@ _INNERMOST_TEMPLATE = re.compile(r"\{\{([^{}]*)\}\}")
 _MAX_EXPANSION_PASSES = 20
 
 
-def _expand_one(match: re.Match[str]) -> str:
-    """Expand a single innermost `{{...}}` match if its name is on the
-    allowlist; otherwise return it unchanged so `strip_templates` removes it
-    whole later. An unclosed `{{convert` (no matching `}}` at all) never
-    reaches here in the first place — `_INNERMOST_TEMPLATE` can't match
-    without a close, so it falls through to `strip_templates`'s own
-    unclosed-brace handling, which leaks it verbatim per this module's
-    invariant.
+def _expand_one(match: re.Match[str], dropped: Counter[str] | None) -> str:
+    """Expand a single innermost `{{...}}` match: by exact name against the
+    allowlist first, then by shape against the numeric-fraction pattern
+    (`{{3/4}}`, `{{1/2}}`, ...), which no fixed-name dict can enumerate.
+    Anything neither matches is chrome, or a display template not yet on the
+    allowlist — indistinguishable from here by shape alone — and is returned
+    unchanged so `strip_templates` removes it whole later.
+
+    Deliberately does *not* tally an unmatched name into `dropped` itself:
+    this function reruns on the same still-unresolved span every
+    convergence pass in `expand_templates` (that's how "innermost first"
+    works), so tallying here would count one template once per pass instead
+    of once per occurrence. `expand_templates` tallies leftover names in a
+    single pass *after* convergence instead — see `_tally_dropped_templates`.
+    The one exception is `_expand_music`'s own drop counter, which fires
+    inside the handler at the moment a specific *argument* (not the whole
+    `music` template) turns out unrecognized; that span is replaced (with
+    `""`) the instant it happens, so it can never be re-visited on a later
+    pass and there is no equivalent overcounting risk there.
+
+    An unclosed `{{convert` (no matching `}}` at all) never reaches here in
+    the first place — `_INNERMOST_TEMPLATE` can't match without a close, so
+    it falls through to `strip_templates`'s own unclosed-brace handling,
+    which leaks it verbatim per this module's invariant.
     """
     name, _, arg_str = match.group(1).partition("|")
-    handler = _DISPLAY_TEMPLATES.get(name.strip().lower())
-    if handler is None:
-        return match.group(0)
-    positional, named = _parse_template_args(arg_str)
-    return handler(positional, named)
+    key = name.strip().lower()
+    handler = _DISPLAY_TEMPLATES.get(key)
+    if handler is not None:
+        positional, named = _parse_template_args(arg_str)
+        return handler(positional, named, dropped)
+    if _NUMERIC_FRACTION_NAME.fullmatch(key):
+        return key
+    return match.group(0)
 
 
-def expand_templates(text: str) -> str:
+def _tally_dropped_templates(text: str, dropped: Counter[str]) -> None:
+    """Tally the name of every top-level `{{...}}` template still present in
+    `text` into `dropped` — one entry per template `strip_templates` is
+    about to remove whole.
+
+    Walked with the same `{{`/`}}` depth-tracking `_strip_balanced` uses (a
+    second, independent implementation rather than a shared helper, since
+    this one needs the *name* at each depth-0 span rather than removing it),
+    so this counts exactly the regions `strip_templates` deletes — one tally
+    for `{{cite book|quote={{something unhandled}}}}` as a whole (the
+    "cite book" name at depth 0), not a separate tally for whatever is
+    nested inside it. An unclosed `{{` at end-of-input never closes back to
+    depth 0, so nothing inside it is tallied — it isn't actually dropped,
+    `strip_templates` leaks it verbatim, so counting it as "removed" here
+    would misreport what happened to it.
+    """
+    depth = 0
+    start = 0
+    i = 0
+    n = len(text)
+    while i < n:
+        if text.startswith("{{", i):
+            if depth == 0:
+                start = i
+            depth += 1
+            i += 2
+        elif depth and text.startswith("}}", i):
+            depth -= 1
+            i += 2
+            if depth == 0:
+                inner = text[start + 2 : i - 2]
+                name = inner.partition("|")[0].strip().lower()
+                if name:
+                    dropped[name] += 1
+        else:
+            i += 1
+
+
+def expand_templates(text: str, dropped: Counter[str] | None = None) -> str:
     """Expand every allowlisted inline display template to its plain-text
     output, innermost occurrence first, converging when a pass produces no
     further change. Must run after `strip_html_containers` (a `{{`-shaped
@@ -538,12 +715,24 @@ def expand_templates(text: str) -> str:
     same hazard `strip_templates` avoids the same way) and before
     `strip_templates` (which removes whatever this function didn't
     recognize). See the module docstring's pipeline-order note.
+
+    `dropped`, when given, is tallied with the name of every template this
+    function left for `strip_templates` to remove whole — chrome
+    (`cite web`, `isbn`, ...) will dominate that tally and is expected; the
+    build script's job is to print it and let a human notice anything else
+    in it, which is the module's "never remove text you didn't positively
+    identify" invariant applied to *this* stage: an inline display template
+    not yet on the allowlist is indistinguishable from real chrome by shape
+    alone, so the only way to catch it is to make what got dropped visible
+    rather than silently trusting the allowlist is complete.
     """
     for _ in range(_MAX_EXPANSION_PASSES):
-        new_text = _INNERMOST_TEMPLATE.sub(_expand_one, text)
+        new_text = _INNERMOST_TEMPLATE.sub(lambda m: _expand_one(m, dropped), text)
         if new_text == text:
-            return new_text
+            break
         text = new_text
+    if dropped is not None:
+        _tally_dropped_templates(text, dropped)
     return text
 
 
@@ -922,17 +1111,25 @@ def normalize_blank_lines(text: str) -> str:
     return _BLANK_RUN.sub("\n\n", _TRAILING_WS.sub("", text)).strip()
 
 
-def wikitext_to_markdown(raw: str, title: str, targets: dict[str, str]) -> str:
+def wikitext_to_markdown(
+    raw: str, title: str, targets: dict[str, str], dropped: Counter[str] | None = None
+) -> str:
     """Full pipeline: raw wikitext in, note body (H1 + Markdown) out.
 
     Stage order is pinned by the module docstring's "Pipeline order, and why"
     section; see it before reordering anything here. Defined last, after
     every stage it composes, so the file itself reads in pipeline order.
+
+    `dropped` passes straight through to `expand_templates` — see its
+    docstring. Threaded here rather than each caller reaching into
+    `expand_templates` directly, so the build script can accumulate one
+    tally across every article in a run without knowing this pipeline's
+    internal stage order.
     """
     text = strip_comments(raw)
     text = strip_refs(text)
     text = strip_html_containers(text)
-    text = expand_templates(text)
+    text = expand_templates(text, dropped)
     text = strip_templates(text)
     text = strip_tables(text)
     text = strip_media_links(text)
