@@ -210,9 +210,10 @@ def strip_media_links(text: str) -> str:
 def strip_html_containers(text: str) -> str:
     """Remove gallery/math/code/map elements along with their content — their
     bodies are a payload (coordinate lists, LaTeX, source code), not prose.
-    Best-effort: an unclosed container degrades to its content being treated
-    as ordinary prose rather than leaking the tag itself, since (unlike refs
-    and templates) that content was never prose-like to begin with."""
+    Best-effort: an unclosed container (missing closing tag) simply doesn't
+    match, so the whole span — opening tag and content both — is left
+    untouched. Unlike `_strip_balanced`, there's no depth-aware scan here to
+    know where the content would have ended."""
     return _CONTAINER_PAIR.sub("", _CONTAINER_SELF.sub("", text))
 
 
