@@ -222,3 +222,118 @@ def strip_html_tags(text: str) -> str:
     last in the pipeline, once every structural element (refs, containers,
     templates, tables, media) is already gone."""
     return _INLINE_TAG.sub("", text)
+
+
+# `\1` backreferences the exact run of `=` captured as the opener, so a line
+# whose opener and closer run-lengths differ (a real, if rare, editing typo)
+# still matches: `(={2,6})` backtracks to the *shorter* run, and the leftover
+# `=` characters on the longer side fall into `(.+?)` as literal title text.
+# That mirrors MediaWiki's own heading parser (level = min of the two runs),
+# without this module having to special-case it.
+_HEADING = re.compile(r"^[ \t]*(={2,6})[ \t]*(.+?)[ \t]*\1[ \t]*$", re.MULTILINE)
+_BULLET = re.compile(r"^(\*+)[ \t]*(.*)$", re.MULTILINE)
+_NUMBERED = re.compile(r"^(#+)[ \t]*(.*)$", re.MULTILINE)
+_DEF_LINE = re.compile(r"^[;:]+[ \t]*", re.MULTILINE)
+# Emphasis is deliberately line-bounded (no DOTALL): a stray unmatched quote
+# run would otherwise italicise half the article.
+_BOLD = re.compile(r"'''(.+?)'''")
+_ITALIC = re.compile(r"''(.+?)''")
+_MD_HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
+_TRAILING_WS = re.compile(r"[ \t]+$", re.MULTILINE)
+_BLANK_RUN = re.compile(r"\n{3,}")
+
+# Apparatus sections: no prose worth retrieving, and their link lists would
+# pollute the wikilink graph. Lower-cased headings, en + it + es.
+#
+# Known false-positive risk, accepted: a generic subsection genuinely titled
+# "Notes" (e.g. construction notes, not footnotes) is indistinguishable from
+# a footnotes section by title alone and gets dropped too. Titles are the
+# only signal `drop_sections` has; disambiguating would need heuristics
+# (e.g. "only if near the end of the article") this module doesn't attempt.
+DROP_SECTIONS = frozenset(
+    {
+        "references",
+        "reference",
+        "notes",
+        "footnotes",
+        "citations",
+        "sources",
+        "bibliography",
+        "further reading",
+        "external links",
+        "see also",
+        "gallery",
+        "note",
+        "bibliografia",
+        "voci correlate",
+        "altri progetti",
+        "collegamenti esterni",
+        "referencias",
+        "notas",
+        "véase también",
+        "vease tambien",
+        "enlaces externos",
+        "bibliografía",
+    }
+)
+
+
+def convert_headings(text: str) -> str:
+    """Map `==Heading==` depth to `#` count. Must run after `convert_lists` —
+    see that function's docstring for why."""
+    return _HEADING.sub(lambda m: "#" * len(m.group(1)) + " " + m.group(2), text)
+
+
+def convert_lists(text: str) -> str:
+    """Bullets to `-`, numbered items to `1.`, two spaces per nesting level.
+
+    Must run before `convert_headings`: a wikitext numbered item starts with
+    `#`, which Markdown would otherwise read as a heading.
+
+    Known limitation, accepted: a literal `#REDIRECT [[Target]]` directive —
+    valid wikitext only as an article's very first line — is read the same as
+    any other numbered item and becomes `1. REDIRECT [[Target]]` rather than
+    being recognized as a redirect. In practice this corpus never sees one:
+    `wiki_fetch.fetch_article` requests `redirects=1`, so a redirect page's
+    wikitext is never what gets fetched in the first place.
+    """
+    text = _BULLET.sub(lambda m: "  " * (len(m.group(1)) - 1) + "- " + m.group(2), text)
+    text = _NUMBERED.sub(lambda m: "  " * (len(m.group(1)) - 1) + "1. " + m.group(2), text)
+    return _DEF_LINE.sub("", text)
+
+
+def convert_formatting(text: str) -> str:
+    """Map `'''bold'''` / `''italic''` to `**bold**` / `*italic*`.
+
+    Bold is substituted first so a `'''...'''` span never gets read as
+    italic-then-stray-quote. The two compose for the `'''''both'''''`
+    convention: bold strips the outer three quotes from each end first,
+    leaving `''both''` for the italic pass to close — Markdown's own
+    `***both***` for the combination falls out for free.
+    """
+    return _ITALIC.sub(r"*\1*", _BOLD.sub(r"**\1**", text))
+
+
+def drop_sections(markdown: str, titles: frozenset[str] = DROP_SECTIONS) -> str:
+    """Drop each named section together with everything nested under it, up to
+    the next heading at the same or a shallower level."""
+    kept: list[str] = []
+    skip_level = 0
+    for line in markdown.splitlines():
+        heading = _MD_HEADING.match(line)
+        if heading:
+            level = len(heading.group(1))
+            if skip_level and level <= skip_level:
+                skip_level = 0
+            if not skip_level and heading.group(2).strip().lower() in titles:
+                skip_level = level
+                continue
+        if not skip_level:
+            kept.append(line)
+    return "\n".join(kept)
+
+
+def normalize_blank_lines(text: str) -> str:
+    """Trim trailing whitespace per line and collapse 3+ blank lines to one —
+    tidy-up for the residue that stripping/dropping leaves behind."""
+    return _BLANK_RUN.sub("\n\n", _TRAILING_WS.sub("", text)).strip()

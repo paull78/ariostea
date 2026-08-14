@@ -1,4 +1,9 @@
 from ariostea.eval.wikitext import (
+    convert_formatting,
+    convert_headings,
+    convert_lists,
+    drop_sections,
+    normalize_blank_lines,
     strip_comments,
     strip_html_containers,
     strip_html_tags,
@@ -196,3 +201,95 @@ def test_pipeline_strips_chrome_from_an_article_lede():
     assert "[[maple]]" in text
     assert "[[viola]]" in text
     assert "Construction" in text
+
+
+def test_convert_headings_maps_equals_depth_to_hashes():
+    assert convert_headings("== Construction ==\n=== Body ===") == "## Construction\n### Body"
+
+
+def test_convert_lists_handles_bullets_numbers_and_definitions():
+    raw = "* one\n** two\n# first\n## second\n: indented"
+    assert convert_lists(raw) == "- one\n  - two\n1. first\n  1. second\nindented"
+
+
+def test_convert_formatting_maps_quotes_to_asterisks():
+    raw = "The '''violin''' is a ''chordophone''."
+    assert convert_formatting(raw) == "The **violin** is a *chordophone*."
+
+
+def test_drop_sections_removes_the_section_and_its_subsections():
+    md = "## Construction\nbody\n\n## References\n- r1\n### Notes\nx\n\n## Playing\nmusic"
+    assert drop_sections(md) == "## Construction\nbody\n\n## Playing\nmusic"
+
+
+def test_drop_sections_covers_italian_and_spanish_boilerplate():
+    assert drop_sections("## Storia\nc\n## Voci correlate\nx") == "## Storia\nc"
+    assert drop_sections("## Historia\nc\n## Enlaces externos\nx") == "## Historia\nc"
+
+
+def test_normalize_blank_lines_collapses_runs_and_trailing_space():
+    assert normalize_blank_lines("a  \n\n\n\nb\n") == "a\n\nb"
+
+
+# --- real-input hazards, probed against real Wikipedia conventions ----------
+
+
+def test_convert_headings_uses_the_shorter_side_when_equals_counts_mismatch():
+    # A genuine (if rare) editing typo: 3 leading `=`, 2 trailing. `\1`
+    # backtracks `(={2,6})` to the shorter run (2), and the surplus `=` on
+    # the longer side falls into the title as literal text — the same
+    # level-and-leftover result MediaWiki's own heading parser produces.
+    assert convert_headings("=== Title ==\nbody") == "## = Title\nbody"
+
+
+def test_convert_headings_caps_at_level_six_for_a_deeper_marker_run():
+    assert convert_headings("======= Deep =======") == "###### = Deep ="
+
+
+def test_convert_formatting_leaves_single_apostrophes_in_prose_untouched():
+    # Italian and Spanish prose is full of single apostrophes (elisions,
+    # contractions); only a *pair* of quote characters means emphasis.
+    raw = "L'archetto è fatto di legno, non d'acciaio. El violín no es la viola."
+    assert convert_formatting(raw) == raw
+
+
+def test_convert_formatting_preserves_an_apostrophe_inside_bold_text():
+    assert convert_formatting("'''dell'arte''' è bello") == "**dell'arte** è bello"
+
+
+def test_convert_formatting_handles_combined_bold_and_italic():
+    # `'''''both'''''` (5 quotes) is real Wikipedia convention for bold+italic
+    # together. The bold pass strips the outer 3 quotes from each end first,
+    # leaving `''both''` for the italic pass — Markdown's own `***both***`
+    # falls out without special-casing the 5-quote form.
+    assert convert_formatting("'''''both'''''") == "***both***"
+
+
+def test_convert_lists_reads_a_redirect_directive_as_a_numbered_item():
+    # Known, accepted limitation: `#REDIRECT [[Target]]` is only valid
+    # wikitext as an article's first line, and this function has no notion
+    # of "first line of the article" — it reads it as an ordinary numbered
+    # item. Not a real risk for this corpus: wiki_fetch.fetch_article
+    # requests `redirects=1`, so a redirect page's wikitext is never handed
+    # to this pipeline in the first place.
+    assert convert_lists("#REDIRECT [[Target]]") == "1. REDIRECT [[Target]]"
+
+
+def test_drop_sections_drops_to_end_of_article_when_the_section_is_last():
+    # The blank separator line belongs to the *kept* section, not the
+    # dropped one, so it survives even though everything after it doesn't.
+    md = "## Construction\nbody\n\n## References\n- r1\n- r2"
+    assert drop_sections(md) == "## Construction\nbody\n"
+
+
+def test_drop_sections_matches_titles_that_differ_only_by_case():
+    assert drop_sections("## Storia\nc\n## SEE ALSO\nx") == "## Storia\nc"
+
+
+def test_drop_sections_matches_an_accented_title_regardless_of_case():
+    assert drop_sections("## Historia\nc\n## VÉASE TAMBIÉN\nx") == "## Historia\nc"
+
+
+def test_drop_sections_drops_a_boilerplate_subsection_nested_in_a_kept_section():
+    md = "## Construction\nbody\n### See also\nx\n## Playing\nmusic"
+    assert drop_sections(md) == "## Construction\nbody\n## Playing\nmusic"
