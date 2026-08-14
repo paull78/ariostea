@@ -1,17 +1,26 @@
 from ariostea.eval.wikitext import (
     convert_emphasis,
     convert_headings,
+    convert_links,
     convert_lists,
     drop_sections,
     normalize_blank_lines,
     strip_comments,
+    strip_external_links,
     strip_html_containers,
     strip_html_tags,
     strip_media_links,
     strip_refs,
     strip_tables,
     strip_templates,
+    wikitext_to_markdown,
 )
+
+TARGETS = {
+    "violin": "violin",
+    "double bass": "double-bass",
+    "string instrument": "string-instrument",
+}
 
 
 def test_strip_comments_and_refs():
@@ -364,6 +373,162 @@ def test_drop_sections_accepts_a_custom_titles_set():
     # `titles` compares against a stripped, lower-cased heading — a caller
     # supplying its own set has to lower-case its own titles to match.
     assert drop_sections("## Keep\nx\n## Drop\ny", titles=frozenset({"drop"})) == "## Keep\nx"
+
+
+# --- convert_links / strip_external_links / wikitext_to_markdown: Task 3 ----
+
+
+def test_convert_links_rewrites_in_corpus_links_with_the_original_label():
+    raw = "The [[Violin]] and the [[Double bass|contrabass]]."
+    assert (
+        convert_links(raw, TARGETS) == "The [[violin|Violin]] and the [[double-bass|contrabass]]."
+    )
+
+
+def test_convert_links_drops_out_of_corpus_links_to_plain_text():
+    assert convert_links("A [[Spruce]] top.", TARGETS) == "A Spruce top."
+
+
+def test_convert_links_keeps_the_link_trail_in_the_label():
+    assert convert_links("two [[violin]]s", TARGETS) == "two [[violin|violins]]"
+
+
+def test_convert_links_ignores_the_section_part_of_a_target():
+    assert convert_links("see [[Violin#Tuning|tuning]]", TARGETS) == "see [[violin|tuning]]"
+
+
+def test_convert_links_emits_the_bare_form_when_label_equals_slug():
+    assert convert_links("a [[violin]] b", TARGETS) == "a [[violin]] b"
+
+
+def test_strip_external_links_keeps_the_label_only():
+    assert (
+        strip_external_links("see [https://x.org the site] and [https://y.org]")
+        == "see the site and "
+    )
+
+
+def test_wikitext_to_markdown_end_to_end():
+    raw = (
+        "{{Infobox instrument|name=Violin}}\n"
+        "The '''violin''' is a [[String instrument|string instrument]].<ref>Smith</ref>\n"
+        "\n"
+        "== Construction ==\n"
+        "[[File:Violin.jpg|thumb|A [[violin]]]]\n"
+        "It has a [[Spruce]] top and is tuned in perfect fifths.\n"
+        "\n"
+        "* four strings\n"
+        "** tuned G, D, A, E\n"
+        "\n"
+        "== References ==\n"
+        "<references/>\n"
+    )
+
+    assert wikitext_to_markdown(raw, title="Violin", targets=TARGETS) == (
+        "# Violin\n"
+        "\n"
+        "The **violin** is a [[string-instrument|string instrument]].\n"
+        "\n"
+        "## Construction\n"
+        "\n"
+        "It has a Spruce top and is tuned in perfect fifths.\n"
+        "\n"
+        "- four strings\n"
+        "  - tuned G, D, A, E\n"
+    )
+
+
+# --- real-input hazards probed for Task 3 ------------------------------------
+
+
+def test_convert_links_no_label_section_link_drops_the_hash_fragment_from_the_alias():
+    # The plan's snippet falls back to the raw `target` (page + "#Section")
+    # for the display text when no label is given. That's a real defect: for
+    # an *in-corpus* section link it leaks "#Tuning" into the alias text
+    # (`[[violin|Violin#Tuning]]`), which is not natural prose. Use the
+    # section-stripped page for the fallback instead.
+    assert convert_links("see [[Violin#Tuning]]", TARGETS) == "see [[violin|Violin]]"
+
+
+def test_convert_links_same_page_section_link_with_no_label_keeps_the_hash_as_text():
+    # The mirror-image hazard: a same-page section link like [[#Construction]]
+    # has an *empty* page (everything is the "#Section" part). Naively
+    # stripping the hash for the display fallback would turn this into an
+    # empty string, silently deleting real reader-visible link text — the
+    # exact thing the module's invariant forbids. When the page component is
+    # empty, fall back to the untouched target instead. It's still an
+    # out-of-corpus link (an empty page can't resolve against `targets`), so
+    # it degrades to plain text like any other out-of-corpus link — just with
+    # its "#Construction" text preserved instead of deleted.
+    assert convert_links("see [[#Construction]] below", TARGETS) == "see #Construction below"
+
+
+def test_convert_links_pipe_trick_empty_label_falls_back_to_the_page():
+    # `[[Violin|]]` is MediaWiki's "pipe trick": an empty label still renders
+    # the base page name, same as no label at all.
+    assert convert_links("a [[Violin|]] b", TARGETS) == "a [[violin|Violin]] b"
+
+
+def test_convert_links_unresolved_unclosed_bracket_does_not_eat_a_later_paragraph():
+    # Same hazard class flagged twice already in this module (see
+    # test_strip_html_tags_catch_all_does_not_cross_a_newline and
+    # test_strip_refs_unclosed_ref_does_not_eat_prose_up_to_the_next_ref): an
+    # unclosed `[[` must not let the lazy target/label capture cross a blank
+    # line hunting for some unrelated later `]]`, swallowing whole paragraphs
+    # in between. The genuine link further down must still convert normally.
+    raw = "See [[Violin and more text on this line.\n\nA whole separate paragraph.\n\n[[Spruce]] survives."
+    assert convert_links(raw, TARGETS) == (
+        "See [[Violin and more text on this line.\n\nA whole separate paragraph.\n\nSpruce survives."
+    )
+
+
+def test_convert_links_category_link_renders_as_nothing_not_its_label():
+    # A category link is invisible in rendered article text — it files the
+    # page under the category, it doesn't render as a link at all. Flattening
+    # it to plain text like an ordinary out-of-corpus link would inject
+    # "Category: ..." straight into the prose. Localized aliases (it/es)
+    # covered too, since this corpus draws from those editions.
+    assert convert_links("Strings.[[Category:String instruments]]", TARGETS) == "Strings."
+    assert convert_links("Corde.[[Categoria:Strumenti a corda]]", TARGETS) == "Corde."
+    assert convert_links("Cuerdas.[[Categoría:Instrumentos]]", TARGETS) == "Cuerdas."
+
+
+def test_convert_links_leading_colon_forces_a_category_link_to_render_normally():
+    # `[[:Category:Strings]]` (leading colon) is the real wikitext escape
+    # that turns an otherwise-invisible category link into an ordinary,
+    # visible inline link — the colon must not be swept up by the
+    # invisible-category check above. It's still an out-of-corpus link (the
+    # Category namespace isn't a corpus article), so — like any other
+    # out-of-corpus link — it degrades to its plain rendered label rather
+    # than becoming a wikilink; the fix here is only that the label keeps
+    # the full "Category:Strings" text instead of vanishing like the
+    # non-colon case does.
+    assert convert_links("See [[:Category:Strings]] for a list.", TARGETS) == (
+        "See Category:Strings for a list."
+    )
+
+
+def test_convert_links_leading_colon_file_link_is_an_ordinary_inline_link():
+    # [[:File:X.jpg|the scan]] (leading colon) is a real inline link to the
+    # file's description page, not an embed — `strip_media_links` deliberately
+    # leaves it alone (its prefix pattern requires File: to follow directly
+    # after `[[`, not after `[[:`), so it reaches convert_links and flattens
+    # like any other out-of-corpus link, keeping its label.
+    assert convert_links("a [[:File:X.jpg|the scan]] b", TARGETS) == "a the scan b"
+
+
+def test_convert_links_media_link_is_an_ordinary_inline_link():
+    assert convert_links("[[Media:song.ogg|listen]] here", TARGETS) == "listen here"
+
+
+def test_strip_external_links_unterminated_link_does_not_cross_a_paragraph_break():
+    # Same newline-crossing hazard as above, for the *other* link stripper:
+    # `[^\]]*` has no line bound, so an unterminated `[http://...` could scan
+    # past a blank line hunting for some unrelated later `]` — e.g. a stray
+    # "]" that's just ordinary prose punctuation in the next paragraph — and
+    # eat everything in between as the "label". Left unmatched instead.
+    raw = "See [https://x.org broken and\n\nA new paragraph with a stray ] bracket kept intact."
+    assert strip_external_links(raw) == raw
 
 
 def test_structure_conversion_leaves_a_later_paragraph_intact():

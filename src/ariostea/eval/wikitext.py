@@ -13,11 +13,10 @@ inter-article links. `eval/wiki/NOTICE` records the modification.
 
 Pipeline order, and why
 ------------------------
-Callers (Task 3's `wikitext_to_markdown`) must run these functions in this
-order:
+`wikitext_to_markdown` runs these functions in this order:
 
     comments -> refs -> html containers -> templates -> tables -> media
-    -> inline html tags -> lists -> headings -> [Task 3: wikilinks]
+    -> inline html tags -> external links -> lists -> headings -> wikilinks
     -> emphasis -> drop_sections -> normalize_blank_lines
 
 - comments first: a half-edited article can have a stray `{{` or `[[` sitting
@@ -55,10 +54,23 @@ order:
   gap where the blank line that used to separate it from its neighbors is
   now doubled up. `normalize_blank_lines` is what collapses that back down,
   so it has to run after, last of all.
-- Task 3 adds two more stages not implemented in this module yet: wikilink
-  rewriting (`convert_links`), which runs between headings and emphasis, and
-  external-link flattening (`strip_external_links`), grouped with the strip
-  stages above.
+- external links after inline html tags, before lists: `strip_external_links`
+  is a strip stage (it removes markup it can positively identify — a
+  `[url ...]` bracket), so it belongs with the other strip stages and has no
+  ordering dependency on the *convert* stages that follow. It runs before
+  `convert_lists` only because it's grouped with the rest of the stripping
+  work; nothing about list markup can appear inside an external-link bracket
+  (`[`/`]` there mean "external link", never "bullet"), so this pairing has
+  no sharp edge the way lists-before-headings does.
+- wikilinks after headings, before emphasis: a wikilink can appear inside a
+  heading line (`== The [[Violin]] Family ==`), and `convert_links` doesn't
+  care whether the surrounding line is a heading or prose, so running it
+  after `convert_headings` still rewrites the link correctly. It has to run
+  before `convert_emphasis` for the same reason lists run before emphasis:
+  none of `convert_links`'s own patterns collide with `'''`/`''`, but keeping
+  every *convert* stage that could touch a shared span before the emphasis
+  pass, which is the last content-shaping stage, keeps that ordering
+  invariant simple to state and check.
 
 Invariant: this pipeline never removes text it did not positively identify as
 markup. Every stage either matches a construct it can name (a ref, a
@@ -70,6 +82,8 @@ prose resumes.
 from __future__ import annotations
 
 import re
+
+from ariostea.eval.normalize import normalize_ws
 
 _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 
@@ -122,6 +136,45 @@ _INLINE_TAG = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]*[^>\n]*>")
 # `Imagen:` (es-wiki's legacy alias for `Image:`) *is* included below — it's
 # a real embed prefix, not a `Media:`-style inline link.
 _MEDIA_PREFIX = re.compile(r"\[\[\s*(?:File|Image|Immagine|Archivo|Imagen)\s*:", re.IGNORECASE)
+
+# [[Target]] / [[Target|label]] / [[Target#Section|label]], plus the trailing
+# "link trail" letters MediaWiki folds into the rendered label ([[violin]]s).
+# Target and label both exclude `\n`, not just `[`/`]`: without that bound, an
+# unclosed `[[` (missing `]]`) lets the lazy quantifier scan past a blank line
+# hunting for some unrelated later `]]`, swallowing whole paragraphs in
+# between as if they were the link's own target/label text. A genuine
+# wikilink is always written on one line, so bounding to one line turns the
+# unclosed case into a same-line no-match (leaked verbatim, per this module's
+# invariant) instead of a scan that eats real prose — the same fix already
+# applied to `_INLINE_TAG` above and to `_EXT_LINK` below.
+_LINK = re.compile(r"\[\[([^\[\]|\n]+?)(?:\|([^\[\]\n]*))?\]\](\w*)")
+
+# `[[:Category:X]]` / `[[:File:X]]`: a leading colon is wikitext's escape
+# that forces an otherwise-special namespace link (category membership,
+# media embed) to render as an ordinary, visible inline link instead. It has
+# to be recognized and stripped before the invisible-category check below, or
+# a genuine inline link like `[[:Category:Strings]]` would vanish from the
+# prose along with the real invisible `[[Category:Strings]]` case.
+_LEADING_COLON = re.compile(r"^:\s*")
+
+# A category link with *no* leading colon renders as nothing in article
+# text — it files the page under the category, it isn't a visible link at
+# all. Flattening it to plain text like an ordinary out-of-corpus link would
+# inject "Category: ..." straight into the middle of a sentence. Localized
+# aliases cover the it/es editions this corpus draws from; `[[Category:...]]`
+# is the only namespace this module treats as invisible — everything else
+# unresolved (`Help:`, `Portal:`, an interwiki prefix like `fr:`) renders as
+# an ordinary, if odd-looking, flattened link in real MediaWiki, and this
+# module follows that.
+_CATEGORY = re.compile(r"^(?:category|categoria|categoría)\s*:", re.IGNORECASE)
+
+# `[url label]` / `[url]`. The label half excludes `\n` for the identical
+# reason `_LINK`'s label does: `[^\]]*` with no line bound would let an
+# unterminated `[http://...` scan past a blank line hunting for some
+# unrelated later `]` (e.g. a stray "]" that's just ordinary prose
+# punctuation in the *next* paragraph) and read everything in between as the
+# link's label.
+_EXT_LINK = re.compile(r"\[(?:https?:)?//\S+?(?:[ \t]+([^\]\n]*))?\]")
 
 
 def strip_comments(text: str) -> str:
@@ -377,6 +430,95 @@ def convert_emphasis(text: str) -> str:
     is unaffected.
     """
     return _ITALIC.sub(r"*\1*", _BOLD.sub(r"**\1**", text))
+
+
+def convert_links(text: str, targets: dict[str, str]) -> str:
+    """Rewrite links to corpus articles as Obsidian wikilinks; flatten the rest.
+
+    `targets` maps a normalized article title (`normalize_ws(title)`) to the
+    slug of the note it became. A link whose target resolves against `targets`
+    becomes `[[slug]]` (or `[[slug|label]]` when the rendered label differs
+    from the slug), preserving the label so the prose still reads naturally.
+    Everything else — an out-of-corpus article, a namespace page, a same-page
+    section link — degrades to its rendered label as plain text, the same way
+    a Markdown reader with no graph would see it.
+
+    Must run after `convert_headings` (so a link inside a heading line is
+    still rewritten) and before `convert_emphasis` — see the module
+    docstring's pipeline-order note.
+
+    Known limitation, accepted: a bare interlanguage link (`[[fr:Violon]]`,
+    no leading colon) is, like a category link, invisible in the rendered
+    article — MediaWiki treats it as a hint for the "In other languages"
+    sidebar, not as inline content. This function doesn't special-case it the
+    way it does `_CATEGORY`, so one would flatten to its raw target
+    (`fr:Violon`) instead of vanishing. Accepted because Wikipedia has fetched
+    interlanguage links from Wikidata rather than storing them in article
+    wikitext since ~2013; a live fetch essentially never produces this
+    construct today, so building and maintaining a language-code table to
+    special-case a form the source no longer emits would be speculative
+    complexity for a hazard this corpus is not expected to hit.
+    """
+
+    def replace(match: re.Match[str]) -> str:
+        target, label, trail = match.group(1), match.group(2), match.group(3)
+
+        forced_visible = bool(_LEADING_COLON.match(target))
+        if forced_visible:
+            target = _LEADING_COLON.sub("", target, count=1)
+        elif _CATEGORY.match(target):
+            # Invisible in rendered article text — see `_CATEGORY` above.
+            return ""
+
+        page = target.split("#", 1)[0].strip()
+        # A same-page section link ([[#Construction]]) has an *empty* page —
+        # the whole target is the "#Section" part. Falling back to that empty
+        # page for the display text would silently delete real reader-visible
+        # link text, which this module's invariant forbids; fall back to the
+        # untouched target instead, and never look such a page up in
+        # `targets` (it can't resolve to a title match).
+        fallback = page if page else target.strip()
+        display = (label or fallback).strip() + trail
+        slug = targets.get(normalize_ws(page.replace("_", " "))) if page else None
+        if slug is None:
+            return display
+        return f"[[{slug}]]" if display == slug else f"[[{slug}|{display}]]"
+
+    return _LINK.sub(replace, text)
+
+
+def strip_external_links(text: str) -> str:
+    """Flatten `[url label]` / `[url]` to just the label (or nothing).
+
+    An external link carries no corpus-graph meaning — its target isn't an
+    article — so unlike `convert_links` there's nothing to rewrite it into.
+    Grouped with the strip stages (see the module docstring): it removes
+    markup it can positively identify, the same as `strip_refs` or
+    `strip_media_links`.
+    """
+    return _EXT_LINK.sub(lambda m: m.group(1) or "", text)
+
+
+def wikitext_to_markdown(raw: str, title: str, targets: dict[str, str]) -> str:
+    """Full pipeline: raw wikitext in, note body (H1 + Markdown) out.
+
+    Stage order is pinned by the module docstring's "Pipeline order, and why"
+    section; see it before reordering anything here.
+    """
+    text = strip_comments(raw)
+    text = strip_refs(text)
+    text = strip_html_containers(text)
+    text = strip_templates(text)
+    text = strip_tables(text)
+    text = strip_media_links(text)
+    text = strip_html_tags(text)
+    text = strip_external_links(text)
+    text = convert_lists(text)
+    text = convert_headings(text)
+    text = convert_links(text, targets)
+    text = convert_emphasis(text)
+    text = drop_sections(text)
+    return f"# {title}\n\n{normalize_blank_lines(text)}".rstrip() + "\n"
 
 
 def drop_sections(markdown: str, titles: frozenset[str] = DROP_SECTIONS) -> str:
