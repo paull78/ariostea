@@ -16,8 +16,9 @@ Pipeline order, and why
 `wikitext_to_markdown` runs these functions in this order:
 
     comments -> refs -> html containers -> templates -> tables -> media
-    -> inline html tags -> external links -> lists -> headings -> wikilinks
-    -> emphasis -> drop_sections -> normalize_blank_lines
+    -> inline html tags -> external links -> empty-emphasis cleanup -> lists
+    -> headings -> wikilinks -> emphasis -> drop_sections
+    -> normalize_blank_lines
 
 - comments first: a half-edited article can have a stray `{{` or `[[` sitting
   inside an HTML comment. If the comment survives past this step, that brace
@@ -62,6 +63,15 @@ Pipeline order, and why
   work; nothing about list markup can appear inside an external-link bracket
   (`[`/`]` there mean "external link", never "bullet"), so this pairing has
   no sharp edge the way lists-before-headings does.
+- empty-emphasis cleanup after every strip stage, before every convert
+  stage: a template that was the *entire* content of an italic or bold span
+  (`''{{Wikt-lang|fr|luthier}}''`) leaves behind an empty, content-free
+  quote run once `strip_templates` removes it (`''''`, four adjacent
+  quotes). It has to run after every stage that can produce that artifact
+  (templates are the case seen in real data, but a ref, table, or container
+  that was a span's whole content would leave the same shape) and before
+  `convert_emphasis`, which is the stage the artifact corrupts — see
+  `strip_empty_emphasis`'s docstring for the failure mode this prevents.
 - wikilinks after headings, before emphasis: a wikilink can appear inside a
   heading line (`== The [[Violin]] Family ==`), and `convert_links` doesn't
   care whether the surrounding line is a heading or prose, so running it
@@ -539,6 +549,39 @@ def convert_links(text: str, targets: dict[str, str]) -> str:
     return _LINK.sub(replace, text)
 
 
+# A template that was the *entire* content of an italic or bold span leaves
+# behind two adjacent, now-empty quote runs once `strip_templates` removes
+# it: `''{{Wikt-lang|fr|luthier}}''` becomes `''''`, an empty italic pair
+# with nothing between its open and close. Left alone, `convert_emphasis`'s
+# line-bounded BOLD/ITALIC regexes have no notion of "empty" — they scan
+# past it hunting for a legitimate close and instead latch onto the next
+# real `''...''`/`'''...'''` span later on the same line, misreading that
+# unrelated span's own markers as this one's close and leaving its true
+# open/close as stray literal quote characters in the rendered text.
+# Confirmed against the real English "Luthier" article (rev 1365251608):
+# its lead reads `''{{Wikt-lang|fr|luthier}}'' is ... from ''luth''`, and
+# without this stage that renders as `*'' is ... from *luth'',` — a
+# corrupted emphasis boundary *and* two leaked literal apostrophes, not
+# merely a vanished template value.
+#
+# Bounded with `[ \t]*`, not `\s*`, for the same reason `_HEADING` bounds to
+# `[ \t]`: whitespace between the two empty markers should not reach across
+# a paragraph break. The empty-bold pattern (six adjacent quotes) is
+# stripped before the empty-italic one (four) so it is removed whole rather
+# than read as an empty italic pair plus two leftover literal quotes.
+_EMPTY_BOLD = re.compile(r"'''[ \t]*'''")
+_EMPTY_ITALIC = re.compile(r"''[ \t]*''")
+
+
+def strip_empty_emphasis(text: str) -> str:
+    """Remove italic/bold markers left wrapping nothing after a strip stage
+    emptied their content. Must run after every strip stage (templates,
+    refs, tables, containers — whichever produced the artifact) and before
+    `convert_emphasis`, which the artifact otherwise corrupts. See the
+    module-level comment above for the failure mode this avoids."""
+    return _EMPTY_ITALIC.sub("", _EMPTY_BOLD.sub("", text))
+
+
 def strip_external_links(text: str) -> str:
     """Flatten `[url label]` / `[url]` to just the label (or nothing).
 
@@ -611,6 +654,7 @@ def wikitext_to_markdown(raw: str, title: str, targets: dict[str, str]) -> str:
     text = strip_media_links(text)
     text = strip_html_tags(text)
     text = strip_external_links(text)
+    text = strip_empty_emphasis(text)
     text = convert_lists(text)
     text = convert_headings(text)
     text = convert_links(text, targets)

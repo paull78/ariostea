@@ -6,6 +6,7 @@ from ariostea.eval.wikitext import (
     drop_sections,
     normalize_blank_lines,
     strip_comments,
+    strip_empty_emphasis,
     strip_external_links,
     strip_html_containers,
     strip_html_tags,
@@ -278,6 +279,66 @@ def test_convert_emphasis_leaves_an_unmatched_bold_marker_in_place():
     # Same invariant as the strip functions above: an unmatched opener is
     # left untouched rather than guessed at.
     assert convert_emphasis("a '''unclosed bold here") == "a '''unclosed bold here"
+
+
+# --- empty-emphasis cleanup: a template that was an emphasis span's entire
+# content -------------------------------------------------------------------
+#
+# Found in the trial build against real Wikipedia data (Task 8), not
+# invented: the English "Luthier" article (rev 1365251608) opens
+# `''{{Wikt-lang|fr|luthier}}'' is originally ... from ''luth''`. Once
+# strip_templates removes the template, the first span is an empty italic
+# pair (`''''`) sitting right in front of a second, unrelated, real italic
+# span later in the same sentence.
+
+
+def test_strip_empty_emphasis_removes_an_empty_italic_pair_left_by_a_stripped_template():
+    assert strip_empty_emphasis("word '''' is empty") == "word  is empty"
+
+
+def test_strip_empty_emphasis_removes_an_empty_bold_pair_left_by_a_stripped_template():
+    assert strip_empty_emphasis("word '''''' is empty") == "word  is empty"
+
+
+def test_strip_empty_emphasis_leaves_real_emphasis_alone():
+    raw = "The '''violin''' is a ''chordophone''."
+    assert strip_empty_emphasis(raw) == raw
+
+
+def test_convert_emphasis_without_cleanup_corrupts_a_later_unrelated_italic_span():
+    # Demonstrates the defect itself: convert_emphasis's ITALIC regex, with
+    # no notion of "empty", scans past the leftover `''''` hunting for a
+    # legitimate close and instead consumes into the next real ''luth''
+    # span -- corrupting the boundary and leaking two literal apostrophes.
+    raw = (
+        "The word '''' is originally French and comes from ''luth'', the French word for \"lute\"."
+    )
+    assert convert_emphasis(raw) == (
+        "The word *'' is originally French and comes from *luth'', the French word for \"lute\"."
+    )
+
+
+def test_strip_empty_emphasis_before_convert_emphasis_keeps_the_later_span_intact():
+    raw = (
+        "The word '''' is originally French and comes from ''luth'', the French word for \"lute\"."
+    )
+    cleaned = convert_emphasis(strip_empty_emphasis(raw))
+    assert cleaned == (
+        'The word  is originally French and comes from *luth*, the French word for "lute".'
+    )
+
+
+def test_wikitext_to_markdown_does_not_corrupt_emphasis_when_a_template_was_a_spans_entire_content():
+    # End-to-end pin of the real Luthier construct through the full
+    # pipeline, not just the two functions in isolation.
+    raw = (
+        "''{{Wikt-lang|fr|luthier}}'' is originally [[French language|French]] "
+        "and comes from ''luth'', the French word for \"[[lute]]\"."
+    )
+    body = wikitext_to_markdown(raw, title="Luthier", targets={"lute": "lute"})
+    assert "*'" not in body
+    assert "*luth*" in body
+    assert "[[lute]]" in body
 
 
 # --- list-prefix ordering: item 1 --------------------------------------------
