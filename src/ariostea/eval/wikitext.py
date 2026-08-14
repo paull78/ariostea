@@ -6,19 +6,26 @@ comes out. Wikitext (rather than rendered HTML) is the input because its links
 are already `[[Article|label]]`, which is exactly the shape Obsidian wants —
 rewriting is a lookup, not a URL-resolution problem.
 
-The trade-off is that templates are *removed*, not expanded, so template-borne
-values ({{convert}}, {{lang}}) vanish from the prose. For an evaluation corpus
-that is acceptable: what matters is real headings, real length, and real
-inter-article links. `eval/wiki/NOTICE` records the modification.
+Most templates are *removed* whole, not expanded: citation and navigation
+chrome ({{cite web}}, {{isbn}}, {{see also}}, {{main}}) carries no prose a
+reader would want back. `_DISPLAY_TEMPLATES` is the deliberate, narrow
+exception — a handful of *inline display* templates (`{{convert}}`,
+`{{frac}}`, `{{lang}}`/`{{wikt-lang}}`, `{{circa}}`, `{{music}}`,
+`{{nowrap}}`) whose rendered output *is* article prose: a measurement, a
+fraction, a foreign term, a musical symbol. `expand_templates` turns those
+into their plain-text output before `strip_templates` removes everything
+else, so a fact like "the body is 14 in (36 cm) long" survives as text
+instead of silently vanishing along with the citation chrome around it.
+`eval/wiki/NOTICE` records the modification.
 
 Pipeline order, and why
 ------------------------
 `wikitext_to_markdown` runs these functions in this order:
 
-    comments -> refs -> html containers -> templates -> tables -> media
-    -> inline html tags -> external links -> empty-emphasis cleanup -> lists
-    -> headings -> wikilinks -> emphasis -> drop_sections
-    -> normalize_blank_lines
+    comments -> refs -> html containers -> display-template expansion
+    -> templates -> tables -> media -> inline html tags -> external links
+    -> empty-emphasis cleanup -> lists -> headings -> wikilinks -> emphasis
+    -> drop_sections -> normalize_blank_lines
 
 - comments first: a half-edited article can have a stray `{{` or `[[` sitting
   inside an HTML comment. If the comment survives past this step, that brace
@@ -30,6 +37,15 @@ Pipeline order, and why
 - html containers before templates/tables: `<gallery>`, `<math>`,
   `<syntaxhighlight>` and friends can hold text that *looks* like `{{...}}`
   or `{|...|}` (LaTeX, source code) but isn't wikitext markup at all.
+- display-template expansion after html containers, before templates:
+  `expand_templates` scans for `{{...}}` the same way `strip_templates`
+  does, so it inherits the same hazard `strip_templates` is already placed
+  after html containers to avoid — LaTeX or source-code text inside
+  `<math>`/`<syntaxhighlight>` that merely looks like template markup. It
+  has to run *before* `strip_templates` by construction: expanding
+  `{{convert}}`/`{{frac}}`/etc. is what keeps their output out of
+  `strip_templates`'s reach, since anything still shaped like `{{...}}` by
+  the time that stage runs is chrome and gets removed whole.
 - media after templates/tables: a `[[File:...]]` caption can itself hold a
   `{{...}}` template (rare, but real); clearing templates and tables first
   means the media scanner only has to worry about nested `[[...]]` links.
@@ -98,6 +114,7 @@ prose resumes.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 
 from ariostea.eval.normalize import normalize_ws
 
@@ -262,6 +279,272 @@ def _strip_balanced(text: str, open_tok: str, close_tok: str) -> str:
     if depth:
         out.append(text[open_start:])
     return "".join(out)
+
+
+# --- inline display templates: expanded, not stripped -----------------------
+#
+# Confirmed against six real, fetched articles (Violin, Viola, Cello, Double
+# bass, Classical guitar, Mandolin) before this allowlist was written, not
+# guessed at — every shape below is a real invocation seen in that sample,
+# and every deviation from the shapes this module was first asked to handle
+# (the `and`/`to(-)` convert joiners, `{{music|time|N|D}}`, the `N+M/D`
+# mixed-number value syntax) is a real construct that sample turned up, not
+# speculative future-proofing. See the docstrings below for what each one
+# is and why it's handled the way it is.
+
+
+def _split_template_args(arg_str: str) -> list[str]:
+    """Split a template's raw argument string on top-level `|`.
+
+    Bracket-depth-aware for `[[...]]` only: a positional argument can be a
+    piped wikilink (`{{lang|it|[[Viola da gamba|Viola]]}}`), whose internal
+    `|` must not be misread as another template-argument boundary. No
+    brace-depth tracking is needed here — by construction (see
+    `expand_templates`), `arg_str` never contains an unresolved `{{...}}` by
+    the time it reaches this function.
+    """
+    args: list[str] = []
+    current: list[str] = []
+    depth = 0
+    i = 0
+    n = len(arg_str)
+    while i < n:
+        if arg_str.startswith("[[", i):
+            depth += 1
+            current.append("[[")
+            i += 2
+        elif depth and arg_str.startswith("]]", i):
+            depth -= 1
+            current.append("]]")
+            i += 2
+        elif not depth and arg_str[i] == "|":
+            args.append("".join(current))
+            current = []
+            i += 1
+        else:
+            current.append(arg_str[i])
+            i += 1
+    args.append("".join(current))
+    return args
+
+
+def _parse_template_args(arg_str: str) -> tuple[list[str], dict[str, str]]:
+    """Split a template's `arg1|arg2|key=value` tail into positional args (in
+    order) and named args (keyed lower-case).
+
+    An argument counts as named if it contains `=`, positional otherwise —
+    a simplification of MediaWiki's real rule (which also recognizes an
+    explicit `1=value` form specifically so a positional argument can
+    contain a literal `=`). Confirmed safe for `_DISPLAY_TEMPLATES`: none of
+    their ordinary positional values (a number, a language code, a bare
+    word, a joiner keyword) contain `=` in the six-article sample this
+    allowlist was built against.
+    """
+    if not arg_str:
+        return [], {}
+    positional: list[str] = []
+    named: dict[str, str] = {}
+    for raw_arg in _split_template_args(arg_str):
+        key, sep, value = raw_arg.partition("=")
+        if sep:
+            named[key.strip().lower()] = value.strip()
+        else:
+            positional.append(raw_arg.strip())
+    return positional, named
+
+
+# `{{convert}}`'s range form (`{{convert|4|to|6|ft}}`) puts a joiner keyword
+# in the second positional slot instead of a unit. `and` and `to(-)` are
+# real, both seen in the sample (`{{convert|20|and|22|in}}`,
+# `{{convert|60|to(-)|75|cm|in}}`) alongside the `to`/`x`/en-dash forms this
+# fix was originally scoped to cover. `to(-)` is MediaWiki's own notation
+# for "join with a hyphen instead of the word 'to'"; normalized to the same
+# `to` text as the plain form rather than reproduced literally, since a
+# literal `to(-)` in prose would read as nonsense, not as either of the two
+# things it could mean here (a joiner directive or a hyphen).
+_CONVERT_JOINERS = {"to": "to", "to(-)": "to", "and": "and", "x": "x", "–": "–"}
+# `{{convert|13+7/8|in}}`'s value can itself carry a mixed number in
+# MediaWiki's own compact `N+M/D` notation — seen three times in the sample,
+# not a one-off. Rendered as `N M/D` (space instead of `+`) for readability.
+# The digit-slash-digit shape (`\d+\+\d+/\d+`) only matches this specific
+# construct, so a value that happens to contain an unrelated literal `+` is
+# left untouched rather than mis-rewritten.
+_CONVERT_MIXED_NUMBER = re.compile(r"(\d+)\+(\d+/\d+)")
+
+
+def _expand_convert(positional: list[str], _named: dict[str, str]) -> str:
+    """`{{convert|VALUE|UNIT|...}}` -> `VALUE UNIT`, dropping the output-unit
+    target, the precision digit, and every named arg (`abbr=on`, `sp=us`,
+    `order=flip`) — none of them are visible prose, all three are real in
+    the sample. The range form (`{{convert|VALUE1|JOINER|VALUE2|UNIT}}`)
+    keeps both values: `VALUE1 JOINER VALUE2 UNIT`. See `_CONVERT_JOINERS`
+    and `_CONVERT_MIXED_NUMBER` above for the two extensions the real data
+    required beyond the plain single-value form.
+    """
+    if not positional:
+        return ""
+    value = _CONVERT_MIXED_NUMBER.sub(r"\1 \2", positional[0])
+    if len(positional) < 2:
+        return value
+    joiner = _CONVERT_JOINERS.get(positional[1].strip().lower())
+    if joiner is not None and len(positional) >= 3:
+        value2 = _CONVERT_MIXED_NUMBER.sub(r"\1 \2", positional[2])
+        unit = f" {positional[3]}" if len(positional) >= 4 else ""
+        return f"{value} {joiner} {value2}{unit}"
+    return f"{value} {positional[1]}"
+
+
+def _expand_frac(positional: list[str], _named: dict[str, str]) -> str:
+    """`{{frac|1|2}}` -> `1/2` (a bare fraction); `{{frac|3|1|2}}` ->
+    `3 1/2` (a whole number plus a fraction). A bare `{{frac}}` (no
+    positional args) drops to nothing — there is no number to render. More
+    than three positional args is not a shape seen in the sample; the extra
+    args are dropped rather than guessed at, same as an unrecognized
+    `{{music}}` argument below.
+    """
+    if not positional:
+        return ""
+    if len(positional) == 1:
+        return positional[0]
+    if len(positional) == 2:
+        return f"{positional[0]}/{positional[1]}"
+    return f"{positional[0]} {positional[1]}/{positional[2]}"
+
+
+def _expand_lang(positional: list[str], _named: dict[str, str]) -> str:
+    """`{{lang|it|violino}}` / `{{wikt-lang|fr|luthier}}` -> the last
+    positional arg (the actual foreign-language text; the earlier args are
+    just language-tag metadata). That text can itself be a wikilink
+    (`{{lang|it|[[Viola da gamba]]}}`, real in the sample) — left intact
+    here, since `expand_templates` runs long before `convert_links` and the
+    wikilink is still real, unconverted wikitext at this point in the
+    pipeline.
+    """
+    return positional[-1] if positional else ""
+
+
+def _expand_circa(positional: list[str], _named: dict[str, str]) -> str:
+    """`{{circa}}` -> `c.`; `{{circa|1700}}` -> `c. 1700`."""
+    if not positional:
+        return "c."
+    return f"c. {positional[0]}"
+
+
+# `{{music|...}}` covers far more than accidentals in real MediaWiki, but
+# the sample turned up exactly two prose-bearing shapes: a single symbol
+# name/shorthand, and a time signature (`{{music|time|2|4}}`, real and
+# repeated in the sample — dropping it would silently delete a fact like "in
+# 3/4 time" the same way an unexpanded `{{convert}}` would delete a
+# measurement). Both shorthand letters (`b`, `#`) and full words (`flat`,
+# `sharp`) appear in the sample side by side for the same symbol, so both
+# resolve to the same glyph.
+_MUSIC_SYMBOLS = {
+    "flat": "♭",
+    "b": "♭",
+    "sharp": "♯",
+    "#": "♯",
+    "natural": "♮",
+    "n": "♮",
+    "doubleflat": "\U0001d12b",
+    "bb": "\U0001d12b",
+    "doublesharp": "\U0001d12a",
+    "x": "\U0001d12a",
+    "##": "\U0001d12a",
+}
+
+
+def _expand_music(positional: list[str], _named: dict[str, str]) -> str:
+    """A recognized symbol argument expands to its Unicode glyph; a
+    `time|N|D` argument expands to `N/D`, the same shape `_expand_frac`
+    produces for an ordinary fraction. Anything else — an unrecognized
+    symbol name, a wrong argument count — drops the whole template rather
+    than guessing at a glyph that might be wrong.
+    """
+    if len(positional) == 3 and positional[0].strip().lower() == "time":
+        return f"{positional[1]}/{positional[2]}"
+    if len(positional) == 1:
+        symbol = _MUSIC_SYMBOLS.get(positional[0].strip().lower())
+        if symbol is not None:
+            return symbol
+    return ""
+
+
+def _expand_nowrap(positional: list[str], named: dict[str, str]) -> str:
+    """`{{nowrap|some text}}` -> `some text`. Not seen in the six-article
+    sample at all; included because the task that built this allowlist
+    named it explicitly, kept deliberately simple (no line-wrapping concept
+    survives a Markdown note anyway) rather than speculatively hardened
+    against a real construct nothing here has actually observed.
+    """
+    if positional:
+        return positional[0]
+    return named.get("1", "")
+
+
+# The split this allowlist exists to draw: citation and navigation chrome
+# ({{cite web}}, {{isbn}}, {{see also}}, {{main}}, ...) stays with
+# `strip_templates` below and is removed whole — its output was never
+# prose. Everything in this dict is the deliberate exception: an inline
+# display template whose rendered output *is* prose a reader would see.
+# Extend this dict, not `strip_templates`, when a new inline display
+# template turns out to matter for retrieval.
+_DISPLAY_TEMPLATES: dict[str, Callable[[list[str], dict[str, str]], str]] = {
+    "convert": _expand_convert,
+    "frac": _expand_frac,
+    "lang": _expand_lang,
+    "wikt-lang": _expand_lang,
+    "circa": _expand_circa,
+    "music": _expand_music,
+    "nowrap": _expand_nowrap,
+}
+
+# Matches a template with no nested `{{...}}` inside it — i.e. one whose
+# arguments, if it has any dependency on another template at all, have
+# already been resolved. `expand_templates` applies this repeatedly so
+# nesting resolves innermost-first: `{{convert|4|{{frac|1|2}} ft}}`'s
+# `{{frac|1|2}}` becomes `1/2` on the first pass (it has no braces inside
+# it, so it's innermost), which turns the outer `{{convert|...}}` into a
+# brace-free, and therefore innermost, template on the next pass.
+_INNERMOST_TEMPLATE = re.compile(r"\{\{([^{}]*)\}\}")
+# Bound on expansion passes, not a limit ever expected to bind in practice:
+# real template nesting in this corpus is one or two levels deep. Guards
+# against a pathological input looping forever rather than converging,
+# consistent with this module never trusting wikitext to be well-formed.
+_MAX_EXPANSION_PASSES = 20
+
+
+def _expand_one(match: re.Match[str]) -> str:
+    """Expand a single innermost `{{...}}` match if its name is on the
+    allowlist; otherwise return it unchanged so `strip_templates` removes it
+    whole later. An unclosed `{{convert` (no matching `}}` at all) never
+    reaches here in the first place — `_INNERMOST_TEMPLATE` can't match
+    without a close, so it falls through to `strip_templates`'s own
+    unclosed-brace handling, which leaks it verbatim per this module's
+    invariant.
+    """
+    name, _, arg_str = match.group(1).partition("|")
+    handler = _DISPLAY_TEMPLATES.get(name.strip().lower())
+    if handler is None:
+        return match.group(0)
+    positional, named = _parse_template_args(arg_str)
+    return handler(positional, named)
+
+
+def expand_templates(text: str) -> str:
+    """Expand every allowlisted inline display template to its plain-text
+    output, innermost occurrence first, converging when a pass produces no
+    further change. Must run after `strip_html_containers` (a `{{`-shaped
+    match inside `<math>`/`<syntaxhighlight>` isn't real template markup —
+    same hazard `strip_templates` avoids the same way) and before
+    `strip_templates` (which removes whatever this function didn't
+    recognize). See the module docstring's pipeline-order note.
+    """
+    for _ in range(_MAX_EXPANSION_PASSES):
+        new_text = _INNERMOST_TEMPLATE.sub(_expand_one, text)
+        if new_text == text:
+            return new_text
+        text = new_text
+    return text
 
 
 def strip_templates(text: str) -> str:
@@ -649,6 +932,7 @@ def wikitext_to_markdown(raw: str, title: str, targets: dict[str, str]) -> str:
     text = strip_comments(raw)
     text = strip_refs(text)
     text = strip_html_containers(text)
+    text = expand_templates(text)
     text = strip_templates(text)
     text = strip_tables(text)
     text = strip_media_links(text)

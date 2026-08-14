@@ -4,6 +4,7 @@ from ariostea.eval.wikitext import (
     convert_links,
     convert_lists,
     drop_sections,
+    expand_templates,
     normalize_blank_lines,
     strip_comments,
     strip_empty_emphasis,
@@ -339,6 +340,155 @@ def test_wikitext_to_markdown_does_not_corrupt_emphasis_when_a_template_was_a_sp
     assert "*'" not in body
     assert "*luth*" in body
     assert "[[lute]]" in body
+
+
+# --- display-template expansion: convert/frac/lang/circa/music/nowrap -------
+#
+# Every shape below is a real invocation confirmed against six fetched
+# articles (Violin rev 1366434192, Viola rev 1364838851, Cello rev
+# 1360203898, Double bass rev 1365602377, Classical guitar rev 1368953989,
+# Mandolin rev 1368537001) before the allowlist in wikitext.py was written —
+# not invented cases. See `_DISPLAY_TEMPLATES`'s comment for which shapes
+# came from that sample versus the original task spec.
+
+
+def test_expand_templates_convert_drops_the_output_unit_and_precision():
+    # {{convert|356|mm|in|1|abbr=on}}, real (Violin): value + first unit
+    # only; target unit, precision digit, and every named arg are dropped.
+    assert expand_templates("{{convert|356|mm|in|1|abbr=on}}") == "356 mm"
+
+
+def test_expand_templates_convert_handles_the_to_range_form():
+    assert expand_templates("{{convert|4|to|6|ft}}") == "4 to 6 ft"
+
+
+def test_expand_templates_convert_handles_the_x_and_en_dash_range_forms():
+    assert expand_templates("{{convert|4|x|6|ft}}") == "4 x 6 ft"
+    assert expand_templates("{{convert|484|–|578|mm|in|abbr=on}}") == "484 – 578 mm"
+
+
+def test_expand_templates_convert_handles_the_and_joiner():
+    # {{convert|20|and|22|in}}, real (Cello). Not in the original task spec
+    # -- added because dropping it silently would render "20" with the
+    # "22 in" half of the measurement gone, not just an unconverted joiner.
+    assert expand_templates("{{convert|20|and|22|in}}") == "20 and 22 in"
+
+
+def test_expand_templates_convert_normalizes_the_to_hyphen_variant():
+    # {{convert|60|to(-)|75|cm|in}}, real (Cello). MediaWiki's own notation
+    # for "join with a hyphen instead of the word 'to'"; normalized to the
+    # same "to" text as the plain form rather than reproduced literally.
+    assert expand_templates("{{convert|60|to(-)|75|cm|in}}") == "60 to 75 cm"
+
+
+def test_expand_templates_convert_expands_the_mixed_number_value_syntax():
+    # {{convert|13+7/8|in}}, real (Cello, Mandolin) -- convert's own
+    # compact mixed-number notation, distinct from a nested {{frac}}.
+    assert expand_templates("{{convert|13+7/8|in}}") == "13 7/8 in"
+
+
+def test_expand_templates_frac_handles_bare_whole_and_mixed_forms():
+    assert expand_templates("{{frac|1|2}}") == "1/2"
+    assert expand_templates("{{frac|3|1|2}}") == "3 1/2"
+    assert expand_templates("{{frac}}") == ""
+
+
+def test_expand_templates_convert_and_frac_nest_innermost_first():
+    # The construct this fix was specifically required to handle: frac
+    # resolves to plain text on the first pass, which then makes the outer
+    # convert brace-free (innermost) on the second pass.
+    assert expand_templates("{{convert|4|{{frac|1|2}} ft}}") == "4 1/2 ft"
+
+
+def test_expand_templates_lang_and_wikt_lang_emit_the_last_positional_arg():
+    # {{lang|it|violino}} and {{Wikt-lang|fr|luthier}}, both real -- the
+    # latter is the exact Luthier (rev 1365251608) construct that motivated
+    # the strip_empty_emphasis fix; wikt-lang now expands at the source
+    # instead of relying solely on that cleanup stage downstream.
+    assert expand_templates("{{lang|it|violino}}") == "violino"
+    assert expand_templates("{{Wikt-lang|fr|luthier}}") == "luthier"
+
+
+def test_expand_templates_lang_preserves_a_nested_wikilink():
+    # {{lang|it|[[Viola da gamba]]}}, real (Violin). The wikilink survives
+    # as ordinary wikitext for convert_links to resolve later in the
+    # pipeline -- expand_templates has no notion of link syntax at all.
+    assert expand_templates("{{lang|it|[[Viola da gamba]]}}") == "[[Viola da gamba]]"
+
+
+def test_expand_templates_circa_bare_and_with_year():
+    assert expand_templates("{{circa}}") == "c."
+    assert expand_templates("{{circa|1700}}") == "c. 1700"
+
+
+def test_expand_templates_music_maps_both_shorthand_and_word_forms():
+    # {{music|#}}/{{music|b}} and {{music|flat}}/{{music|sharp}} both
+    # appear in the sample for the same symbols -- real editors mix both
+    # conventions in the same article.
+    assert expand_templates("{{music|flat}}") == "♭"
+    assert expand_templates("{{music|b}}") == "♭"
+    assert expand_templates("{{music|sharp}}") == "♯"
+    assert expand_templates("{{music|#}}") == "♯"
+    assert expand_templates("{{music|natural}}") == "♮"
+
+
+def test_expand_templates_music_time_signature():
+    # {{music|time|3|4}}, real (Cello, Mandolin) -- not in the original
+    # task spec's mapping (which only covered accidentals); dropping it
+    # would delete a fact like "written in 3/4 time" the same way an
+    # unexpanded {{convert}} deletes a measurement.
+    assert expand_templates("{{music|time|3|4}}") == "3/4"
+
+
+def test_expand_templates_music_drops_an_unrecognized_argument():
+    assert expand_templates("{{music|breve}}") == ""
+
+
+def test_expand_templates_nowrap_emits_its_contents():
+    assert expand_templates("{{nowrap|100 mm}}") == "100 mm"
+
+
+def test_expand_templates_is_case_and_whitespace_insensitive_on_the_name():
+    assert expand_templates("{{ Convert | 4 | ft }}") == "4 ft"
+
+
+def test_expand_templates_leaves_an_unallowlisted_template_for_strip_templates():
+    # {{cite web|...}} is chrome, not display -- expand_templates leaves it
+    # completely untouched so strip_templates removes it whole, same as
+    # before this fix existed.
+    raw = "{{cite web|url=https://example.com|title=Example}}"
+    assert expand_templates(raw) == raw
+    assert strip_templates(expand_templates(raw)) == ""
+
+
+def test_expand_templates_leaks_an_unclosed_convert_verbatim():
+    # This module's invariant: never delete text not positively identified
+    # as markup. expand_templates can't match a template with no closing
+    # `}}` at all, so it falls through untouched to strip_templates's own
+    # unclosed-brace handling, which leaks it verbatim.
+    raw = "The body is {{convert|14|in|cm and more text with no close"
+    assert expand_templates(raw) == raw
+    assert strip_templates(expand_templates(raw)) == raw
+
+
+def test_expand_templates_drops_named_args_only_leaves_positional_untouched():
+    assert expand_templates("{{convert|4|ft|abbr=on|sp=us}}") == "4 ft"
+
+
+def test_wikitext_to_markdown_expands_a_real_convert_measurement():
+    # {{convert|13|in|cm}} is a real Cello measurement (rev 1360203898).
+    raw = "The body of a cello is about {{convert|13|in|cm}} long."
+    body = wikitext_to_markdown(raw, title="Cello", targets={})
+    assert "13 in" in body
+    assert "{{" not in body
+
+
+def test_wikitext_to_markdown_expands_a_real_music_symbol_in_context():
+    # {{music|flat}} used inline in real prose, the kind of fact an
+    # exact_term gold-span query targets.
+    raw = "The instrument is tuned to B{{music|flat}} major."
+    body = wikitext_to_markdown(raw, title="Test", targets={})
+    assert "B♭ major" in body
 
 
 # --- list-prefix ordering: item 1 --------------------------------------------
