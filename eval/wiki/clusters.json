@@ -1,0 +1,334 @@
+{
+  "clusters": [
+    {
+      "name": "string-instruments",
+      "articles": [
+        {
+          "title": "Violin",
+          "lang": "en"
+        },
+        {
+          "title": "Viola",
+          "lang": "en"
+        },
+        {
+          "title": "Cello",
+          "lang": "en"
+        },
+        {
+          "title": "Double bass",
+          "lang": "en"
+        },
+        {
+          "title": "Classical guitar",
+          "lang": "en"
+        },
+        {
+          "title": "Mandolin",
+          "lang": "en"
+        },
+        {
+          "title": "Banjo",
+          "lang": "en"
+        },
+        {
+          "title": "Harp",
+          "lang": "en"
+        },
+        {
+          "title": "Lute",
+          "lang": "en"
+        },
+        {
+          "title": "Ukulele",
+          "lang": "en"
+        },
+        {
+          "title": "Luthier",
+          "lang": "en"
+        },
+        {
+          "title": "Fingerboard",
+          "lang": "en"
+        },
+        {
+          "title": "Violino",
+          "lang": "it"
+        },
+        {
+          "title": "Violoncello",
+          "lang": "it"
+        },
+        {
+          "title": "Mandolino",
+          "lang": "it"
+        },
+        {
+          "title": "Violín",
+          "lang": "es"
+        },
+        {
+          "title": "Violonchelo",
+          "lang": "es"
+        },
+        {
+          "title": "Guitarra clásica",
+          "lang": "es"
+        }
+      ]
+    },
+    {
+      "name": "coffee",
+      "articles": [
+        {
+          "title": "Espresso",
+          "lang": "en"
+        },
+        {
+          "title": "Moka pot",
+          "lang": "en"
+        },
+        {
+          "title": "French press",
+          "lang": "en"
+        },
+        {
+          "title": "Coffee bean",
+          "lang": "en"
+        },
+        {
+          "title": "Coffea arabica",
+          "lang": "en"
+        },
+        {
+          "title": "Coffea canephora",
+          "lang": "en"
+        },
+        {
+          "title": "Coffee roasting",
+          "lang": "en"
+        },
+        {
+          "title": "Flat white",
+          "lang": "en"
+        },
+        {
+          "title": "Cappuccino",
+          "lang": "en"
+        },
+        {
+          "title": "Cold brew coffee",
+          "lang": "en"
+        },
+        {
+          "title": "Coffee preparation",
+          "lang": "en"
+        },
+        {
+          "title": "Caffè espresso",
+          "lang": "it"
+        },
+        {
+          "title": "Cappuccino (bevanda)",
+          "lang": "it"
+        }
+      ]
+    },
+    {
+      "name": "cheese",
+      "articles": [
+        {
+          "title": "Cheese",
+          "lang": "en"
+        },
+        {
+          "title": "Cheddar cheese",
+          "lang": "en"
+        },
+        {
+          "title": "Mozzarella",
+          "lang": "en"
+        },
+        {
+          "title": "Parmesan",
+          "lang": "en"
+        },
+        {
+          "title": "Gouda cheese",
+          "lang": "en"
+        },
+        {
+          "title": "Brie",
+          "lang": "en"
+        },
+        {
+          "title": "Blue cheese",
+          "lang": "en"
+        },
+        {
+          "title": "Rennet",
+          "lang": "en"
+        },
+        {
+          "title": "Curd",
+          "lang": "en"
+        },
+        {
+          "title": "Whey",
+          "lang": "en"
+        },
+        {
+          "title": "Cheese ripening",
+          "lang": "en"
+        }
+      ]
+    },
+    {
+      "name": "cycling",
+      "articles": [
+        {
+          "title": "Bicycle",
+          "lang": "en"
+        },
+        {
+          "title": "Racing bicycle",
+          "lang": "en"
+        },
+        {
+          "title": "Mountain bike",
+          "lang": "en"
+        },
+        {
+          "title": "Track bicycle",
+          "lang": "en"
+        },
+        {
+          "title": "Derailleur",
+          "lang": "en"
+        },
+        {
+          "title": "Bicycle frame",
+          "lang": "en"
+        },
+        {
+          "title": "Bicycle brake",
+          "lang": "en"
+        },
+        {
+          "title": "Bicycle wheel",
+          "lang": "en"
+        },
+        {
+          "title": "Bicycle pedal",
+          "lang": "en"
+        },
+        {
+          "title": "Bicycle chain",
+          "lang": "en"
+        },
+        {
+          "title": "Bicycle handlebar",
+          "lang": "en"
+        }
+      ]
+    },
+    {
+      "name": "sailing",
+      "articles": [
+        {
+          "title": "Sailing",
+          "lang": "en"
+        },
+        {
+          "title": "Sailboat",
+          "lang": "en"
+        },
+        {
+          "title": "Sail",
+          "lang": "en"
+        },
+        {
+          "title": "Point of sail",
+          "lang": "en"
+        },
+        {
+          "title": "Spinnaker",
+          "lang": "en"
+        },
+        {
+          "title": "Keel",
+          "lang": "en"
+        },
+        {
+          "title": "Rigging",
+          "lang": "en"
+        },
+        {
+          "title": "Mast (sailing)",
+          "lang": "en"
+        },
+        {
+          "title": "Boom (sailing)",
+          "lang": "en"
+        },
+        {
+          "title": "Rudder",
+          "lang": "en"
+        },
+        {
+          "title": "Tacking (sailing)",
+          "lang": "en"
+        }
+      ]
+    },
+    {
+      "name": "board-games",
+      "articles": [
+        {
+          "title": "Chess",
+          "lang": "en"
+        },
+        {
+          "title": "Chess opening",
+          "lang": "en"
+        },
+        {
+          "title": "Chess endgame",
+          "lang": "en"
+        },
+        {
+          "title": "Chess piece",
+          "lang": "en"
+        },
+        {
+          "title": "Chessboard",
+          "lang": "en"
+        },
+        {
+          "title": "Checkmate",
+          "lang": "en"
+        },
+        {
+          "title": "Checkers",
+          "lang": "en"
+        },
+        {
+          "title": "Go (game)",
+          "lang": "en"
+        },
+        {
+          "title": "Shogi",
+          "lang": "en"
+        },
+        {
+          "title": "Xiangqi",
+          "lang": "en"
+        },
+        {
+          "title": "Backgammon",
+          "lang": "en"
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -12,6 +13,8 @@ from ariostea.eval.wiki_manifest import (
     save_manifest,
     slugify,
 )
+
+MANIFEST = Path(__file__).resolve().parents[2] / "eval" / "wiki" / "clusters.json"
 
 
 def test_slugify_is_ascii_lowercase_and_hyphenated():
@@ -488,3 +491,19 @@ def test_load_manifest_reports_multiple_independent_problems_together(tmp_path):
     message = str(exc_info.value)
     assert "espresso" in message
     assert "XX" in message
+
+
+# --- the committed manifest ---------------------------------------------------
+
+
+def test_committed_manifest_matches_the_design_targets():
+    clusters = load_manifest(MANIFEST)
+    articles = [a for c in clusters for a in c.articles]
+
+    assert 5 <= len(clusters) <= 6
+    assert 60 <= len(articles) <= 80
+    # Slugs are note filenames: a collision would silently overwrite an article.
+    slugs = [f"{c.name}/{a.slug}" for c in clusters for a in c.articles]
+    assert len(set(slugs)) == len(slugs)
+    # The cross_lingual query type needs non-English parallels in at least one cluster.
+    assert {a.lang for a in articles} >= {"en", "it", "es"}
