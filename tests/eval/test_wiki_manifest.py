@@ -217,6 +217,68 @@ def test_load_manifest_raises_on_duplicate_slug_across_clusters(tmp_path):
         load_manifest(path)
 
 
+def test_load_manifest_raises_on_duplicate_title_within_the_same_cluster(tmp_path):
+    # A copy-paste mistake inside a single cluster's article list is just as
+    # much a manifest defect as the same title split across two clusters.
+    path = tmp_path / "clusters.json"
+    path.write_text(
+        json.dumps(
+            {
+                "clusters": [
+                    {
+                        "name": "coffee",
+                        "articles": [
+                            {"title": "Espresso", "lang": "en"},
+                            {"title": "Espresso", "lang": "en"},
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="Espresso"):
+        load_manifest(path)
+
+
+def test_load_manifest_raises_on_empty_lang(tmp_path):
+    # An empty lang would still slugify to something non-empty ("espresso-"),
+    # so it can't be caught by ArticleSpec.slug's empty-slug guard; it has to
+    # be rejected explicitly.
+    path = tmp_path / "clusters.json"
+    path.write_text(
+        json.dumps(
+            {"clusters": [{"name": "coffee", "articles": [{"title": "Espresso", "lang": ""}]}]}
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="lang"):
+        load_manifest(path)
+
+
+def test_load_manifest_raises_on_empty_cluster_name(tmp_path):
+    path = tmp_path / "clusters.json"
+    path.write_text(
+        json.dumps({"clusters": [{"name": "", "articles": [{"title": "Espresso", "lang": "en"}]}]}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="name"):
+        load_manifest(path)
+
+
+def test_load_manifest_raises_on_non_dict_article_entry(tmp_path):
+    # A hand-authored manifest could have a stray string in the articles
+    # list; the error should still name the problem, not surface a raw
+    # TypeError from deep inside a dict-subscript.
+    path = tmp_path / "clusters.json"
+    path.write_text(
+        json.dumps({"clusters": [{"name": "coffee", "articles": ["Espresso"]}]}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="title"):
+        load_manifest(path)
+
+
 def test_load_manifest_raises_on_duplicate_title_in_one_language(tmp_path):
     path = tmp_path / "clusters.json"
     path.write_text(

@@ -114,11 +114,12 @@ def _check_for_collisions(clusters: tuple[Cluster, ...]) -> None:
     they need two independent checks: two *different* titles can slugify to
     the same stem ('Go (game)' and 'Go game' both -> 'go-game'), which a
     title-only check would miss; and the *same* title can be listed twice
-    under the same language in different clusters (a copy-paste mistake),
-    which is invisible to a slug-only check whenever the two slugs happen to
-    differ (they won't here, but the check is about the title, not the
-    slug -- see `link_targets`, which depends on titles being unique
-    per-language for its own, unrelated reason).
+    under the same language (whether that's a copy-paste mistake within one
+    cluster or the same article claimed by two clusters), which a slug-only
+    check would miss whenever -- as it usually will, since the slug is a
+    deterministic function of the title -- the two slugs happen to agree
+    rather than differ. Either shape breaks `link_targets`, which assumes
+    exactly one slug per (title, language) across the whole manifest.
     """
     slug_owners: dict[str, str] = {}
     title_owners: dict[tuple[str, str], str] = {}
@@ -133,24 +134,32 @@ def _check_for_collisions(clusters: tuple[Cluster, ...]) -> None:
                 slug_owners[slug] = owner
 
             title_key = (article.lang, normalize_ws(article.title))
-            if title_key in title_owners and title_owners[title_key] != cluster.name:
+            if title_key in title_owners:
                 errors.append(
-                    f"{article.lang} title {article.title!r} appears in both "
-                    f"cluster {title_owners[title_key]!r} and cluster {cluster.name!r}"
+                    f"{article.lang} title {article.title!r} is claimed by both "
+                    f"{title_owners[title_key]} and {owner}"
                 )
             else:
-                title_owners[title_key] = cluster.name
+                title_owners[title_key] = owner
     if errors:
         raise ValueError("manifest has collisions:\n" + "\n".join(errors))
 
 
-def _require(data: dict[str, Any], key: str, where: str) -> Any:
+def _require(data: Any, key: str, where: str) -> Any:
     """`data[key]`, but a message naming the exact cluster/article at fault
     instead of a bare `KeyError('lang')` -- this file is hand-authored (Task
-    7), so a missing key is an expected kind of typo, not a freak occurrence."""
+    7), so a missing key is an expected kind of typo, not a freak occurrence.
+
+    Also catches `TypeError`: `data` is only a `dict` if the JSON is shaped
+    the way this module expects (e.g. an `articles` entry that's a bare
+    string instead of an `{"title": ..., "lang": ...}` object is a `str`,
+    and `data[key]` on a `str` raises `TypeError`, not `KeyError`). Either
+    way the manifest is malformed in the same sense, so both get the same
+    clear error instead of one of them crashing with a raw traceback.
+    """
     try:
         return data[key]
-    except KeyError as exc:
+    except (KeyError, TypeError) as exc:
         raise ValueError(f"{where}: missing required key {key!r}") from exc
 
 
@@ -158,6 +167,12 @@ def _article_from_json(cluster_name: str, index: int, data: dict[str, Any]) -> A
     where = f"cluster {cluster_name!r} article {index}"
     title = _require(data, "title", where)
     lang = _require(data, "lang", where)
+    if not lang:
+        # Left unguarded, an empty lang still produces a *non-empty* slug
+        # (base + "-" + "" -> "base-"), so `ArticleSpec.slug`'s empty-slug
+        # check can't catch it -- it would silently become a note named
+        # e.g. "foo-.md" instead of failing loudly here.
+        raise ValueError(f"{where} ({title!r}): lang is empty")
     revid = data.get("revid")
     # `bool` is a subclass of `int` in Python, so `isinstance(True, int)` is
     # true; excluded explicitly so a stray JSON `true`/`false` (a plausible
@@ -176,6 +191,11 @@ def load_manifest(path: str | Path) -> tuple[Cluster, ...]:
     for i, cluster_data in enumerate(raw_clusters):
         where = f"cluster {i}"
         name = _require(cluster_data, "name", where)
+        if not name:
+            # An empty cluster name isn't caught by any per-article check --
+            # `note_path` would happily emit "/slug.md", a path with no
+            # cluster directory at all.
+            raise ValueError(f"{where}: name is empty")
         raw_articles = _require(cluster_data, "articles", f"cluster {name!r}")
         articles = tuple(
             _article_from_json(name, j, article) for j, article in enumerate(raw_articles)
