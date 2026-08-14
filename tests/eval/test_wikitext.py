@@ -23,6 +23,23 @@ def test_strip_refs_removes_references_container_with_nested_ref_definitions():
     assert strip_refs(raw) == "Prose.\n\nMore."
 
 
+def test_strip_refs_unclosed_ref_does_not_eat_prose_up_to_the_next_ref():
+    # A missing `</ref>` must not turn the lazy body into a scanner that runs
+    # to the *next* ref's closer, deleting everything in between. The
+    # unclosed opener leaks its own literal `<ref>` instead.
+    raw = "A<ref>unclosed. Real prose paragraph here.<ref>cite</ref>C"
+    assert strip_refs(raw) == "A<ref>unclosed. Real prose paragraph here.C"
+
+
+def test_strip_refs_removes_self_closing_ref_placed_before_a_paired_one():
+    # Pins the intra-function order: self-closing refs must be substituted
+    # before paired refs, or the paired pattern's opening-tag match can
+    # swallow a self-closing ref that appears earlier in the text (its `/`
+    # just looks like more attribute soup to `[^>]*`).
+    raw = "<ref name=y />A<ref name=x>Smith 2001</ref>"
+    assert strip_refs(raw) == "A"
+
+
 def test_strip_templates_handles_nesting():
     assert strip_templates("a {{convert|4|{{frac|1|2}} ft}} b") == "a  b"
 
@@ -104,6 +121,17 @@ def test_ordinary_text_with_brace_pipe_angle_characters_is_left_alone():
     text = "Cost: {estimate} | rate < 5 and value > 10"
     assert strip_templates(text) == text
     assert strip_tables(text) == text
+    assert strip_html_tags(text) == text
+
+
+def test_strip_html_tags_catch_all_does_not_cross_a_newline():
+    # A spaced inequality on one line is a trivial case for the catch-all —
+    # it never has to look past the next character. An *unspaced* `<`/`>`
+    # separated by a real paragraph break is the actual hazard: `[^>]*` under
+    # no line limit would swallow everything up to the first `>` anywhere
+    # later in the article. Bounding the pattern to `[^>\n]*` turns that into
+    # "no match on this line" instead of "delete a whole paragraph".
+    text = "range a<b.\n\nA whole paragraph of real prose.\n\nThen x>y."
     assert strip_html_tags(text) == text
 
 

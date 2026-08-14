@@ -35,6 +35,12 @@ order:
 - inline html tags last: by the time this runs, every structural block is
   already gone, so a generic catch-all tag pattern can't accidentally eat a
   tag that was still guarding content meant to survive.
+
+Invariant: this pipeline never removes text it did not positively identify as
+markup. Every stage either matches a construct it can name (a ref, a
+template, a table, a tag) or, when a scan can't find where that construct
+ends, leaves the ambiguous remainder untouched rather than guessing where
+prose resumes.
 """
 
 from __future__ import annotations
@@ -47,29 +53,50 @@ _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 # `<references ...>` — "f" and the following character are both word
 # characters, so no word boundary exists there unless the tag name really
 # ends at that point.
-_REF_SELF = re.compile(r"<ref\b[^>]*/\s*>", re.IGNORECASE)
-_REF_PAIR = re.compile(r"<ref\b[^>]*>.*?</ref\s*>", re.DOTALL | re.IGNORECASE)
+#
+# `_REF_PAIR`'s body is tempered with `(?!<ref\b)` so it can't cross a second
+# `<ref` opener: without that, an unclosed `<ref>` reads as an opening tag
+# whose lazy `.*?` body then runs to the *next* ref's `</ref>`, deleting
+# every real paragraph in between. Blocked from crossing, that match fails
+# outright and the unclosed `<ref>` is left in place (leaked, not silently
+# dropped) — same trade as `_strip_balanced`.
+_REF_PAIR = re.compile(r"<ref\b[^>]*>(?:(?!<ref\b).)*?</ref\s*>", re.DOTALL | re.IGNORECASE)
 _REFERENCES_SELF = re.compile(r"<references\b[^>]*/\s*>", re.IGNORECASE)
 _REFERENCES_PAIR = re.compile(r"<references\b[^>]*>.*?</references\s*>", re.DOTALL | re.IGNORECASE)
+# Self-closing refs must be substituted before `_REF_PAIR` runs: otherwise a
+# self-closing `<ref name=x />` looks to `_REF_PAIR` like an opening tag with
+# odd attributes (the trailing `/` is just more `[^>]*` soup), and its body
+# then swallows everything up to the next real `</ref>` — including any
+# self-closing ref and prose sitting in between.
+_REF_SELF = re.compile(r"<ref\b[^>]*/\s*>", re.IGNORECASE)
 
 # Elements whose *content* is a payload (gallery listing, LaTeX, source code,
 # map coordinates), not prose — removed whole, unlike the inline tags below.
 _CONTAINER_TAGS = (
     "gallery|imagemap|timeline|score|syntaxhighlight|source|math|chem|mapframe|maplink"
 )
+# Same self-closing-before-paired hazard as `_REF_SELF`/`_REF_PAIR` above: if
+# `_CONTAINER_PAIR` ran first, a self-closing `<gallery ... />` would read as
+# an opening tag and its body would run to the next container's closer.
 _CONTAINER_SELF = re.compile(rf"<(?:{_CONTAINER_TAGS})\b[^>]*/\s*>", re.IGNORECASE)
 _CONTAINER_PAIR = re.compile(rf"<({_CONTAINER_TAGS})\b[^>]*>.*?</\1\s*>", re.DOTALL | re.IGNORECASE)
 
 # Generic inline tag, content kept. A catch-all beats a hand-maintained
 # allowlist: "no HTML tag survives" is a much stronger invariant than "no tag
-# from this list of twelve survives".
-_INLINE_TAG = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]*[^>]*>")
+# from this list of twelve survives". `[^>\n]*` (not `[^>]*`) keeps the match
+# on one line: wikitext tags essentially never span a paragraph break, and
+# bounding the pattern turns a malformed tag (missing `>`) or a bare `<`/`>`
+# used as an inequality into a same-line no-match instead of a scan that
+# silently swallows every real paragraph up to the next `>` anywhere later in
+# the article.
+_INLINE_TAG = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]*[^>\n]*>")
 
-# Media embeds in the languages this corpus uses. `Media:`/`Imagen:` (the
-# es-wiki legacy alias) are deliberately excluded: `[[Media:song.ogg|listen]]`
-# is an inline prose link ("listen to this clip"), not an embed — stripping it
-# whole would eat the anchor text. Task 3's link rewriter flattens it to its
-# label like any other link.
+# Media embeds in the languages this corpus uses. `Media:` is deliberately
+# excluded: `[[Media:song.ogg|listen]]` is an inline prose link ("listen to
+# this clip"), not an embed — stripping it whole would eat the anchor text.
+# Task 3's link rewriter flattens it to its label like any other link.
+# `Imagen:` (es-wiki's legacy alias for `Image:`) *is* included below — it's
+# a real embed prefix, not a `Media:`-style inline link.
 _MEDIA_PREFIX = re.compile(r"\[\[\s*(?:File|Image|Immagine|Archivo|Imagen)\s*:", re.IGNORECASE)
 
 
@@ -105,6 +132,12 @@ def _strip_balanced(text: str, open_tok: str, close_tok: str) -> str:
     silently discarded. A dropped template truncates the article with no
     signal and reads downstream as a retrieval failure; a leaked `{{` is loud
     and easy to grep for.
+
+    The leak starts at the *outermost* unmatched opener, so one stray brace
+    disables template stripping for the rest of that article by design — a
+    later corpus check will see dozens of surviving `{{` in that note, not
+    one, which is the correct signal that the article (not the stripper) is
+    where the problem is.
     """
     out: list[str] = []
     depth = 0
@@ -176,7 +209,10 @@ def strip_media_links(text: str) -> str:
 
 def strip_html_containers(text: str) -> str:
     """Remove gallery/math/code/map elements along with their content — their
-    bodies are a payload (coordinate lists, LaTeX, source code), not prose."""
+    bodies are a payload (coordinate lists, LaTeX, source code), not prose.
+    Best-effort: an unclosed container degrades to its content being treated
+    as ordinary prose rather than leaking the tag itself, since (unlike refs
+    and templates) that content was never prose-like to begin with."""
     return _CONTAINER_PAIR.sub("", _CONTAINER_SELF.sub("", text))
 
 
