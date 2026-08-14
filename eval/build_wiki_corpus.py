@@ -30,6 +30,15 @@ and NOTICE mutually consistent for whatever fraction of the corpus was
 actually built -- a stale NOTICE describing files that were never written, or
 files on disk with no manifest/NOTICE record of them, would be worse than a
 run that stops early but leaves a coherent partial result.
+
+Dropped-template report: every article's conversion accumulates, into one
+Counter shared across the whole run, the name of every template
+`wikitext.expand_templates` left for `strip_templates` to remove whole. Most
+of that tally is citation/navigation chrome (cite web, isbn, main, ...) and
+is expected -- printed at the end, frequency-sorted, specifically so a name
+that *isn't* chrome (a display template not yet on `wikitext.py`'s
+allowlist) is a visible line in the run's output instead of something that
+has to be noticed by reading 79 converted files by eye.
 """
 
 from __future__ import annotations
@@ -37,6 +46,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 
 import httpx
@@ -85,6 +95,7 @@ def main() -> int:
     failures: list[str] = []
     consecutive_retryable = 0
     aborted = False
+    dropped_templates: Counter[str] = Counter()
 
     with httpx.Client(timeout=30.0, follow_redirects=True) as client:
         for cluster in clusters:
@@ -134,7 +145,10 @@ def main() -> int:
                         title=article.title, lang=article.lang, revid=fetched.revid
                     )
                     body = wikitext_to_markdown(
-                        fetched.wikitext, title=article.title, targets=targets[article.lang]
+                        fetched.wikitext,
+                        title=article.title,
+                        targets=targets[article.lang],
+                        dropped=dropped_templates,
                     )
                     path = WIKI_DIR / note_path(cluster.name, pinned)
                     path.parent.mkdir(parents=True, exist_ok=True)
@@ -160,6 +174,11 @@ def main() -> int:
     ]
     NOTICE.write_text(write_notice_rows(NOTICE.read_text(encoding="utf-8"), rows), encoding="utf-8")
     print(f"\n{len(rows)} articles in the snapshot; NOTICE updated.")
+
+    if dropped_templates:
+        print(f"\n{sum(dropped_templates.values())} template invocations stripped, by name:")
+        for name, count in dropped_templates.most_common():
+            print(f"  {count:5d}  {name}")
 
     for failure in failures:
         print(f"FAILED: {failure}", file=sys.stderr)
