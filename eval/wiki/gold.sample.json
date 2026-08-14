@@ -1,0 +1,22 @@
+[
+  {
+    "query": "how is a violin tuned",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": ["string-instruments/violin.md"],
+    "answer_spans": [
+      {"note": "string-instruments/violin.md", "text": "tuned in perfect fifths: G, D, A, E"}
+    ]
+  },
+  {
+    "query": "quante corde ha un violoncello",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": ["string-instruments/cello.md"],
+    "answer_spans": [
+      {"note": "string-instruments/cello.md", "text": "four strings tuned in perfect fifths"}
+    ]
+  }
+]

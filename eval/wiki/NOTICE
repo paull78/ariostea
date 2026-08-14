@@ -1,0 +1,60 @@
+Attribution and license for the Wikipedia-derived evaluation corpus
+===================================================================
+
+This directory (`eval/wiki/`) contains text derived from Wikipedia, the free
+encyclopedia. It is used solely as an evaluation corpus for retrieval-quality
+experiments. It is NOT part of the Ariostea software and is licensed separately
+from the repository's MIT-licensed code.
+
+License
+-------
+The article text in this directory is licensed under the Creative Commons
+Attribution-ShareAlike 4.0 International License (CC BY-SA 4.0):
+
+    https://creativecommons.org/licenses/by-sa/4.0/
+
+Wikipedia text is additionally available under the GNU Free Documentation
+License (GFDL). This corpus is distributed under CC BY-SA 4.0.
+
+Share-alike: any redistribution of this text or adaptations of it must remain
+under CC BY-SA 4.0. This obligation applies to the contents of `eval/wiki/`
+only; the surrounding Ariostea source code is licensed under MIT (see the
+repository `LICENSE`).
+
+Modifications
+-------------
+The original articles have been modified for use as a Markdown note corpus:
+
+  - Converted from Wikipedia HTML/wikitext to Obsidian-flavored Markdown.
+  - Links between articles included in this corpus were rewritten as
+    `[[wikilinks]]`; links to articles outside the corpus were reduced to
+    plain text.
+  - Infoboxes, reference lists, citations, and navigation chrome were removed.
+  - Content was truncated/selected for evaluation purposes.
+
+These are adaptations within the meaning of CC BY-SA 4.0. No endorsement by
+Wikipedia or its contributors is implied.
+
+Authorship
+----------
+Each article was authored by Wikipedia contributors. The complete author list
+and edit history for any article is available from its revision permalink in
+the table below (the "oldid" URL shows the exact pinned version and its
+"View history" lists all contributors).
+
+Attributed articles
+--------------------
+Each row records the source article, the exact revision the snapshot was pinned
+to, and the local file it produced. Rows are appended by the corpus build
+script as articles are fetched, so this table stays complete and in sync with
+the committed snapshot.
+
+Format (tab- or pipe-separated):
+
+  Local file | Article title | Language | Source (revision permalink)
+
+Example (illustrative; replaced by real rows at build time):
+
+  string-instruments/violin.md | Violin | en | https://en.wikipedia.org/w/index.php?title=Violin&oldid=<REVID>
+
+--- articles below this line are maintained by the build script ---

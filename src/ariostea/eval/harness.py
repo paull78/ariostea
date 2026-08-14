@@ -10,6 +10,10 @@ from ariostea.eval.metrics import recall_at_k, reciprocal_rank
 # A ranker: given (query, k), return up to k note paths in rank order (best first).
 SearchFn = Callable[[str, int], list[str]]
 
+# A span ranker: given (query, k), return up to k (note_path, chunk_text) pairs
+# in rank order (best first) — chunk-level, NOT deduped to notes.
+SpanSearchFn = Callable[[str, int], list[tuple[str, str]]]
+
 
 @dataclass(frozen=True)
 class GoldCase:
