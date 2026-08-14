@@ -56,6 +56,21 @@ def fetch_article(
     `titles` lookup and, per the API's own documentation (confirmed live),
     a harmless no-op for `revids` -- it produces a warning field we never
     read, not an error, so a pinned-revid fetch still succeeds unaffected.
+
+    `lang` is trusted, not validated, here: it lands directly in the request
+    host (`{lang}.wikipedia.org`). Every caller in this codebase constructs
+    it via `ArticleSpec`, which already restricts it to `^[a-z]{2,3}$` before
+    it ever reaches here (same division of labor as `Cluster.name` in
+    `wiki_manifest.py` -- validate once at the boundary, not again in every
+    function downstream). This corpus build has no untrusted input at all,
+    so that boundary is a typo guard, not a security one.
+
+    Response bytes are decoded by httpx using the server's declared charset
+    (`Content-Type`) and transparently gzip-decompressed -- both handled
+    below this function, nothing to opt into. Article wikitext this size
+    (well under a megabyte, even for it/es articles heavy in accented text)
+    is far short of where the API's own result-size limits would truncate a
+    single-page response, so that failure mode isn't guarded against here.
     """
     params: dict[str, str] = {
         "action": "query",
