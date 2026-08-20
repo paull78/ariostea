@@ -10,6 +10,7 @@ from ariostea.eval.wikitext import (
     expand_templates,
     normalize_blank_lines,
     restore_apostrophe_placeholders,
+    strip_citation_backlinks,
     strip_comments,
     strip_empty_emphasis,
     strip_external_links,
@@ -1336,3 +1337,29 @@ def test_convert_renders_the_star_joiner_as_a_multiplication_sign():
 
 def test_nbsp_becomes_a_real_space():
     assert expand_templates("{{nowrap|12{{nbsp}}mm}}") == "12 mm"
+
+
+def test_a_footnote_written_as_a_wikilink_is_removed_as_chrome():
+    """`[[Cello#cite note-5|[5]]]` is a reference marker, but it arrives as a
+    link whose `[5]` label contains brackets — which is why `convert_links`
+    never matched it and it reached the corpus verbatim."""
+    assert strip_citation_backlinks("Rao-de Haas.[[Cello#cite note-5|[5]]] Next") == (
+        "Rao-de Haas. Next"
+    )
+    assert strip_citation_backlinks("see [[Cello#Tuning|tuning]]") == "see [[Cello#Tuning|tuning]]"
+
+
+def test_an_interlanguage_link_keeps_the_title_it_names():
+    """`{{ill}}` links an article with no English version yet; its title is
+    prose the sentence depends on ("the historic Granone Lodigiano")."""
+    assert expand_templates("the historic {{Ill|Granone Lodigiano|it}}, and others") == (
+        "the historic [[Granone Lodigiano]], and others"
+    )
+
+
+def test_a_separator_left_touching_a_bracket_is_cleared():
+    assert (
+        tidy_punctuation("Parmesan (Parmigiano Reggiano, ) is")
+        == "Parmesan (Parmigiano Reggiano) is"
+    )
+    assert tidy_punctuation("a (b, c) d") == "a (b, c) d"

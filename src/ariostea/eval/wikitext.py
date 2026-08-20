@@ -25,7 +25,7 @@ Pipeline order, and why
 ------------------------
 `wikitext_to_markdown` runs these functions in this order:
 
-    comments -> refs -> html containers -> display-template expansion
+    comments -> refs -> citation backlinks -> html containers -> display-template expansion
     -> templates -> tables -> media -> inline html tags -> entity decoding
     -> external links -> empty-emphasis cleanup -> lists -> headings
     -> wikilinks -> emphasis -> apostrophe-placeholder restoration
@@ -253,6 +253,19 @@ _CATEGORY = re.compile(r"^(?:category|categoria|categoría)\s*:", re.IGNORECASE)
 _EXT_LINK = re.compile(
     r"\[(?:[a-z][a-z0-9+.-]*:(?://)?|//)\S+?(?:[ \t]+([^\]\n]*))?\]", re.IGNORECASE
 )
+
+
+# A footnote marker written as a link to the article's own citation anchor:
+# `[[Cello#cite note-5|[5]]]`. It is reference chrome like any `<ref>`, but it
+# arrives as a wikilink, and its `[5]` label carries brackets that keep
+# `convert_links`' pattern from matching it at all -- so left here it survives
+# every later stage and lands in the corpus verbatim.
+_CITATION_BACKLINK = re.compile(r"\[\[[^\[\]|\n]*#cite[ _](?:note|ref)[^\n]*?\]\]\]?")
+
+
+def strip_citation_backlinks(text: str) -> str:
+    """Remove footnote markers written as links to a `#cite note` anchor."""
+    return _CITATION_BACKLINK.sub("", text)
 
 
 def strip_comments(text: str) -> str:
@@ -887,6 +900,11 @@ _DISPLAY_TEMPLATES: dict[str, _Handler] = {
     "nowrap": _expand_nowrap,
     # A non-breaking space is a space; dropping it fuses "12 mm" into "12mm".
     "nbsp": lambda _positional, _named, _dropped: " ",
+    # `{{ill|Granone Lodigiano|it}}` renders as a link to an article that has
+    # no English version yet -- the title is ordinary prose naming a thing the
+    # sentence is about, so it is emitted as a wikilink and left to
+    # `convert_links` to resolve or flatten like any other.
+    "ill": lambda positional, _named, _dropped: f"[[{positional[0]}]]" if positional else "",
     "nobr": _expand_nowrap,
     "blockquote": _expand_blockquote,
     "'": _expand_apostrophe,
@@ -1506,6 +1524,9 @@ def normalize_blank_lines(text: str) -> str:
 # Plan 3 anchors gold spans in, and a span quoted across one of these would
 # not match anything a person would think to write.
 _HOLLOW_PARENS = re.compile(r"\(\s*[,;:/\u2013-]*\s*\)")
+# A separator left touching a bracket because what followed it was removed:
+# "(Parmigiano Reggiano, )" once a pronunciation template is gone.
+_STRANDED_SEPARATOR = re.compile(r"(?:\s*[,;:]\s*(?=\))|(?<=\()\s*[,;:]\s*)")
 _SPACE_BEFORE_PUNCT = re.compile(r"[ \t]+([,.;:!?])")
 
 
@@ -1530,7 +1551,9 @@ def tidy_punctuation(text: str) -> str:
     Only touches bracket pairs whose entire contents are separators, so a
     parenthetical that still holds words is never disturbed.
     """
-    return _SPACE_BEFORE_PUNCT.sub(r"\1", _HOLLOW_PARENS.sub("", text))
+    text = _HOLLOW_PARENS.sub("", text)
+    text = _STRANDED_SEPARATOR.sub("", text)
+    return _SPACE_BEFORE_PUNCT.sub(r"\1", text)
 
 
 def wikitext_to_markdown(
@@ -1553,6 +1576,7 @@ def wikitext_to_markdown(
     # property is made structural here rather than left to trust.
     text = strip_comments(raw.replace(_APOSTROPHE_PLACEHOLDER, ""))
     text = strip_refs(text)
+    text = strip_citation_backlinks(text)
     text = strip_html_containers(text)
     text = expand_templates(text, dropped)
     text = strip_templates(text)
