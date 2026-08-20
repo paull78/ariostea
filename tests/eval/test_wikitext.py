@@ -5,6 +5,7 @@ from ariostea.eval.wikitext import (
     convert_headings,
     convert_links,
     convert_lists,
+    decode_entities,
     drop_sections,
     expand_templates,
     normalize_blank_lines,
@@ -18,6 +19,7 @@ from ariostea.eval.wikitext import (
     strip_refs,
     strip_tables,
     strip_templates,
+    tidy_punctuation,
     wikitext_to_markdown,
 )
 
@@ -367,7 +369,9 @@ def test_expand_templates_convert_handles_the_to_range_form():
 
 def test_expand_templates_convert_handles_the_x_and_en_dash_range_forms():
     assert expand_templates("{{convert|4|x|6|ft}}") == "4 x 6 ft"
-    assert expand_templates("{{convert|484|–|578|mm|in|abbr=on}}") == "484 – 578 mm"
+    # MediaWiki sets a dash range tight and spaces a worded one; verified
+    # against action=expandtemplates.
+    assert expand_templates("{{convert|484|–|578|mm|in|abbr=on}}") == "484–578 mm"
 
 
 def test_expand_templates_convert_handles_the_and_joiner():
@@ -761,7 +765,7 @@ def test_expand_templates_tallies_an_unrecognized_music_argument_by_its_own_key(
     # the post-convergence sweep to find, so it has to tally itself.
     dropped: Counter[str] = Counter()
     expand_templates("{{music|breve}}", dropped)
-    assert dropped == {"music|breve": 1}
+    assert dropped == {"UNKNOWN-MUSIC-ARG:breve": 1}
 
 
 def test_wikitext_to_markdown_passes_dropped_through_to_the_caller():
@@ -1215,3 +1219,93 @@ def test_structure_conversion_leaves_a_later_paragraph_intact():
         "\n"
         "The **violin** body is carved from spruce and maple.\n"
     )
+
+
+# --- shapes the allowlist had NOT already seen ------------------------------
+#
+# Every expansion test above pins a construct someone had already observed in
+# a fetched article, which is exactly why three defects reached the corpus:
+# an unrecognized `convert` joiner dropped half a measurement, a one-argument
+# `{{frac}}` produced a plausible wrong number, and an allowlisted template
+# wrapping an unallowlisted one lost its prose. These pin the *unrecognized*
+# cases instead. Expected renderings verified against MediaWiki's
+# `action=expandtemplates`.
+
+
+def test_convert_renders_the_dash_by_and_plus_minus_range_joiners():
+    assert expand_templates("{{convert|70|-|74|g|oz|abbr=on}}") == "70–74 g"
+    assert expand_templates("{{convert|1|by|2|ft}}") == "1 by 2 ft"
+    assert expand_templates("{{convert|5|+/-|1|mm}}") == "5 ± 1 mm"
+
+
+def test_convert_keeps_both_values_and_reports_an_unrecognized_joiner():
+    """The failure this guards against is silent and wrong rather than
+    merely missing: the old code emitted the joiner token in place of the
+    unit and discarded the second value, so `70 -` read as a measurement."""
+    dropped: Counter[str] = Counter()
+    assert expand_templates("{{convert|9|zzz|11|kg}}", dropped) == "9 zzz 11 kg"
+    assert dropped == {"UNKNOWN-CONVERT-JOINER:zzz": 1}
+
+
+def test_convert_does_not_mistake_an_output_unit_for_a_range():
+    """`{{convert|4|ft|m}}` has three positional args like a range does, but
+    the third is a unit, not a number -- which is how the two are told apart."""
+    assert expand_templates("{{convert|4|ft|m}}") == "4 ft"
+
+
+def test_frac_with_one_argument_is_a_denominator_not_a_whole_number():
+    assert expand_templates("{{frac|2}}") == "1/2"
+
+
+def test_frac_adjacent_to_a_digit_keeps_a_separator():
+    """`19{{frac|2}}` is nineteen and a half. Without the separator the flat
+    text reads "191/2" -- the banjo scale-length defect."""
+    assert expand_templates("19{{frac|2}} to 21{{frac|2}} inches") == "19 1/2 to 21 1/2 inches"
+
+
+def test_a_positional_argument_containing_an_equals_sign_is_kept_as_text():
+    assert expand_templates("{{blockquote|Foo said x = y here.|Author}}") == (
+        '"Foo said x = y here." — Author'
+    )
+
+
+def test_the_numeric_escape_places_its_value_positionally():
+    assert expand_templates("{{nowrap|1=a = b}}") == "a = b"
+
+
+def test_a_blocked_expansion_is_reported_distinctly_from_ordinary_chrome():
+    """An allowlisted template whose argument holds an unallowlisted one is
+    never innermost, so it survives to be stripped whole -- taking its prose
+    with it. In a report dominated by hundreds of `cite book` lines, a bare
+    `langx` entry reads as chrome; the BLOCKED prefix is what makes it
+    findable."""
+    dropped: Counter[str] = Counter()
+    expand_templates("{{langx|he|{{script/Hebr|X}}}}", dropped)
+    assert dropped == {"BLOCKED:langx": 1}
+
+
+def test_a_handler_that_swallows_its_argument_reports_it():
+    dropped: Counter[str] = Counter()
+    expand_templates("{{blockquote|}}{{nowrap|}}", dropped)
+    assert dropped == {}  # no arguments to lose
+    expand_templates("{{music|zzz}}", dropped)
+    assert dropped == {"UNKNOWN-MUSIC-ARG:zzz": 1}
+
+
+def test_blockquote_keeps_a_positional_author_beside_a_named_quote():
+    assert expand_templates("{{blockquote|text=Q|Author}}") == '"Q" — Author'
+
+
+def test_decode_entities_resolves_nbsp_but_cannot_invent_markup():
+    assert decode_entities("Op.&nbsp;9") == "Op. 9"
+    # Decoding runs after tag stripping precisely so this stays inert text.
+    assert decode_entities("&lt;div&gt;") == "<div>"
+
+
+def test_tidy_punctuation_clears_brackets_left_holding_nothing():
+    assert tidy_punctuation("The cello ( , ), also called") == "The cello, also called"
+    assert tidy_punctuation("The cello (a bowed instrument)") == "The cello (a bowed instrument)"
+
+
+def test_a_nul_in_the_source_cannot_impersonate_the_apostrophe_placeholder():
+    assert "\x00" not in wikitext_to_markdown("a\x00b ''c''", title="T", targets={})

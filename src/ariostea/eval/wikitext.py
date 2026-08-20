@@ -26,10 +26,10 @@ Pipeline order, and why
 `wikitext_to_markdown` runs these functions in this order:
 
     comments -> refs -> html containers -> display-template expansion
-    -> templates -> tables -> media -> inline html tags -> external links
-    -> empty-emphasis cleanup -> lists -> headings -> wikilinks -> emphasis
-    -> apostrophe-placeholder restoration -> drop_sections
-    -> normalize_blank_lines
+    -> templates -> tables -> media -> inline html tags -> entity decoding
+    -> external links -> empty-emphasis cleanup -> lists -> headings
+    -> wikilinks -> emphasis -> apostrophe-placeholder restoration
+    -> punctuation tidy -> drop_sections -> normalize_blank_lines
 
 - comments first: a half-edited article can have a stray `{{` or `[[` sitting
   inside an HTML comment. If the comment survives past this step, that brace
@@ -56,6 +56,12 @@ Pipeline order, and why
 - inline html tags last among the strip stages: by the time this runs, every
   structural block is already gone, so a generic catch-all tag pattern can't
   accidentally eat a tag that was still guarding content meant to survive.
+- entity decoding after inline html tags: decoding first would turn a
+  literal `&lt;div&gt;` written as visible text into a real-looking tag for
+  the tag stripper to eat, inventing markup the source never had.
+- punctuation tidy after the emphasis stages: it clears brackets left
+  holding nothing by a removed template ("( , )"), and only once no stage
+  downstream will add or move punctuation again.
 - lists before headings: a wikitext numbered item starts with `#`, which
   Markdown reads as a heading marker. Converting lists first consumes that
   `#` into a `1. ` prefix before `convert_headings` — or `drop_sections`,
@@ -121,14 +127,27 @@ Pipeline order, and why
   `convert_links`'s docstring and the reorder-pin test pair named there.
 
 Invariant: this pipeline never removes text it did not positively identify as
-markup. Every stage either matches a construct it can name (a ref, a
-template, a table, a tag) or, when a scan can't find where that construct
-ends, leaves the ambiguous remainder untouched rather than guessing where
-prose resumes.
+markup, and never discards text without reporting it. Every stripping stage
+either matches a construct it can name (a ref, a template, a table, a tag)
+or, when a scan can't find where that construct ends, leaves the ambiguous
+remainder untouched rather than guessing where prose resumes.
+
+The expansion stage needs the second clause because it *rewrites* rather
+than removes, and a rewrite can lose text without leaking anything for the
+strip stages' leak-loudly rule to catch. So every handler that discards an
+argument tallies it into `dropped` instead: an unrecognized `{{convert}}`
+joiner, an unrenderable `{{music}}` argument, an allowlisted template whose
+expansion was blocked by an unallowlisted one nested inside it, or any
+handler that turns a template with arguments into nothing at all. Three
+defects reached the committed corpus before that rule existed — half a
+measurement, a wrong number, and a deleted Hebrew term — and all three
+passed *through* a handler, which is why "was it on the allowlist?" is not
+the question that catches them.
 """
 
 from __future__ import annotations
 
+import html
 import re
 from collections import Counter
 from collections.abc import Callable
@@ -387,17 +406,35 @@ def _split_template_args(arg_str: str) -> list[str]:
     return args
 
 
+# A real template parameter name: no spaces, no punctuation beyond `-`/`_`.
+# Everything the allowlist actually uses (`abbr`, `order`, `disp`, `sigfig`,
+# `text`, `author`, `source`) fits; a sentence containing `=` does not.
+_PARAM_NAME = re.compile(r"[A-Za-z0-9_-]{1,20}")
+
+
 def _parse_template_args(arg_str: str) -> tuple[list[str], dict[str, str]]:
     """Split a template's `arg1|arg2|key=value` tail into positional args (in
     order) and named args (keyed lower-case).
 
     An argument counts as named if it contains `=`, positional otherwise —
-    a simplification of MediaWiki's real rule (which also recognizes an
-    explicit `1=value` form specifically so a positional argument can
-    contain a literal `=`). Confirmed safe for `_DISPLAY_TEMPLATES`: none of
-    their ordinary positional values (a number, a language code, a bare
-    word, a joiner keyword) contain `=` in the six-article sample this
-    allowlist was built against.
+    matching MediaWiki, including its `1=value` escape: a numeric key places
+    its value at that positional index instead. Editors reach for that
+    escape precisely when a positional value contains a literal `=`, which
+    is the case that would otherwise silently reclassify prose as a
+    parameter name. `blockquote`'s quote is free-form prose, so this is not
+    hypothetical the way it was when the allowlist held only numbers,
+    language codes and joiner keywords.
+
+    Mixing explicit indices with implicit ones is left to resolve
+    last-write-wins rather than emulating MediaWiki's full numbering rules;
+    no real invocation in this corpus mixes them.
+
+    One deliberate divergence from MediaWiki: a key that is not shaped like
+    a parameter name (`abbr`, `disp`, `text`, `1`) is treated as positional
+    text rather than as a named argument. MediaWiki would swallow
+    `{{blockquote|Foo said x = y here.|Author}}`'s sentence; keeping it
+    costs nothing real, since no template in the allowlist takes a
+    parameter whose name contains a space.
     """
     if not arg_str:
         return [], {}
@@ -405,8 +442,20 @@ def _parse_template_args(arg_str: str) -> tuple[list[str], dict[str, str]]:
     named: dict[str, str] = {}
     for raw_arg in _split_template_args(arg_str):
         key, sep, value = raw_arg.partition("=")
-        if sep:
-            named[key.strip().lower()] = value.strip()
+        stripped_key = key.strip()
+        if sep and not _PARAM_NAME.fullmatch(stripped_key):
+            # Not a parameter name -- a sentence that happens to contain `=`.
+            # MediaWiki would reclassify it as a named argument and render
+            # nothing for it; this module keeps the text instead, because a
+            # silently vanished paragraph is the worse failure for a corpus
+            # whose whole purpose is that its prose can be quoted verbatim.
+            positional.append(raw_arg.strip())
+        elif sep and stripped_key.isdigit() and stripped_key != "0":
+            index = int(stripped_key) - 1
+            positional.extend([""] * (index + 1 - len(positional)))
+            positional[index] = value.strip()
+        elif sep:
+            named[stripped_key.lower()] = value.strip()
         else:
             positional.append(raw_arg.strip())
     return positional, named
@@ -423,9 +472,24 @@ def _parse_template_args(arg_str: str) -> tuple[list[str], dict[str, str]]:
 # `{{convert|38|and(-)|46|cm|in}}` in Viola). The first cut of this fix only
 # special-cased `to(-)`, which is exactly why `and(-)` slipped through: a
 # literal `and(-)` isn't a key in any plain dict of joiner strings. Stripped
-# generically below instead, so any future `<word>(-)` variant resolves the
-# same way without needing its own entry.
-_CONVERT_JOINERS = {"to": "to", "and": "and", "x": "x", "–": "–"}
+# generically below, so a `(-)` variant of a *known* joiner needs no entry
+# of its own -- but an unknown joiner word still misses, which is exactly
+# how the bare `-` form below went unnoticed until it reached the corpus.
+# `_expand_convert` therefore detects the range form by shape rather than by
+# this table, and reports any joiner it had to render verbatim.
+#
+# Display text verified against MediaWiki's `action=expandtemplates`:
+# `{{convert|70|-|74|g}}` -> "70-74 g" (en dash), `{{convert|1|by|2|ft}}` ->
+# "1 by 2 feet", `{{convert|5|+/-|1|mm}}` -> "5 +/- 1 millimetre" (± sign).
+_CONVERT_JOINERS = {
+    "to": "to",
+    "and": "and",
+    "x": "x",
+    "by": "by",
+    "-": "\u2013",
+    "\u2013": "\u2013",
+    "+/-": "\u00b1",
+}
 _CONVERT_JOINER_HYPHEN_SUFFIX = re.compile(r"\(-\)$")
 
 
@@ -448,6 +512,14 @@ def _convert_joiner(token: str) -> str | None:
 # construct, so a value that happens to contain an unrelated literal `+` is
 # left untouched rather than mis-rewritten.
 _CONVERT_MIXED_NUMBER = re.compile(r"(\d+)\+(\d+/\d+)")
+
+# A `{{convert}}` range is recognized by its *third* positional argument
+# being another number (`{{convert|70|-|74|g}}`), never by the joiner word
+# -- because the whole failure mode being guarded against here is a joiner
+# word this module has never seen. The normal single-value form puts an
+# output *unit* in that slot instead (`{{convert|4|ft|m}}`), which is not
+# numeric, so the two shapes stay cleanly distinguishable.
+_CONVERT_NUMBER = re.compile(r"[+-]?\d[\d.,]*(?:\+\d+/\d+|/\d+)?")
 
 
 # Every handler below shares this signature, even the ones that ignore
@@ -479,11 +551,21 @@ def _expand_convert(
     value = _CONVERT_MIXED_NUMBER.sub(r"\1 \2", positional[0])
     if len(positional) < 2:
         return value
-    joiner = _convert_joiner(positional[1]) if len(positional) >= 3 else None
-    if joiner is not None:
+    if len(positional) >= 3 and _CONVERT_NUMBER.fullmatch(positional[2].strip()):
+        joiner = _convert_joiner(positional[1])
+        if joiner is None:
+            # Render the joiner verbatim rather than dropping value 2 and the
+            # unit with it, and report it: an unknown joiner is a gap in the
+            # table above, and the only way anyone finds out is if it says so.
+            joiner = positional[1].strip()
+            if _dropped is not None:
+                _dropped[f"UNKNOWN-CONVERT-JOINER:{joiner}"] += 1
         value2 = _CONVERT_MIXED_NUMBER.sub(r"\1 \2", positional[2])
         unit = f" {positional[3]}" if len(positional) >= 4 else ""
-        return f"{value} {joiner} {value2}{unit}"
+        # MediaWiki sets a dash range tight ("70-74 g") but spaces a worded
+        # or symbolic one ("1 by 2 feet", "5 +/- 1 mm").
+        gap = "" if joiner == "\u2013" else " "
+        return f"{value}{gap}{joiner}{gap}{value2}{unit}"
     return f"{value} {positional[1]}"
 
 
@@ -491,8 +573,9 @@ def _expand_frac(
     positional: list[str], _named: dict[str, str], _dropped: Counter[str] | None
 ) -> str:
     """`{{frac|1|2}}` -> `1/2` (a bare fraction); `{{frac|3|1|2}}` ->
-    `3 1/2` (a whole number plus a fraction). A bare `{{frac}}` (no
-    positional args) drops to nothing — there is no number to render. More
+    `3 1/2` (a whole number plus a fraction); `{{frac|2}}` -> `1/2` (a lone
+    argument is the *denominator*). A bare `{{frac}}` (no positional args)
+    drops to nothing — there is no number to render. More
     than three positional args is not a shape seen in the sample; the extra
     args are dropped rather than guessed at, same as an unrecognized
     `{{music}}` argument below.
@@ -500,7 +583,11 @@ def _expand_frac(
     if not positional:
         return ""
     if len(positional) == 1:
-        return positional[0]
+        # `{{frac|2}}` is one *half*, not "2" -- verified against MediaWiki's
+        # `action=expandtemplates`. Reading it as a whole number is how
+        # `19{{frac|2}} to 21{{frac|2}} inches` became "192 to 212 inches",
+        # a plausible-looking wrong number rather than a visible gap.
+        return f"1/{positional[0]}"
     if len(positional) == 2:
         return f"{positional[0]}/{positional[1]}"
     return f"{positional[0]} {positional[1]}/{positional[2]}"
@@ -647,7 +734,7 @@ def _expand_music(
         if symbol is not None:
             return symbol
     if dropped is not None:
-        dropped[f"music|{'|'.join(positional)}"] += 1
+        dropped[f"UNKNOWN-MUSIC-ARG:{'|'.join(positional)}"] += 1
     return ""
 
 
@@ -692,7 +779,10 @@ def _expand_blockquote(
     if not quote:
         return ""
     attribution = [p for p in (named.get("author"), named.get("source")) if p]
-    attribution += [p for p in positional[1:] if p.strip()]
+    # With a named `text=`, every positional arg is attribution; with a
+    # positional quote, the first one *is* the quote and the rest follow it.
+    rest = positional if named.get("text") else positional[1:]
+    attribution += [part for part in rest if part.strip()]
     if attribution:
         return f'"{quote}" — {", ".join(attribution)}'
     return f'"{quote}"'
@@ -791,6 +881,21 @@ _MAX_EXPANSION_PASSES = 20
 _FORMATNUM = re.compile(r"^formatnum\s*:\s*([^|]*)", re.IGNORECASE)
 
 
+def _separated(expansion: str, match: re.Match[str]) -> str:
+    """Keep an expansion that starts with a digit from fusing onto a digit
+    that precedes it in the source.
+
+    MediaWiki renders `19{{frac|2}}` as 19 and a typeset vulgar fraction, so
+    the boundary is visible without a space. Flattened to ASCII it is not:
+    `19` + `1/2` reads as "191/2". One space restores the distinction that
+    the typography was carrying.
+    """
+    if not expansion or not expansion[0].isdigit():
+        return expansion
+    before = match.string[: match.start()]
+    return f" {expansion}" if before and before[-1].isdigit() else expansion
+
+
 def _expand_one(match: re.Match[str], dropped: Counter[str] | None) -> str:
     """Expand a single innermost `{{...}}` match: by exact name against the
     allowlist first, then by shape against the numeric-fraction pattern
@@ -826,16 +931,44 @@ def _expand_one(match: re.Match[str], dropped: Counter[str] | None) -> str:
     """
     formatnum = _FORMATNUM.match(match.group(1).strip())
     if formatnum is not None:
-        return formatnum.group(1).strip()
+        return _separated(formatnum.group(1).strip(), match)
     name, _, arg_str = match.group(1).partition("|")
     key = name.strip().lower()
     handler = _DISPLAY_TEMPLATES.get(key)
     if handler is not None:
         positional, named = _parse_template_args(arg_str)
-        return handler(positional, named, dropped)
+        before = sum(dropped.values()) if dropped is not None else 0
+        expanded = handler(positional, named, dropped)
+        # A handler that returns nothing from a template that *had* arguments
+        # has swallowed text. Report it unless the handler already reported
+        # something more specific (`_expand_music` names the argument it
+        # could not render), so the report stays free of duplicate noise.
+        if not expanded and arg_str.strip() and dropped is not None:
+            if sum(dropped.values()) == before:
+                dropped[f"EMPTY-EXPANSION:{key}"] += 1
+        return _separated(expanded, match)
     if _NUMERIC_FRACTION_NAME.fullmatch(key):
-        return key
+        return _separated(key, match)
     return match.group(0)
+
+
+def _tally_key(name: str) -> str:
+    """Distinguish chrome that was *meant* to be dropped from an allowlisted
+    template whose expansion was *blocked*.
+
+    An allowlisted name can still reach the tally: if its argument holds a
+    nested template nobody handles, the outer never becomes innermost, the
+    convergence loop stops, and `strip_templates` deletes the outer template
+    with its prose inside. That happened to
+    `{{langx|he|{{script/Hebr|...}}}}`, which cost the Hebrew term in
+    harp.md. The tally is dominated by hundreds of legitimate `cite book` /
+    `isbn` entries, so a bare `langx` line among them reads as ordinary
+    chrome and gets skipped — flagging it as BLOCKED is what makes it
+    findable.
+    """
+    if name in _DISPLAY_TEMPLATES or _NUMERIC_FRACTION_NAME.fullmatch(name):
+        return f"BLOCKED:{name}"
+    return name
 
 
 def _tally_dropped_templates(text: str, dropped: Counter[str]) -> None:
@@ -871,7 +1004,7 @@ def _tally_dropped_templates(text: str, dropped: Counter[str]) -> None:
                 inner = text[start + 2 : i - 2]
                 name = inner.partition("|")[0].strip().lower()
                 if name:
-                    dropped[name] += 1
+                    dropped[_tally_key(name)] += 1
         else:
             i += 1
 
@@ -1280,6 +1413,39 @@ def normalize_blank_lines(text: str) -> str:
     return _BLANK_RUN.sub("\n\n", _TRAILING_WS.sub("", text)).strip()
 
 
+# Punctuation left holding nothing after a template was removed: an IPA or
+# pronunciation template inside parentheses leaves "( , )" or "( )" sitting
+# in the middle of a sentence. Harmless to a reader, but this is the text
+# Plan 3 anchors gold spans in, and a span quoted across one of these would
+# not match anything a person would think to write.
+_HOLLOW_PARENS = re.compile(r"\(\s*[,;:/\u2013-]*\s*\)")
+_SPACE_BEFORE_PUNCT = re.compile(r"[ \t]+([,.;:!?])")
+
+
+def decode_entities(text: str) -> str:
+    """Turn HTML entities into the characters they stand for.
+
+    Must run *after* `strip_html_tags`: decoding first would turn a
+    `&lt;div&gt;` written as literal text into a real-looking tag for that
+    stage to strip, inventing markup the source never had.
+
+    `&nbsp;` is the one that matters -- it appears ~500 times across this
+    corpus ("Op.&nbsp;9, No.&nbsp;1"). Left encoded, a gold span quoting
+    that phrase is written by a human or an LLM as "Op. 9" and then fails to
+    match the note it came from.
+    """
+    return html.unescape(text).replace("\u00a0", " ")
+
+
+def tidy_punctuation(text: str) -> str:
+    """Remove punctuation stranded by a removed template.
+
+    Only touches bracket pairs whose entire contents are separators, so a
+    parenthetical that still holds words is never disturbed.
+    """
+    return _SPACE_BEFORE_PUNCT.sub(r"\1", _HOLLOW_PARENS.sub("", text))
+
+
 def wikitext_to_markdown(
     raw: str, title: str, targets: dict[str, str], dropped: Counter[str] | None = None
 ) -> str:
@@ -1295,7 +1461,10 @@ def wikitext_to_markdown(
     tally across every article in a run without knowing this pipeline's
     internal stage order.
     """
-    text = strip_comments(raw)
+    # A NUL in the input would be indistinguishable from the placeholder
+    # `_expand_apostrophe` uses, so the "cannot collide with real wikitext"
+    # property is made structural here rather than left to trust.
+    text = strip_comments(raw.replace(_APOSTROPHE_PLACEHOLDER, ""))
     text = strip_refs(text)
     text = strip_html_containers(text)
     text = expand_templates(text, dropped)
@@ -1303,6 +1472,7 @@ def wikitext_to_markdown(
     text = strip_tables(text)
     text = strip_media_links(text)
     text = strip_html_tags(text)
+    text = decode_entities(text)
     text = strip_external_links(text)
     text = strip_empty_emphasis(text)
     text = convert_lists(text)
@@ -1310,5 +1480,6 @@ def wikitext_to_markdown(
     text = convert_links(text, targets)
     text = convert_emphasis(text)
     text = restore_apostrophe_placeholders(text)
+    text = tidy_punctuation(text)
     text = drop_sections(text)
     return f"# {title}\n\n{normalize_blank_lines(text)}".rstrip() + "\n"
