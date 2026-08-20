@@ -1280,8 +1280,8 @@ def test_a_blocked_expansion_is_reported_distinctly_from_ordinary_chrome():
     `langx` entry reads as chrome; the BLOCKED prefix is what makes it
     findable."""
     dropped: Counter[str] = Counter()
-    expand_templates("{{langx|he|{{script/Hebr|X}}}}", dropped)
-    assert dropped == {"BLOCKED:langx": 1}
+    expand_templates("{{blockquote|A quotation.{{sfn|Smith|2001}}}}", dropped)
+    assert dropped == {"BLOCKED:blockquote": 1}
 
 
 def test_a_handler_that_swallows_its_argument_reports_it():
@@ -1309,3 +1309,10 @@ def test_tidy_punctuation_clears_brackets_left_holding_nothing():
 
 def test_a_nul_in_the_source_cannot_impersonate_the_apostrophe_placeholder():
     assert "\x00" not in wikitext_to_markdown("a\x00b ''c''", title="T", targets={})
+
+
+def test_a_script_wrapper_keeps_the_text_it_wraps():
+    """`{{script/Hebr|...}}` styles non-Latin prose; nesting it inside
+    `{{langx}}` blocked that expansion and deleted the Hebrew term from
+    harp.md — the first defect the BLOCKED report line surfaced."""
+    assert expand_templates("{{langx|he|{{script/Hebr|כִּנּוֹר}}}}") == "כִּנּוֹר"

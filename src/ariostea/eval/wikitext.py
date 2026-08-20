@@ -602,6 +602,14 @@ def _expand_frac(
 # `_expand_one` instead of being one more dict entry.
 _NUMERIC_FRACTION_NAME = re.compile(r"\d+/\d+")
 
+# `{{script/Hebr|...}}`, `{{script/Arab|...}}` and friends wrap a run of
+# non-Latin text so MediaWiki can style it; the text itself is the article's
+# own prose. Matched by shape for the same reason the numeric fractions are:
+# there is one of these per writing system and no dict should try to list
+# them. Found because it blocked a `{{langx}}` expansion and cost harp.md its
+# Hebrew term -- the first thing the BLOCKED report line ever caught.
+_SCRIPT_TEMPLATE_NAME = re.compile(r"script/[A-Za-z]+")
+
 
 def _expand_lang(
     positional: list[str], _named: dict[str, str], _dropped: Counter[str] | None
@@ -949,6 +957,9 @@ def _expand_one(match: re.Match[str], dropped: Counter[str] | None) -> str:
         return _separated(expanded, match)
     if _NUMERIC_FRACTION_NAME.fullmatch(key):
         return _separated(key, match)
+    if _SCRIPT_TEMPLATE_NAME.fullmatch(key):
+        positional, _ = _parse_template_args(arg_str)
+        return positional[-1] if positional else ""
     return match.group(0)
 
 
@@ -966,7 +977,11 @@ def _tally_key(name: str) -> str:
     chrome and gets skipped — flagging it as BLOCKED is what makes it
     findable.
     """
-    if name in _DISPLAY_TEMPLATES or _NUMERIC_FRACTION_NAME.fullmatch(name):
+    if (
+        name in _DISPLAY_TEMPLATES
+        or _NUMERIC_FRACTION_NAME.fullmatch(name)
+        or _SCRIPT_TEMPLATE_NAME.fullmatch(name)
+    ):
         return f"BLOCKED:{name}"
     return name
 
