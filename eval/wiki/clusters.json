@@ -5,75 +5,93 @@
       "articles": [
         {
           "title": "Violin",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1366434192
         },
         {
           "title": "Viola",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1364838851
         },
         {
           "title": "Cello",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1360203898
         },
         {
           "title": "Double bass",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1365602377
         },
         {
           "title": "Classical guitar",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1368953989
         },
         {
           "title": "Mandolin",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1368537001
         },
         {
           "title": "Banjo",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1367345198
         },
         {
           "title": "Harp",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1365669940
         },
         {
           "title": "Lute",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1361649316
         },
         {
           "title": "Ukulele",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1367543306
         },
         {
           "title": "Luthier",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1365251608
         },
         {
           "title": "Fingerboard",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1369058064
         },
         {
           "title": "Violino",
-          "lang": "it"
+          "lang": "it",
+          "revid": 151158367
         },
         {
           "title": "Violoncello",
-          "lang": "it"
+          "lang": "it",
+          "revid": 151957448
         },
         {
           "title": "Mandolino",
-          "lang": "it"
+          "lang": "it",
+          "revid": 150920416
         },
         {
           "title": "Violín",
-          "lang": "es"
+          "lang": "es",
+          "revid": 174121807
         },
         {
           "title": "Violonchelo",
-          "lang": "es"
+          "lang": "es",
+          "revid": 173779642
         },
         {
           "title": "Guitarra clásica",
-          "lang": "es"
+          "lang": "es",
+          "revid": 174381319
         }
       ]
     },
@@ -82,59 +100,73 @@
       "articles": [
         {
           "title": "Espresso",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1369844273
         },
         {
           "title": "Moka pot",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1351852653
         },
         {
           "title": "French press",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1364555358
         },
         {
           "title": "Coffee bean",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1369534882
         },
         {
           "title": "Coffea arabica",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1368875648
         },
         {
           "title": "Coffea canephora",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1364049592
         },
         {
           "title": "Coffee roasting",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1365926912
         },
         {
           "title": "Flat white",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1364577348
         },
         {
           "title": "Latte",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1369540111
         },
         {
           "title": "Cappuccino",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1366504414
         },
         {
           "title": "Cold brew coffee",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1368875681
         },
         {
           "title": "Coffee preparation",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1370223128
         },
         {
           "title": "Caffè espresso",
-          "lang": "it"
+          "lang": "it",
+          "revid": 151949293
         },
         {
           "title": "Cappuccino (bevanda)",
-          "lang": "it"
+          "lang": "it",
+          "revid": 151635145
         }
       ]
     },
@@ -143,47 +175,58 @@
       "articles": [
         {
           "title": "Cheese",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1370259980
         },
         {
           "title": "Cheddar cheese",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1368264538
         },
         {
           "title": "Mozzarella",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1369992046
         },
         {
           "title": "Parmesan",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1369024528
         },
         {
           "title": "Gouda cheese",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1358452537
         },
         {
           "title": "Brie",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1368523289
         },
         {
           "title": "Blue cheese",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1370112700
         },
         {
           "title": "Rennet",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1365390748
         },
         {
           "title": "Curd",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1370238859
         },
         {
           "title": "Whey",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1365298231
         },
         {
           "title": "Cheese ripening",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1295427748
         }
       ]
     },
@@ -192,51 +235,63 @@
       "articles": [
         {
           "title": "Bicycle",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1368020522
         },
         {
           "title": "Racing bicycle",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1365303524
         },
         {
           "title": "Road bicycle",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1356188619
         },
         {
           "title": "Mountain bike",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1367174029
         },
         {
           "title": "Track bicycle",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1346239031
         },
         {
           "title": "Derailleur",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1358914301
         },
         {
           "title": "Bicycle frame",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1362228513
         },
         {
           "title": "Bicycle brake",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1358848883
         },
         {
           "title": "Bicycle wheel",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1370221116
         },
         {
           "title": "Bicycle pedal",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1367754830
         },
         {
           "title": "Bicycle chain",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1361192445
         },
         {
           "title": "Bicycle handlebar",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1368972710
         }
       ]
     },
@@ -245,55 +300,68 @@
       "articles": [
         {
           "title": "Sailing",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1361426310
         },
         {
           "title": "Sailboat",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1365281588
         },
         {
           "title": "Sail",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1358681989
         },
         {
           "title": "Mainsail",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1300632030
         },
         {
           "title": "Jib",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1352725780
         },
         {
           "title": "Point of sail",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1361793029
         },
         {
           "title": "Spinnaker",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1366623330
         },
         {
           "title": "Keel",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1369998572
         },
         {
           "title": "Rigging",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1355174784
         },
         {
           "title": "Mast (sailing)",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1365862687
         },
         {
           "title": "Boom (sailing)",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1342386850
         },
         {
           "title": "Rudder",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1368453629
         },
         {
           "title": "Tacking (sailing)",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1342328958
         }
       ]
     },
@@ -302,47 +370,58 @@
       "articles": [
         {
           "title": "Chess",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1369675954
         },
         {
           "title": "Chess opening",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1369406669
         },
         {
           "title": "Chess endgame",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1356933444
         },
         {
           "title": "Chess piece",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1356336050
         },
         {
           "title": "Chessboard",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1364131481
         },
         {
           "title": "Checkmate",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1356335378
         },
         {
           "title": "Checkers",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1365510530
         },
         {
           "title": "Go (game)",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1369073170
         },
         {
           "title": "Shogi",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1369108429
         },
         {
           "title": "Xiangqi",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1368270319
         },
         {
           "title": "Backgammon",
-          "lang": "en"
+          "lang": "en",
+          "revid": 1369834695
         }
       ]
     }
