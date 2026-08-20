@@ -1273,15 +1273,19 @@ def test_the_numeric_escape_places_its_value_positionally():
     assert expand_templates("{{nowrap|1=a = b}}") == "a = b"
 
 
-def test_a_blocked_expansion_is_reported_distinctly_from_ordinary_chrome():
+def test_a_blocked_expansion_is_cleared_so_the_enclosing_prose_survives():
     """An allowlisted template whose argument holds an unallowlisted one is
     never innermost, so it survives to be stripped whole -- taking its prose
     with it. In a report dominated by hundreds of `cite book` lines, a bare
     `langx` entry reads as chrome; the BLOCKED prefix is what makes it
     findable."""
     dropped: Counter[str] = Counter()
-    expand_templates("{{blockquote|A quotation.{{sfn|Smith|2001}}}}", dropped)
-    assert dropped == {"BLOCKED:blockquote": 1}
+    # The blocker is cleared so the quotation survives, and the blocker itself
+    # is reported as the ordinary chrome it is.
+    assert expand_templates("{{blockquote|A quotation.{{sfn|Smith|2001}}}}", dropped) == (
+        '"A quotation."'
+    )
+    assert dropped == {"sfn": 1}
 
 
 def test_a_handler_that_swallows_its_argument_reports_it():
@@ -1316,3 +1320,19 @@ def test_a_script_wrapper_keeps_the_text_it_wraps():
     `{{langx}}` blocked that expansion and deleted the Hebrew term from
     harp.md — the first defect the BLOCKED report line surfaced."""
     assert expand_templates("{{langx|he|{{script/Hebr|כִּנּוֹר}}}}") == "כִּנּוֹר"
+
+
+def test_convert_does_not_mistake_a_precision_digit_for_a_range():
+    """`{{convert|50|ml|0}}` is fifty millilitres to zero decimal places, not
+    a range from 50 to 0. A numeric third argument alone cannot tell the two
+    apart — the unit in the second slot is what does."""
+    assert expand_templates("{{convert|50|ml|0|abbr=on}}") == "50 ml"
+    assert expand_templates("{{convert|30|ml|USoz|0|abbr=off}}") == "30 ml"
+
+
+def test_convert_renders_the_star_joiner_as_a_multiplication_sign():
+    assert expand_templates("{{convert|40|*|51|mm|in|frac=8}}") == "40×51 mm"
+
+
+def test_nbsp_becomes_a_real_space():
+    assert expand_templates("{{nowrap|12{{nbsp}}mm}}") == "12 mm"

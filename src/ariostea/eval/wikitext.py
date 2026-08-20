@@ -487,6 +487,7 @@ _CONVERT_JOINERS = {
     "x": "x",
     "by": "by",
     "-": "\u2013",
+    "*": "\u00d7",
     "\u2013": "\u2013",
     "+/-": "\u00b1",
 }
@@ -520,6 +521,32 @@ _CONVERT_MIXED_NUMBER = re.compile(r"(\d+)\+(\d+/\d+)")
 # output *unit* in that slot instead (`{{convert|4|ft|m}}`), which is not
 # numeric, so the two shapes stay cleanly distinguishable.
 _CONVERT_NUMBER = re.compile(r"[+-]?\d[\d.,]*(?:\+\d+/\d+|/\d+)?")
+# Joiners MediaWiki sets tight against their values ("40x51 mm", "70-74 g")
+# rather than spaced ("1 by 2 feet", "5 +/- 1 mm").
+_TIGHT_JOINERS = {"\u2013", "\u00d7"}
+
+
+def _is_convert_range(positional: list[str]) -> bool:
+    """Decide whether `{{convert}}`'s arguments are a range or a plain value.
+
+    A numeric third argument is necessary but not sufficient: the plain form
+    `{{convert|50|ml|0}}` puts a *precision* digit there, which read as a
+    range yields "50 ml 0". The second argument settles it — a range's
+    joiner is either a word this module knows or bare punctuation (`-`, `*`),
+    never a unit, and a unit is the only thing here with letters in it.
+    """
+    if len(positional) < 3 or not _CONVERT_NUMBER.fullmatch(positional[2].strip()):
+        return False
+    token = positional[1].strip()
+    if _convert_joiner(token) is not None:
+        return True
+    if not any(char.isalpha() for char in token):
+        return True  # bare punctuation is never a unit
+    # An unknown *word* joiner looks exactly like a unit, so fall back to what
+    # follows the numeric argument: a range names its unit there
+    # (`{{convert|70|through|74|g}}`), while the plain form has either nothing
+    # or another number (`{{convert|30|ml|USoz|0}}`).
+    return len(positional) >= 4 and positional[3].strip().isalpha()
 
 
 # Every handler below shares this signature, even the ones that ignore
@@ -551,7 +578,7 @@ def _expand_convert(
     value = _CONVERT_MIXED_NUMBER.sub(r"\1 \2", positional[0])
     if len(positional) < 2:
         return value
-    if len(positional) >= 3 and _CONVERT_NUMBER.fullmatch(positional[2].strip()):
+    if _is_convert_range(positional):
         joiner = _convert_joiner(positional[1])
         if joiner is None:
             # Render the joiner verbatim rather than dropping value 2 and the
@@ -564,7 +591,7 @@ def _expand_convert(
         unit = f" {positional[3]}" if len(positional) >= 4 else ""
         # MediaWiki sets a dash range tight ("70-74 g") but spaces a worded
         # or symbolic one ("1 by 2 feet", "5 +/- 1 mm").
-        gap = "" if joiner == "\u2013" else " "
+        gap = "" if joiner in _TIGHT_JOINERS else " "
         return f"{value}{gap}{joiner}{gap}{value2}{unit}"
     return f"{value} {positional[1]}"
 
@@ -858,6 +885,8 @@ _DISPLAY_TEMPLATES: dict[str, _Handler] = {
     "siglo": _expand_siglo,
     "music": _expand_music,
     "nowrap": _expand_nowrap,
+    # A non-breaking space is a space; dropping it fuses "12 mm" into "12mm".
+    "nbsp": lambda _positional, _named, _dropped: " ",
     "nobr": _expand_nowrap,
     "blockquote": _expand_blockquote,
     "'": _expand_apostrophe,
@@ -963,6 +992,44 @@ def _expand_one(match: re.Match[str], dropped: Counter[str] | None) -> str:
     return match.group(0)
 
 
+def _is_expandable(name: str) -> bool:
+    return bool(
+        name in _DISPLAY_TEMPLATES
+        or _NUMERIC_FRACTION_NAME.fullmatch(name)
+        or _SCRIPT_TEMPLATE_NAME.fullmatch(name)
+    )
+
+
+def _top_level_names(text: str) -> list[str]:
+    """Names of the `{{...}}` templates at nesting depth 0."""
+    names: list[str] = []
+    depth = 0
+    start = 0
+    i = 0
+    while i < len(text):
+        if text.startswith("{{", i):
+            if depth == 0:
+                start = i
+            depth += 1
+            i += 2
+        elif depth and text.startswith("}}", i):
+            depth -= 1
+            i += 2
+            if depth == 0:
+                names.append(text[start + 2 : i - 2].partition("|")[0].strip().lower())
+        else:
+            i += 1
+    return names
+
+
+def _clear_blockers(match: re.Match[str], dropped: Counter[str] | None) -> str:
+    """Remove one innermost template so whatever encloses it can expand."""
+    name = match.group(1).partition("|")[0].strip().lower()
+    if dropped is not None and name:
+        dropped[name] += 1
+    return ""
+
+
 def _tally_key(name: str) -> str:
     """Distinguish chrome that was *meant* to be dropped from an allowlisted
     template whose expansion was *blocked*.
@@ -977,11 +1044,7 @@ def _tally_key(name: str) -> str:
     chrome and gets skipped — flagging it as BLOCKED is what makes it
     findable.
     """
-    if (
-        name in _DISPLAY_TEMPLATES
-        or _NUMERIC_FRACTION_NAME.fullmatch(name)
-        or _SCRIPT_TEMPLATE_NAME.fullmatch(name)
-    ):
+    if _is_expandable(name):
         return f"BLOCKED:{name}"
     return name
 
@@ -1045,9 +1108,18 @@ def expand_templates(text: str, dropped: Counter[str] | None = None) -> str:
     """
     for _ in range(_MAX_EXPANSION_PASSES):
         new_text = _INNERMOST_TEMPLATE.sub(lambda m: _expand_one(m, dropped), text)
-        if new_text == text:
+        if new_text != text:
+            text = new_text
+            continue
+        if not any(_is_expandable(name) for name in _top_level_names(text)):
             break
-        text = new_text
+        # Converged with an allowlisted template still unexpanded: something
+        # unallowlisted is nested inside it, so it never became innermost.
+        # Left alone, `strip_templates` would delete the whole outer template
+        # and its prose with it -- which is how a {{blockquote}} lost an entire
+        # quotation. Removing the blocker (which was going to be removed
+        # anyway) lets the enclosing template expand on the next pass.
+        text = _INNERMOST_TEMPLATE.sub(lambda m: _clear_blockers(m, dropped), text)
     if dropped is not None:
         _tally_dropped_templates(text, dropped)
     return text
