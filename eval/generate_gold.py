@@ -53,6 +53,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from ariostea.adapters.chat.openai_compat import ChatError, OpenAICompatChat
+from ariostea.eval.chat_cache import CachingChat
 from ariostea.eval.gold_discriminate import discrimination_filter
 from ariostea.eval.gold_generate import Candidate, generate_case
 from ariostea.eval.gold_passages import Passage, select_passages
@@ -67,6 +68,10 @@ GOLD = WIKI_DIR / "gold.json"
 REJECTED = WIKI_DIR / "gold_rejected.json"
 META = WIKI_DIR / "gold.meta.json"
 REVIEW = WIKI_DIR / "gold_review.md"
+# Raw model responses, keyed by prompt. Makes an interrupted run resumable and
+# makes re-running with tuned gates free. Not committed -- it is a local
+# scratch file, and `gold.json` is the artifact of record.
+CACHE = WIKI_DIR / ".gold_cache.jsonl"
 
 # ~150 queries, the design doc's Medium tier. cross_lingual is smaller because
 # it is the most expensive to review by hand.
@@ -176,7 +181,7 @@ def _generate_all(
             continue
         survivors.append(candidate)
         if index % 10 == 0:
-            print(f"  generated {index}/{len(selected)}, {len(survivors)} past stage 1")
+            print(f"  generated {index}/{len(selected)}, {len(survivors)} past stage 1", flush=True)
 
     return survivors, rejections
 
@@ -206,7 +211,7 @@ def _judge_all(
         else:
             cases.append(to_gold_case(candidate))
         if index % 10 == 0:
-            print(f"  judged {index}/{len(survivors)}, {len(cases)} approved")
+            print(f"  judged {index}/{len(survivors)}, {len(cases)} approved", flush=True)
     return cases, rejections
 
 
@@ -330,6 +335,39 @@ def report_shortfall(budget: dict[str, int], selected: list[tuple[str, Passage]]
             )
 
 
+def _write_outputs(
+    cases: list[WikiGoldCase], rejections: list[Rejection], passages_selected: int
+) -> None:
+    """Write all four artifacts. Called from a `finally`, so it must cope with
+    a partial run -- an empty `cases` list writes an empty gold file rather
+    than raising, and `run_wiki_eval.py` refuses to score that."""
+    write_gold(GOLD, cases)
+    REJECTED.write_text(
+        json.dumps([asdict(r) for r in rejections], indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    META.write_text(
+        json.dumps(
+            {
+                "generator_model": MODEL,
+                "judge_model": JUDGE_MODEL,
+                "base_url": BASE_URL,
+                "passages_selected": passages_selected,
+                "accepted": len(cases),
+                "rejected": len(rejections),
+                "by_type": {
+                    query_type: sum(1 for case in cases if case.type == query_type)
+                    for query_type in sorted(BUDGET)
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    REVIEW.write_text(review_markdown(cases, REVIEW_SAMPLE), encoding="utf-8")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Generate the wiki eval gold set.")
     parser.add_argument("--limit", type=int, help="cap the total passages (for a smoke run)")
@@ -359,66 +397,65 @@ def main(argv: list[str] | None = None) -> int:
     report_shortfall(budget, selected)
     print(f"{len(selected)} passages selected from {len({p.note for _, p in selected})} notes")
 
-    chat = OpenAICompatChat(
-        base_url=BASE_URL,
-        model=MODEL,
-        api_key=API_KEY,
-        timeout=TIMEOUT_S,
-        max_tokens=GEN_MAX_TOKENS,
+    chat = CachingChat(
+        OpenAICompatChat(
+            base_url=BASE_URL,
+            model=MODEL,
+            api_key=API_KEY,
+            timeout=TIMEOUT_S,
+            max_tokens=GEN_MAX_TOKENS,
+        ),
+        CACHE,
+        label=MODEL,
     )
-    judge = OpenAICompatChat(
-        base_url=BASE_URL,
-        model=JUDGE_MODEL,
-        api_key=API_KEY,
-        timeout=TIMEOUT_S,
-        max_tokens=JUDGE_MAX_TOKENS,
+    judge = CachingChat(
+        OpenAICompatChat(
+            base_url=BASE_URL,
+            model=JUDGE_MODEL,
+            api_key=API_KEY,
+            timeout=TIMEOUT_S,
+            max_tokens=JUDGE_MAX_TOKENS,
+        ),
+        CACHE,
+        label=JUDGE_MODEL,
     )
-    print(f"generating with {MODEL}, judging with {JUDGE_MODEL} at {BASE_URL} ...")
-    cases, rejections = generate_and_gate(chat, judge, selected, notes, titles)
-    print(f"{len(cases)} candidates survived stages 1 and 2")
+    print(f"generating with {MODEL}, judging with {JUDGE_MODEL} at {BASE_URL} ...", flush=True)
 
-    if not args.no_discrimination and cases:
-        with tempfile.TemporaryDirectory() as tmp:
-            db = str(Path(tmp) / "eval.db")
-            print("indexing the corpus for the discrimination filter ...")
-            container = index_wiki_corpus(WIKI_DIR, db)
-            cases, dropped = discrimination_filter(cases, wiki_channels(db, container))
-        rejections += [
-            Rejection(
-                "discrimination",
-                "every channel answers at rank 1",
-                case.query,
-                case.expected_notes[0],
-                case.answer_spans[0].text,
-                case.type,
-            )
-            for case in dropped
-        ]
-        print(f"{len(dropped)} dropped as too easy; {len(cases)} remain")
+    cases: list[WikiGoldCase] = []
+    rejections: list[Rejection] = []
+    dropped: list[WikiGoldCase] = []
+    try:
+        cases, rejections = generate_and_gate(chat, judge, selected, notes, titles)
+        print(f"{len(cases)} candidates survived stages 1 and 2", flush=True)
 
-    write_gold(GOLD, cases)
-    REJECTED.write_text(
-        json.dumps([asdict(r) for r in rejections], indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-    META.write_text(
-        json.dumps(
-            {
-                "generator_model": MODEL,
-                "judge_model": JUDGE_MODEL,
-                "base_url": BASE_URL,
-                "passages_selected": len(selected),
-                "accepted": len(cases),
-                "rejected": len(rejections),
-                "by_type": {t: sum(1 for c in cases if c.type == t) for t in sorted(BUDGET)},
-            },
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    REVIEW.write_text(review_markdown(cases, REVIEW_SAMPLE), encoding="utf-8")
+        if not args.no_discrimination and cases:
+            with tempfile.TemporaryDirectory() as tmp:
+                db = str(Path(tmp) / "eval.db")
+                print("indexing the corpus for the discrimination filter ...", flush=True)
+                container = index_wiki_corpus(WIKI_DIR, db)
+                cases, dropped = discrimination_filter(cases, wiki_channels(db, container))
+            rejections += [
+                Rejection(
+                    "discrimination",
+                    "every channel answers at rank 1",
+                    case.query,
+                    case.expected_notes[0],
+                    case.answer_spans[0].text,
+                    case.type,
+                )
+                for case in dropped
+            ]
+            print(f"{len(dropped)} dropped as too easy; {len(cases)} remain", flush=True)
+    finally:
+        # In a `finally` for the same reason `build_wiki_corpus.py` writes its
+        # manifest in one: the first full run was killed after every model
+        # call had been paid for and before anything reached disk. The cache
+        # makes those calls recoverable, but whatever this run did establish
+        # should still be written down.
+        _write_outputs(cases, rejections, len(selected))
+        print(f"\ncache: {chat.hits + judge.hits} hits, {chat.misses + judge.misses} live calls")
 
+    print("\nrejections by stage:")
     print("\nrejections by stage:")
     print(rejection_summary(rejections))
     print(f"\nwrote {len(cases)} cases to {GOLD}")
