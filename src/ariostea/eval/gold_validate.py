@@ -17,7 +17,9 @@ from __future__ import annotations
 import re
 
 from ariostea.eval.gold_generate import Candidate
+from ariostea.eval.gold_prompts import JUDGE_SYSTEM, judge_user, parse_json_object
 from ariostea.eval.normalize import normalize_ws
+from ariostea.ports.chat import ChatProvider
 
 MIN_SPAN_CHARS = 10
 MAX_SPAN_CHARS = 300
@@ -72,4 +74,36 @@ def automatic_gate(
         # words the English text does not have.
         return "cross_lingual query is not in another language"
 
+    return None
+
+
+def adversarial_gate(judge: ChatProvider, candidate: Candidate, title: str) -> str | None:
+    """Return why a second model rejects `candidate`, or `None` if it approves.
+
+    `judge` must be a *different model* from the one that generated the
+    candidate. A model asked to audit its own output agrees with itself: the
+    point of this stage is an independent reading, and pointing both at the
+    same model turns a gate into a rubber stamp. `eval/generate_gold.py`
+    refuses to run when the two model names match.
+
+    Every failure to read a verdict is a rejection. An unparseable response, a
+    missing key, a truncated object -- none of them is evidence the candidate
+    is good, and defaulting to approval would wave through exactly the
+    responses the judge struggled with.
+    """
+    raw = judge.complete(
+        system=JUDGE_SYSTEM, user=judge_user(candidate.query, candidate.span, title)
+    )
+    try:
+        verdict = parse_json_object(raw)
+    except ValueError as exc:
+        return f"judge verdict unreadable: {exc}"
+
+    reason = str(verdict.get("reason", "")).strip()
+    if not verdict.get("answers"):
+        return f"judge: span does not answer the query ({reason})"
+    if not verdict.get("unambiguous"):
+        return f"judge: query is ambiguous ({reason})"
+    if verdict.get("title_only"):
+        return f"judge: answerable from the title alone ({reason})"
     return None

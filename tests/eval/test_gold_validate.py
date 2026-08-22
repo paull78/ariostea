@@ -1,7 +1,7 @@
 from dataclasses import replace
 
 from ariostea.eval.gold_generate import Candidate
-from ariostea.eval.gold_validate import automatic_gate
+from ariostea.eval.gold_validate import adversarial_gate, automatic_gate
 
 NOTES = {
     "strings/violin.md": (
@@ -109,3 +109,66 @@ def test_the_language_check_only_applies_to_cross_lingual_cases():
     # paraphrase case; it is only evidence of failure for a cross-lingual one.
     ok = replace(GOOD, query="tuned in perfect fifths")
     assert automatic_gate(ok, NOTES, TITLES) is None
+
+
+class FakeJudge:
+    def __init__(self, response: str) -> None:
+        self._response = response
+        self.calls: list[tuple[str, str]] = []
+
+    def complete(self, system: str, user: str) -> str:
+        self.calls.append((system, user))
+        return self._response
+
+
+APPROVAL = '{"answers": true, "unambiguous": true, "title_only": false, "reason": "fine"}'
+
+
+def test_a_candidate_the_judge_approves_passes():
+    assert adversarial_gate(FakeJudge(APPROVAL), GOOD, title="Violin") is None
+
+
+def test_the_judge_sees_the_query_and_span_but_never_the_passage():
+    judge = FakeJudge(APPROVAL)
+    adversarial_gate(judge, GOOD, title="Violin")
+    _, user = judge.calls[0]
+    assert GOOD.query in user and GOOD.span in user
+    assert GOOD.passage not in user
+
+
+def test_a_span_the_judge_says_does_not_answer_is_rejected():
+    judge = FakeJudge(
+        '{"answers": false, "unambiguous": true, "title_only": false, "reason": "off topic"}'
+    )
+    reason = adversarial_gate(judge, GOOD, title="Violin")
+    assert "does not answer" in reason and "off topic" in reason
+
+
+def test_an_ambiguous_query_is_rejected():
+    judge = FakeJudge(
+        '{"answers": true, "unambiguous": false, "title_only": false, "reason": "two readings"}'
+    )
+    assert "ambiguous" in adversarial_gate(judge, GOOD, title="Violin")
+
+
+def test_a_title_answerable_query_is_rejected():
+    judge = FakeJudge(
+        '{"answers": true, "unambiguous": true, "title_only": true, "reason": "title says it"}'
+    )
+    assert "title alone" in adversarial_gate(judge, GOOD, title="Violin")
+
+
+def test_a_missing_verdict_key_is_rejected_rather_than_treated_as_approval():
+    # `.get("answers")` on a truncated response returns None, which is falsy.
+    # Approval must never be the default for a response we could not fully read.
+    assert adversarial_gate(FakeJudge('{"reason": "truncated"}'), GOOD, title="Violin") is not None
+
+
+def test_an_unparseable_judge_response_is_a_rejection_not_a_crash():
+    judge = FakeJudge("I think it is fine, honestly.")
+    assert "unreadable" in adversarial_gate(judge, GOOD, title="Violin")
+
+
+def test_a_judge_verdict_wrapped_in_a_reasoning_block_is_read():
+    judge = FakeJudge(f"<think>hmm {{}} </think>\n{APPROVAL}")
+    assert adversarial_gate(judge, GOOD, title="Violin") is None
