@@ -34,6 +34,19 @@ Outputs, all under eval/wiki/:
     gold.meta.json      which models produced this gold, and the counts
     gold_review.md      a sample rendered for stage 4, human spot-review
 
+Memory: run the two halves separately on a machine that cannot hold both the
+LLMs and an embedding pass at once. The discrimination filter indexes all 79
+notes with a local embedding model, and on a 48GB machine with both chat
+models resident (36GB) that combination was SIGKILLed twice -- which no
+`finally` can catch, since SIGKILL is not deliverable to the process. The
+response cache is what makes that survivable. The recipe:
+
+    uv run python eval/generate_gold.py --no-discrimination   # models loaded
+    lms unload --all                                          # free the 36GB
+    uv run python eval/generate_gold.py                       # replays cache
+
+The second command makes zero live calls, so it needs no chat model at all.
+
 Reproducibility differs from the corpus build on purpose.
 `build_wiki_corpus.py` reproduces byte-identical output from pinned revision
 ids; an LLM run cannot, even at temperature 0, across model builds. So the
@@ -73,9 +86,13 @@ REVIEW = WIKI_DIR / "gold_review.md"
 # scratch file, and `gold.json` is the artifact of record.
 CACHE = WIKI_DIR / ".gold_cache.jsonl"
 
-# ~150 queries, the design doc's Medium tier. cross_lingual is smaller because
-# it is the most expensive to review by hand.
-BUDGET = {"paraphrase": 40, "exact_term": 40, "buried": 40, "cross_lingual": 30}
+# The design doc asks for ~150 *accepted* queries. The gates reject about half
+# -- a measured 76 of 150 on the first full run -- so the passage budget is
+# roughly double the target. Selection is deterministic and responses are
+# cached, so raising these numbers tops the set up rather than regenerating
+# it. cross_lingual is smaller because it is the most expensive to review by
+# hand.
+BUDGET = {"paraphrase": 80, "exact_term": 80, "buried": 80, "cross_lingual": 60}
 
 # Cross-lingual queries alternate between the two languages the corpus holds
 # parallel articles in, so neither track ends up a footnote.
