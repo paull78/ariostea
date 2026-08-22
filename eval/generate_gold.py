@@ -12,13 +12,21 @@ Pipeline, per selected passage:
 
 Point it at a running OpenAI-compatible endpoint with:
     ARIOSTEA_GOLD_BASE_URL    (default http://localhost:1234/v1, LM Studio)
-    ARIOSTEA_GOLD_MODEL       (default qwen/qwen3.6-35b-a3b)
-    ARIOSTEA_GOLD_JUDGE_MODEL (default qwen2.5-14b-instruct-mlx)
+    ARIOSTEA_GOLD_MODEL       (default qwen2.5-14b-instruct-mlx)
+    ARIOSTEA_GOLD_JUDGE_MODEL (default qwen/qwen3.6-35b-a3b)
     ARIOSTEA_GOLD_API_KEY     (default empty)
 
 The judge model must differ from the generator. A model asked to audit its
 own output agrees with itself, which turns stage 2 from a gate into a rubber
 stamp -- the script refuses to run when the two names match.
+
+The reasoning model judges and the plain instruct model generates, not the
+other way round. Generation is mechanical -- copy a span, phrase a question --
+and measured on this corpus the 14B instruct model got 6/6 spans verbatim at
+7.5s a call, while the 35B reasoning model spent ~2800 thinking tokens and
+~47s reaching the same kind of answer. Judging is the half that benefits from
+deliberation, and it is also the smaller half, since only candidates that
+survived stage 1 reach it.
 
 Outputs, all under eval/wiki/:
     gold.json           the accepted cases, in the Plan 1 schema
@@ -69,13 +77,20 @@ BUDGET = {"paraphrase": 40, "exact_term": 40, "buried": 40, "cross_lingual": 30}
 LANGUAGES = (("it", "Italian"), ("es", "Spanish"))
 
 BASE_URL = os.environ.get("ARIOSTEA_GOLD_BASE_URL", "http://localhost:1234/v1")
-MODEL = os.environ.get("ARIOSTEA_GOLD_MODEL", "qwen/qwen3.6-35b-a3b")
-JUDGE_MODEL = os.environ.get("ARIOSTEA_GOLD_JUDGE_MODEL", "qwen2.5-14b-instruct-mlx")
+MODEL = os.environ.get("ARIOSTEA_GOLD_MODEL", "qwen2.5-14b-instruct-mlx")
+JUDGE_MODEL = os.environ.get("ARIOSTEA_GOLD_JUDGE_MODEL", "qwen/qwen3.6-35b-a3b")
 API_KEY = os.environ.get("ARIOSTEA_GOLD_API_KEY", "")
-# Generous next to the 128-token default: the response carries a query and a
-# span, and a reasoning model spends tokens on a <think> block first.
-MAX_TOKENS = 512
-TIMEOUT_S = 180.0
+# Generous next to the 128-token default, but a plain instruct model needs no
+# more than this for a query plus a span.
+GEN_MAX_TOKENS = 512
+# The judge is a reasoning model, and `max_tokens` covers its thinking as well
+# as its answer. Measured on real judge prompts it spends 1200-1500 tokens
+# reasoning; at 1024 *every* verdict came back empty. That failed safe rather
+# than silently -- `adversarial_gate` treats an unreadable verdict as a
+# rejection -- but it rejected everything, so the budget has to clear the
+# thinking with room to spare.
+JUDGE_MAX_TOKENS = 4096
+TIMEOUT_S = 600.0
 REVIEW_SAMPLE = 20
 
 
@@ -345,14 +360,18 @@ def main(argv: list[str] | None = None) -> int:
     print(f"{len(selected)} passages selected from {len({p.note for _, p in selected})} notes")
 
     chat = OpenAICompatChat(
-        base_url=BASE_URL, model=MODEL, api_key=API_KEY, timeout=TIMEOUT_S, max_tokens=MAX_TOKENS
+        base_url=BASE_URL,
+        model=MODEL,
+        api_key=API_KEY,
+        timeout=TIMEOUT_S,
+        max_tokens=GEN_MAX_TOKENS,
     )
     judge = OpenAICompatChat(
         base_url=BASE_URL,
         model=JUDGE_MODEL,
         api_key=API_KEY,
         timeout=TIMEOUT_S,
-        max_tokens=MAX_TOKENS,
+        max_tokens=JUDGE_MAX_TOKENS,
     )
     print(f"generating with {MODEL}, judging with {JUDGE_MODEL} at {BASE_URL} ...")
     cases, rejections = generate_and_gate(chat, judge, selected, notes, titles)
