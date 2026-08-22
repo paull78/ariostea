@@ -109,28 +109,23 @@ def to_gold_case(candidate: Candidate) -> WikiGoldCase:
     )
 
 
-def generate_and_gate(
+def _generate_all(
     chat: ChatProvider,
-    judge: ChatProvider,
     selected: list[tuple[str, Passage]],
     notes: dict[str, str],
     titles: dict[str, str],
-) -> tuple[list[WikiGoldCase], list[Rejection]]:
-    """Run generation and validation stages 1 and 2 over every selected passage.
+) -> tuple[list[Candidate], list[Rejection]]:
+    """Stage 0 and stage 1 over every selected passage.
 
-    Stage 2 is only reached by candidates stage 1 accepted: the judge costs a
-    model call, and there is nothing worth judging about a span that is not in
-    the note.
-
-    A `ChatError` is recorded as a rejection rather than allowed to abort the
-    run. One model call failing mid-run should cost one candidate, not the
-    hundred already generated.
+    A `ChatError` is recorded as a rejection rather than allowed to abort. One
+    model call failing mid-run should cost one candidate, not the hundred
+    already generated.
     """
-    cases: list[WikiGoldCase] = []
+    survivors: list[Candidate] = []
     rejections: list[Rejection] = []
     cross_lingual_seen = 0
 
-    for query_type, passage in selected:
+    for index, (query_type, passage) in enumerate(selected, start=1):
         if query_type == "cross_lingual":
             query_lang, lang_name = LANGUAGES[cross_lingual_seen % len(LANGUAGES)]
             cross_lingual_seen += 1
@@ -155,13 +150,31 @@ def generate_and_gate(
         if reason:
             rejections.append(
                 Rejection(
-                    "automatic", reason, candidate.query, candidate.note, candidate.span, query_type
+                    "automatic",
+                    reason,
+                    candidate.query,
+                    candidate.note,
+                    candidate.span,
+                    query_type,
                 )
             )
             continue
+        survivors.append(candidate)
+        if index % 10 == 0:
+            print(f"  generated {index}/{len(selected)}, {len(survivors)} past stage 1")
 
+    return survivors, rejections
+
+
+def _judge_all(
+    judge: ChatProvider, survivors: list[Candidate], titles: dict[str, str]
+) -> tuple[list[WikiGoldCase], list[Rejection]]:
+    """Stage 2 over the candidates stage 1 accepted."""
+    cases: list[WikiGoldCase] = []
+    rejections: list[Rejection] = []
+    for index, candidate in enumerate(survivors, start=1):
         try:
-            reason = adversarial_gate(judge, candidate, title=title)
+            reason = adversarial_gate(judge, candidate, title=titles[candidate.note])
         except ChatError as exc:
             reason = f"judge unreachable: {exc}"
         if reason:
@@ -172,14 +185,38 @@ def generate_and_gate(
                     candidate.query,
                     candidate.note,
                     candidate.span,
-                    query_type,
+                    candidate.type,
                 )
             )
-            continue
-
-        cases.append(to_gold_case(candidate))
-
+        else:
+            cases.append(to_gold_case(candidate))
+        if index % 10 == 0:
+            print(f"  judged {index}/{len(survivors)}, {len(cases)} approved")
     return cases, rejections
+
+
+def generate_and_gate(
+    chat: ChatProvider,
+    judge: ChatProvider,
+    selected: list[tuple[str, Passage]],
+    notes: dict[str, str],
+    titles: dict[str, str],
+) -> tuple[list[WikiGoldCase], list[Rejection]]:
+    """Run generation and validation stages 1 and 2 over every selected passage.
+
+    The two stages run as separate passes rather than interleaved per
+    candidate, and that is about hardware, not tidiness. The generator and the
+    judge are different models totalling 36GB on a 48GB machine, so LM Studio
+    cannot hold both; alternating them per candidate would swap models roughly
+    three hundred times over a 150-passage run. Two passes cost one swap.
+
+    Stage 2 still only ever sees candidates stage 1 accepted: the judge costs
+    a model call, and there is nothing worth judging about a span that is not
+    even in the note.
+    """
+    survivors, rejections = _generate_all(chat, selected, notes, titles)
+    cases, judge_rejections = _judge_all(judge, survivors, titles)
+    return cases, rejections + judge_rejections
 
 
 def write_gold(path: Path, cases: list[WikiGoldCase]) -> None:

@@ -223,3 +223,41 @@ def test_shortfall_is_reported_not_swallowed(capsys):
 def test_no_shortfall_is_reported_when_the_budget_is_met(capsys):
     generate_gold.report_shortfall({"paraphrase": 1}, [("paraphrase", PASSAGE)])
     assert capsys.readouterr().err == ""
+
+
+def test_generation_finishes_for_every_passage_before_the_judge_is_called():
+    # Both models cannot sit in memory at once on a 48GB machine, so
+    # alternating per candidate would make LM Studio swap models ~300 times
+    # over a 150-passage run. Batching the stages costs one swap.
+    order: list[str] = []
+
+    class Recording:
+        def __init__(self, label, response):
+            self.label, self.response = label, response
+
+        def complete(self, system, user):
+            order.append(self.label)
+            return self.response
+
+    generate_gold.generate_and_gate(
+        Recording("gen", GOOD_GENERATION),
+        Recording("judge", APPROVAL),
+        [("paraphrase", PASSAGE), ("buried", PASSAGE)],
+        NOTES,
+        TITLES,
+    )
+    assert order == ["gen", "gen", "judge", "judge"]
+
+
+def test_batching_still_skips_the_judge_for_stage_one_rejects():
+    bad = '{"query": "what tuning is used here", "answer_span": "not in the passage at all"}'
+    judge = FakeChat(APPROVAL)
+    cases, rejections = generate_gold.generate_and_gate(
+        FakeChat(bad, GOOD_GENERATION),
+        judge,
+        [("paraphrase", PASSAGE), ("buried", PASSAGE)],
+        NOTES,
+        TITLES,
+    )
+    assert judge.calls == 1  # only the surviving candidate reached stage 2
+    assert len(cases) == 1 and len(rejections) == 1
