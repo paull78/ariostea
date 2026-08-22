@@ -17,7 +17,7 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from ariostea.eval.wiki_notes import cluster_of
 
@@ -55,6 +55,8 @@ class Passage:
     offset: int  # character offset of `text` within the note body
     note_chars: int
     rare_terms: tuple[str, ...] = ()
+    # tf-idf of the strongest term in `rare_terms`; 0.0 when there is none.
+    rare_score: float = 0.0
 
     @property
     def cluster(self) -> str:
@@ -206,3 +208,122 @@ def best_term_score(
     track."""
     terms = rare_terms(text, stats, note_counts, max_notes)
     return note_counts[terms[0]] * stats.idf(terms[0]) if terms else 0.0
+
+
+def _cluster_interleaved(notes: list[str]) -> list[str]:
+    """Note visit order that cycles across clusters: the first note of every
+    cluster, then the second of every cluster, and so on.
+
+    Plain sorted order would be wrong here. Selection takes one passage per
+    note per round, and a 40-query budget against 79 notes is satisfied
+    entirely in the first round -- so with paths sorted alphabetically the
+    first forty notes take everything and the last clusters get nothing.
+    Measured on the real corpus that skewed `board-games` to 28 cases and
+    `string-instruments` to 16, which is backwards: string-instruments is the
+    largest cluster and the one the cross-lingual track depends on. Cycling by
+    cluster makes the budget land evenly no matter how the clusters are named.
+    """
+    by_cluster: dict[str, list[str]] = {}
+    for note in notes:
+        by_cluster.setdefault(cluster_of(note), []).append(note)
+    if not by_cluster:
+        return []
+    order: list[str] = []
+    for depth in range(max(len(members) for members in by_cluster.values())):
+        for cluster in sorted(by_cluster):
+            members = by_cluster[cluster]
+            if depth < len(members):
+                order.append(members[depth])
+    return order
+
+
+def _eligible(passage: Passage, query_type: str) -> bool:
+    """Whether `passage` can support a query of `query_type`.
+
+    Each branch encodes what the corresponding retrieval track needs:
+
+    - `exact_term` needs a term rare *and* distinctive enough that a lexical
+      channel has a real advantage -- see `rare_terms` for why the document
+      frequency threshold alone is not enough in a corpus this size.
+    - `buried` needs a long note *and* a passage late in it. Both matter: a
+      late passage in a short note is not buried, and an early passage in a
+      long one is what the lead paragraph already said.
+    - `cross_lingual` needs an English note, because the design is a query in
+      Italian or Spanish whose answer span is English. A passage from the
+      it/es notes would make the query same-language and test nothing; those
+      notes stay in the corpus as the distractors that make the track hard.
+    - `paraphrase` needs nothing beyond being prose.
+    """
+    if query_type == "paraphrase":
+        return True
+    if query_type == "exact_term":
+        return passage.rare_score >= RARE_MIN_TFIDF
+    if query_type == "buried":
+        return (
+            passage.note_chars >= BURIED_MIN_NOTE_CHARS
+            and passage.offset >= BURIED_MIN_OFFSET * passage.note_chars
+        )
+    if query_type == "cross_lingual":
+        return not passage.note.endswith(("-it.md", "-es.md"))
+    raise ValueError(f"unknown query type {query_type!r}")
+
+
+def select_passages(notes: dict[str, str], per_type: dict[str, int]) -> list[tuple[str, Passage]]:
+    """`(query_type, passage)` pairs, at most `per_type[type]` of each.
+
+    Passages are taken round-robin across notes -- one from every eligible
+    note, then a second from every eligible note, and so on -- so a single
+    long article cannot supply a whole query type. A passage is used at most
+    once across *all* types: two queries about the same sentence are not
+    independent samples, and having a `paraphrase` and an `exact_term` case
+    resolve to the same chunk would make those two tracks correlate for
+    reasons that have nothing to do with retrieval.
+
+    Returns fewer pairs than asked when the corpus runs out of eligible
+    passages. The caller must compare the counts and report the shortfall:
+    silently returning 30 `buried` cases against a budget of 40 would read as
+    a corpus that supports the requested design when it does not.
+    """
+    probe = Passage(note="probe/probe.md", heading="", text="", offset=0, note_chars=0)
+    for query_type in per_type:
+        _eligible(probe, query_type)  # raises on a typo before any work happens
+
+    stats = corpus_stats(notes)
+    by_note: dict[str, list[Passage]] = {}
+    for note in _cluster_interleaved(sorted(notes)):
+        text = notes[note]
+        counts = term_counts(text)
+        by_note[note] = [
+            replace(
+                passage,
+                rare_terms=rare_terms(passage.text, stats, counts),
+                rare_score=best_term_score(passage.text, stats, counts),
+            )
+            for passage in split_passages(note, text)
+        ]
+
+    chosen: list[tuple[str, Passage]] = []
+    used: set[tuple[str, int]] = set()
+    for query_type in sorted(per_type):
+        budget = per_type[query_type]
+        picked = 0
+        depth = 0
+        while picked < budget:
+            any_note_reached_this_depth = False
+            for note, passages in by_note.items():
+                pool = [p for p in passages if _eligible(p, query_type)]
+                if depth >= len(pool):
+                    continue
+                any_note_reached_this_depth = True
+                passage = pool[depth]
+                if (note, passage.offset) in used:
+                    continue
+                used.add((note, passage.offset))
+                chosen.append((query_type, passage))
+                picked += 1
+                if picked == budget:
+                    break
+            if not any_note_reached_this_depth:
+                break  # every note is exhausted for this type
+            depth += 1
+    return chosen
