@@ -17,6 +17,8 @@ if multi-answer queries become common.
 
 from __future__ import annotations
 
+import math
+
 
 def recall_at_k(expected: set[str], ranked: list[str], k: int) -> float:
     """1.0 if any expected note appears in the top-k ranked notes, else 0.0.
@@ -33,4 +35,24 @@ def reciprocal_rank(expected: set[str], ranked: list[str]) -> float:
     for index, path in enumerate(ranked):
         if path in expected:
             return 1.0 / (index + 1)
+    return 0.0
+
+
+def ndcg_at_k(expected: set[str], ranked: list[str], k: int) -> float:
+    """Binary-relevance nDCG@k: ``1/log2(rank + 1)`` at the first hit inside
+    the top k, else 0.0.
+
+    With one relevant note per query -- this module's standing assumption --
+    the ideal DCG is exactly 1.0, so nDCG reduces to the discounted gain of
+    the first hit and needs no normalization term.
+
+    Worth reporting next to MRR for its gentler discount: between rank 3 and
+    rank 5 MRR falls 0.333 -> 0.200 while nDCG only falls 0.500 -> 0.387, so
+    mid-list movement stays legible. Under one-answer-per-query gold it is a
+    monotone function of the same rank MRR reads, so it adds resolution
+    rather than independent information.
+    """
+    for index, path in enumerate(ranked[:k]):
+        if path in expected:
+            return 1.0 / math.log2(index + 2)
     return 0.0

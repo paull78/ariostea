@@ -8,6 +8,8 @@ re-chunking: a span may land in differently-sized chunks across policies.
 
 from __future__ import annotations
 
+import math
+
 from ariostea.eval.normalize import normalize_ws
 from ariostea.eval.wiki_gold import AnswerSpan
 
@@ -34,4 +36,16 @@ def span_reciprocal_rank(spans: tuple[AnswerSpan, ...], retrieved: list[tuple[st
     for index, (note, text) in enumerate(retrieved):
         if _is_hit(spans, note, text):
             return 1.0 / (index + 1)
+    return 0.0
+
+
+def span_ndcg_at_k(
+    spans: tuple[AnswerSpan, ...], retrieved: list[tuple[str, str]], k: int
+) -> float:
+    """Binary-relevance nDCG@k over chunks, using the same containment rule as
+    `span_recall_at_k`: ``1/log2(rank + 1)`` at the first top-k chunk that is
+    in an answer span's own note and contains that span, else 0.0."""
+    for index, (note, text) in enumerate(retrieved[:k]):
+        if _is_hit(spans, note, text):
+            return 1.0 / math.log2(index + 2)
     return 0.0
