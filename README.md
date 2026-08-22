@@ -165,3 +165,23 @@ uv run ruff format .                # format
 ## License
 
 [MIT](LICENSE).
+
+### Evaluation corpus
+
+`eval/wiki/` is different: it holds Wikipedia article text used as a
+retrieval-evaluation corpus, licensed under
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) and modified
+(converted to Markdown, links rewritten as wikilinks, infoboxes and references
+stripped). `eval/wiki/NOTICE` records the license, the modifications, and a
+permalink to the exact revision of every article in the snapshot.
+Redistributing that text — or adaptations of it — carries the share-alike
+obligation. The surrounding source code remains MIT.
+
+The snapshot is rebuilt with:
+
+```bash
+uv run python eval/build_wiki_corpus.py   # re-fetches every pinned revision
+```
+
+Because every article is pinned to a revision ID in `eval/wiki/clusters.json`,
+that command reproduces the committed corpus byte for byte.

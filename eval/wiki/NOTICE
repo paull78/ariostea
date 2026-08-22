@@ -58,3 +58,83 @@ Example (illustrative; replaced by real rows at build time):
   string-instruments/violin.md | Violin | en | https://en.wikipedia.org/w/index.php?title=Violin&oldid=<REVID>
 
 --- articles below this line are maintained by the build script ---
+
+board-games/backgammon.md | Backgammon | en | https://en.wikipedia.org/w/index.php?title=Backgammon&oldid=1369834695
+board-games/checkers.md | Checkers | en | https://en.wikipedia.org/w/index.php?title=Checkers&oldid=1365510530
+board-games/checkmate.md | Checkmate | en | https://en.wikipedia.org/w/index.php?title=Checkmate&oldid=1356335378
+board-games/chess-endgame.md | Chess endgame | en | https://en.wikipedia.org/w/index.php?title=Chess_endgame&oldid=1356933444
+board-games/chess-opening.md | Chess opening | en | https://en.wikipedia.org/w/index.php?title=Chess_opening&oldid=1369406669
+board-games/chess-piece.md | Chess piece | en | https://en.wikipedia.org/w/index.php?title=Chess_piece&oldid=1356336050
+board-games/chess.md | Chess | en | https://en.wikipedia.org/w/index.php?title=Chess&oldid=1369675954
+board-games/chessboard.md | Chessboard | en | https://en.wikipedia.org/w/index.php?title=Chessboard&oldid=1364131481
+board-games/go-game.md | Go (game) | en | https://en.wikipedia.org/w/index.php?title=Go_%28game%29&oldid=1369073170
+board-games/shogi.md | Shogi | en | https://en.wikipedia.org/w/index.php?title=Shogi&oldid=1369108429
+board-games/xiangqi.md | Xiangqi | en | https://en.wikipedia.org/w/index.php?title=Xiangqi&oldid=1368270319
+cheese/blue-cheese.md | Blue cheese | en | https://en.wikipedia.org/w/index.php?title=Blue_cheese&oldid=1370112700
+cheese/brie.md | Brie | en | https://en.wikipedia.org/w/index.php?title=Brie&oldid=1368523289
+cheese/cheddar-cheese.md | Cheddar cheese | en | https://en.wikipedia.org/w/index.php?title=Cheddar_cheese&oldid=1368264538
+cheese/cheese-ripening.md | Cheese ripening | en | https://en.wikipedia.org/w/index.php?title=Cheese_ripening&oldid=1295427748
+cheese/cheese.md | Cheese | en | https://en.wikipedia.org/w/index.php?title=Cheese&oldid=1370259980
+cheese/curd.md | Curd | en | https://en.wikipedia.org/w/index.php?title=Curd&oldid=1370238859
+cheese/gouda-cheese.md | Gouda cheese | en | https://en.wikipedia.org/w/index.php?title=Gouda_cheese&oldid=1358452537
+cheese/mozzarella.md | Mozzarella | en | https://en.wikipedia.org/w/index.php?title=Mozzarella&oldid=1369992046
+cheese/parmesan.md | Parmesan | en | https://en.wikipedia.org/w/index.php?title=Parmesan&oldid=1369024528
+cheese/rennet.md | Rennet | en | https://en.wikipedia.org/w/index.php?title=Rennet&oldid=1365390748
+cheese/whey.md | Whey | en | https://en.wikipedia.org/w/index.php?title=Whey&oldid=1365298231
+coffee/caffe-espresso-it.md | Caffè espresso | it | https://it.wikipedia.org/w/index.php?title=Caff%C3%A8_espresso&oldid=151949293
+coffee/cappuccino-bevanda-it.md | Cappuccino (bevanda) | it | https://it.wikipedia.org/w/index.php?title=Cappuccino_%28bevanda%29&oldid=151635145
+coffee/cappuccino.md | Cappuccino | en | https://en.wikipedia.org/w/index.php?title=Cappuccino&oldid=1366504414
+coffee/coffea-arabica.md | Coffea arabica | en | https://en.wikipedia.org/w/index.php?title=Coffea_arabica&oldid=1368875648
+coffee/coffea-canephora.md | Coffea canephora | en | https://en.wikipedia.org/w/index.php?title=Coffea_canephora&oldid=1364049592
+coffee/coffee-bean.md | Coffee bean | en | https://en.wikipedia.org/w/index.php?title=Coffee_bean&oldid=1369534882
+coffee/coffee-preparation.md | Coffee preparation | en | https://en.wikipedia.org/w/index.php?title=Coffee_preparation&oldid=1370223128
+coffee/coffee-roasting.md | Coffee roasting | en | https://en.wikipedia.org/w/index.php?title=Coffee_roasting&oldid=1365926912
+coffee/cold-brew-coffee.md | Cold brew coffee | en | https://en.wikipedia.org/w/index.php?title=Cold_brew_coffee&oldid=1368875681
+coffee/espresso.md | Espresso | en | https://en.wikipedia.org/w/index.php?title=Espresso&oldid=1369844273
+coffee/flat-white.md | Flat white | en | https://en.wikipedia.org/w/index.php?title=Flat_white&oldid=1364577348
+coffee/french-press.md | French press | en | https://en.wikipedia.org/w/index.php?title=French_press&oldid=1364555358
+coffee/latte.md | Latte | en | https://en.wikipedia.org/w/index.php?title=Latte&oldid=1369540111
+coffee/moka-pot.md | Moka pot | en | https://en.wikipedia.org/w/index.php?title=Moka_pot&oldid=1351852653
+cycling/bicycle-brake.md | Bicycle brake | en | https://en.wikipedia.org/w/index.php?title=Bicycle_brake&oldid=1358848883
+cycling/bicycle-chain.md | Bicycle chain | en | https://en.wikipedia.org/w/index.php?title=Bicycle_chain&oldid=1361192445
+cycling/bicycle-frame.md | Bicycle frame | en | https://en.wikipedia.org/w/index.php?title=Bicycle_frame&oldid=1362228513
+cycling/bicycle-handlebar.md | Bicycle handlebar | en | https://en.wikipedia.org/w/index.php?title=Bicycle_handlebar&oldid=1368972710
+cycling/bicycle-pedal.md | Bicycle pedal | en | https://en.wikipedia.org/w/index.php?title=Bicycle_pedal&oldid=1367754830
+cycling/bicycle-wheel.md | Bicycle wheel | en | https://en.wikipedia.org/w/index.php?title=Bicycle_wheel&oldid=1370221116
+cycling/bicycle.md | Bicycle | en | https://en.wikipedia.org/w/index.php?title=Bicycle&oldid=1368020522
+cycling/derailleur.md | Derailleur | en | https://en.wikipedia.org/w/index.php?title=Derailleur&oldid=1358914301
+cycling/mountain-bike.md | Mountain bike | en | https://en.wikipedia.org/w/index.php?title=Mountain_bike&oldid=1367174029
+cycling/racing-bicycle.md | Racing bicycle | en | https://en.wikipedia.org/w/index.php?title=Racing_bicycle&oldid=1365303524
+cycling/road-bicycle.md | Road bicycle | en | https://en.wikipedia.org/w/index.php?title=Road_bicycle&oldid=1356188619
+cycling/track-bicycle.md | Track bicycle | en | https://en.wikipedia.org/w/index.php?title=Track_bicycle&oldid=1346239031
+sailing/boom-sailing.md | Boom (sailing) | en | https://en.wikipedia.org/w/index.php?title=Boom_%28sailing%29&oldid=1342386850
+sailing/jib.md | Jib | en | https://en.wikipedia.org/w/index.php?title=Jib&oldid=1352725780
+sailing/keel.md | Keel | en | https://en.wikipedia.org/w/index.php?title=Keel&oldid=1369998572
+sailing/mainsail.md | Mainsail | en | https://en.wikipedia.org/w/index.php?title=Mainsail&oldid=1300632030
+sailing/mast-sailing.md | Mast (sailing) | en | https://en.wikipedia.org/w/index.php?title=Mast_%28sailing%29&oldid=1365862687
+sailing/point-of-sail.md | Point of sail | en | https://en.wikipedia.org/w/index.php?title=Point_of_sail&oldid=1361793029
+sailing/rigging.md | Rigging | en | https://en.wikipedia.org/w/index.php?title=Rigging&oldid=1355174784
+sailing/rudder.md | Rudder | en | https://en.wikipedia.org/w/index.php?title=Rudder&oldid=1368453629
+sailing/sail.md | Sail | en | https://en.wikipedia.org/w/index.php?title=Sail&oldid=1358681989
+sailing/sailboat.md | Sailboat | en | https://en.wikipedia.org/w/index.php?title=Sailboat&oldid=1365281588
+sailing/sailing.md | Sailing | en | https://en.wikipedia.org/w/index.php?title=Sailing&oldid=1361426310
+sailing/spinnaker.md | Spinnaker | en | https://en.wikipedia.org/w/index.php?title=Spinnaker&oldid=1366623330
+sailing/tacking-sailing.md | Tacking (sailing) | en | https://en.wikipedia.org/w/index.php?title=Tacking_%28sailing%29&oldid=1342328958
+string-instruments/banjo.md | Banjo | en | https://en.wikipedia.org/w/index.php?title=Banjo&oldid=1367345198
+string-instruments/cello.md | Cello | en | https://en.wikipedia.org/w/index.php?title=Cello&oldid=1360203898
+string-instruments/classical-guitar.md | Classical guitar | en | https://en.wikipedia.org/w/index.php?title=Classical_guitar&oldid=1368953989
+string-instruments/double-bass.md | Double bass | en | https://en.wikipedia.org/w/index.php?title=Double_bass&oldid=1365602377
+string-instruments/fingerboard.md | Fingerboard | en | https://en.wikipedia.org/w/index.php?title=Fingerboard&oldid=1369058064
+string-instruments/guitarra-clasica-es.md | Guitarra clásica | es | https://es.wikipedia.org/w/index.php?title=Guitarra_cl%C3%A1sica&oldid=174381319
+string-instruments/harp.md | Harp | en | https://en.wikipedia.org/w/index.php?title=Harp&oldid=1365669940
+string-instruments/lute.md | Lute | en | https://en.wikipedia.org/w/index.php?title=Lute&oldid=1361649316
+string-instruments/luthier.md | Luthier | en | https://en.wikipedia.org/w/index.php?title=Luthier&oldid=1365251608
+string-instruments/mandolin.md | Mandolin | en | https://en.wikipedia.org/w/index.php?title=Mandolin&oldid=1368537001
+string-instruments/mandolino-it.md | Mandolino | it | https://it.wikipedia.org/w/index.php?title=Mandolino&oldid=150920416
+string-instruments/ukulele.md | Ukulele | en | https://en.wikipedia.org/w/index.php?title=Ukulele&oldid=1367543306
+string-instruments/viola.md | Viola | en | https://en.wikipedia.org/w/index.php?title=Viola&oldid=1364838851
+string-instruments/violin-es.md | Violín | es | https://es.wikipedia.org/w/index.php?title=Viol%C3%ADn&oldid=174121807
+string-instruments/violin.md | Violin | en | https://en.wikipedia.org/w/index.php?title=Violin&oldid=1366434192
+string-instruments/violino-it.md | Violino | it | https://it.wikipedia.org/w/index.php?title=Violino&oldid=151158367
+string-instruments/violoncello-it.md | Violoncello | it | https://it.wikipedia.org/w/index.php?title=Violoncello&oldid=151957448
+string-instruments/violonchelo-es.md | Violonchelo | es | https://es.wikipedia.org/w/index.php?title=Violonchelo&oldid=173779642

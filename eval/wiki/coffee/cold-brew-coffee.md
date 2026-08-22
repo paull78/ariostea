@@ -1,0 +1,32 @@
+---
+title: Cold brew coffee
+lang: en
+cluster: coffee
+revid: 1368875681
+source: https://en.wikipedia.org/w/index.php?title=Cold_brew_coffee&oldid=1368875681
+license: CC BY-SA 4.0
+---
+
+# Cold brew coffee
+
+**Cold brew coffee**, also called **cold water extraction** or **cold pressing**, is a type of coffee prepared by the process of [[coffee-preparation|steeping]] coffee grounds in water at cool temperatures for an extended period. Coarse-ground beans are soaked in water for 12 to 24 hours.
+
+The water is normally kept at room temperature, but chilled water can be used. After the grounds have been steeped, they are filtered out of the water using a paper coffee filter, or a fine metal sieve (e.g. in a [[french-press|French press]]), or felt. The result is a coffee concentrate that is diluted with water or milk, and is sometimes served hot, but often served chilled, over ice, or blended with ice and other ingredients such as chocolate.
+
+## History
+The Dutch introduced cold brew coffee to Japan, where it has been a traditional method of coffee brewing for centuries.
+
+Slow-drip Cold brew refers to a process in which water is dripped through coffee grounds at room temperature over the course of many hours. It has been called "Kyoto-style", or in East Asia "Dutch coffee".
+
+## Taste
+Because the ground coffee beans in cold-brewed coffee never come into contact with heated water, the process of leaching flavor from the beans produces a chemical profile different from conventional brewing methods. Coffee beans contain a number of compounds that are more soluble at higher temperatures, such as caffeine, oils and fatty acids. However, brewing at a lower temperature for 24 hours results in higher caffeine content when brewed in equal volume compared to 6 minutes at 98 C. The acidity of cold and hot brew coffee is similar but cold brew coffee has a lower titratable acid concentration. Both pH and titratable acidity influence taste.
+
+## Nitro cold brew
+
+**Nitro cold brew** is a variation of cold brew coffee that adds nitrogen gas to create a smooth texture, delivering the nitrogenated coffee from a nitrogen beer tap system. It was introduced in the early 2010s.
+
+### Production
+Production of nitro cold brew coffee begins with the making of cold brew coffee. Once the grounds are adequately steeped, the coffee is poured into a room-temperature bottle or keg. As the cold brew is poured into a cup, it is charged with nitrogen to give it a rich, creamy head of foam, similar to draft beer. (Though most beers and soft drinks are charged with carbon dioxide, nitrogen is occasionally used in darker stouts, resulting in a smoother finish.) Nitro cold brew is typically served chilled but without ice, which would damage the foamy top.
+
+### History
+Nitro cold brew was first offered at third wave coffee shops in the early 2010s, but the exact origin is disputed. It may have originated in 2013 at the craft coffee houses Cuvee Coffee in Austin, Texas, and Stumptown in Portland, Oregon. The draft coffee at the Queens Kickshaw in New York in 2011 may be a predecessor. Cuvee Coffee first offered nitro cold brew, on tap, at the Slow Food Quiz Bowl in Austin, Texas, on August 14, 2012.  The Ball Corporation issued a press release citing Cuvee as the first company to can cold brew in their widget cans, and *BevNet* awarded Cuvee the Best Packaging Innovation, calling them "the first cold brew brand to market a nitrogenated offering." Stumptown and Cuvee began offering canned beverages with a nitrogen-filled capsule to pressurize the can by 2015. Starbucks introduced the beverage at 500 stores in the summer of 2016, preceded in the Los Angeles market by The Coffee Bean & Tea Leaf. By 2020, Starbucks offered the beverage at more than half of its locations across the United States, making it a staple menu item. Nitro cold brew is available from wholesalers in some markets in kegs. RISE Brewing Co. says it can fill up to 1,500 kegs a day of nitro cold brew coffee.
