@@ -41,11 +41,20 @@ models resident (36GB) that combination was SIGKILLed twice -- which no
 `finally` can catch, since SIGKILL is not deliverable to the process. The
 response cache is what makes that survivable. The recipe:
 
-    uv run python eval/generate_gold.py --no-discrimination   # models loaded
-    lms unload --all                                          # free the 36GB
-    uv run python eval/generate_gold.py                       # replays cache
+    lms load <generator>            # generator only
+    uv run python eval/generate_gold.py --no-discrimination
 
-The second command makes zero live calls, so it needs no chat model at all.
+    lms unload --all && lms load <judge>          # swap; the two never coexist
+    uv run python eval/generate_gold.py --no-discrimination
+
+    lms unload --all                              # free it all for indexing
+    uv run python eval/generate_gold.py
+
+Each command replays everything already cached, so only the missing calls
+cost inference and the last one makes none at all. Three phases rather than
+two because the limit bites at *both* stage boundaries: loading the judge
+while the generator is still resident is refused by LM Studio's guardrail,
+which is how 72 candidates once ended up unjudged.
 
 Reproducibility differs from the corpus build on purpose.
 `build_wiki_corpus.py` reproduces byte-identical output from pinned revision
