@@ -261,3 +261,50 @@ def test_batching_still_skips_the_judge_for_stage_one_rejects():
     )
     assert judge.calls == 1  # only the surviving candidate reached stage 2
     assert len(cases) == 1 and len(rejections) == 1
+
+
+def _case(query_type: str, lang: str, query: str):
+    from ariostea.eval.wiki_gold import AnswerSpan, WikiGoldCase
+
+    return WikiGoldCase(
+        query=query,
+        query_lang=lang,
+        type=query_type,
+        scenario=f"en→{lang}" if query_type == "cross_lingual" else query_type,
+        expected_notes=("a/n.md",),
+        answer_spans=(AnswerSpan(note="a/n.md", text="span text here"),),
+    )
+
+
+def test_review_sample_covers_every_query_language_in_a_type():
+    # A fixed stride phase-locks onto an alternating sequence: with 32
+    # cross-lingual cases alternating it/es, every 6th one was Spanish, so the
+    # reviewer saw five Spanish cases and no Italian at all — and Italian is
+    # the half with the lower generation quality, so the gate went unaudited
+    # exactly where it was needed.
+    cases = [
+        _case("cross_lingual", "es" if i % 6 else "it", f"q{i}") for i in range(32)
+    ]
+    text = generate_gold.review_markdown(cases, sample_size=5)
+    assert "`it`" in text and "`es`" in text
+
+
+def test_review_sample_still_spreads_within_a_language():
+    cases = [_case("paraphrase", "en", f"query number {i}") for i in range(40)]
+    text = generate_gold.review_markdown(cases, sample_size=5)
+    # Not simply the first five in order. Matched with the trailing markup so
+    # "query number 1" cannot match inside "query number 16".
+    assert "query number 0**" in text
+    assert "query number 1**" not in text
+    assert "query number 8**" in text
+
+
+def test_review_sample_handles_a_type_with_one_language():
+    cases = [_case("buried", "en", f"q{i}") for i in range(10)]
+    text = generate_gold.review_markdown(cases, sample_size=4)
+    assert text.count("- [ ]") >= 1
+
+
+def test_review_sample_is_deterministic():
+    cases = [_case("cross_lingual", "it" if i % 2 else "es", f"q{i}") for i in range(20)]
+    assert generate_gold.review_markdown(cases, 6) == generate_gold.review_markdown(cases, 6)

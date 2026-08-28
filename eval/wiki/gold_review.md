@@ -2,7 +2,7 @@
 
 Tick a case only if **all three** hold: the query is answerable, the span answers it, and the span is not the only sentence in the corpus that plausibly could.
 
-## buried  (47 cases, showing 5)
+## buried  (47 cases, showing 5: 5 en)
 
 - [ ] **What happens if a player rolls a 6 and a 5 but has no pieces on the 6-point?**  `en`
   - note: `board-games/backgammon.md`
@@ -12,80 +12,76 @@ Tick a case only if **all three** hold: the query is answerable, the span answer
   - note: `sailing/mast-sailing.md`
   - span: rather as an aid to steering than for propulsion
 
-- [ ] **What must equal the pitch of the rear sprockets in derailleur standards?**  `en`
-  - note: `cycling/derailleur.md`
-  - span: the product of the derailleur's shift ratio and the length of cable pulled
+- [ ] **What is the oldest known depiction of a sternpost-mounted rudder?**  `en`
+  - note: `sailing/rudder.md`
+  - span: The world's oldest known depiction of a sternpost-mounted rudder can be seen on a pottery model of a Chinese junk dating from the 1st century AD during the Han dynasty
 
-- [ ] **What feature of some modern trimarans allows them to be rated as unsinkable?**  `en`
-  - note: `sailing/sailboat.md`
-  - span: should every crew compartment be completely filled with water, the hull itself has sufficient buoyancy to remain afloat
+- [ ] **What are the two basic styles of Gibson mandolins?**  `en`
+  - note: `string-instruments/mandolin.md`
+  - span: the Florentine or F-style, which has a decorative scroll near the neck, two points on the lower body and usually a scroll carved into the headstock; and the A-style, which is pear-shaped, has no points and usually has a simpler headstock
 
-- [ ] **What is a first-class cantilever brake that uses a single-sided sliding cam?**  `en`
-  - note: `cycling/bicycle-brake.md`
-  - span: the side-pull toggle cam brake
+- [ ] **Who wrote the book 'How to Play the Five-String Banjo'?**  `en`
+  - note: `string-instruments/banjo.md`
+  - span: Pete Seeger
 
-## cross_lingual  (32 cases, showing 5)
+## cross_lingual  (32 cases, showing 4: 2 es, 2 it)
 
 - [ ] **¿Cuándo se cree que los mineros del período Hallstatt consumieron queso azul y cerveza?**  `es`
   - note: `cheese/blue-cheese.md`
   - span: miners of the Hallstatt Period (800 to 400 BC) already consumed blue cheese and beer
 
-- [ ] **¿Cuál es el diseño de marco más común para una bicicleta de posición recta?**  `es`
-  - note: `cycling/bicycle-frame.md`
-  - span: diamond frame
+- [ ] **¿Qué porcentaje de proteínas en la leche de vaca son caseinas?**  `es`
+  - note: `cheese/curd.md`
+  - span: 90 percent of the proteins are caseins
 
-- [ ] **¿Cuántos tipos de queso existen aproximadamente?**  `es`
-  - note: `cheese/cheese.md`
-  - span: Over a thousand types of cheese
+- [ ] **Quali sono i due principali tipi di freni per biciclette?**  `it`
+  - note: `cycling/bicycle-brake.md`
+  - span: rim brakes and disc brakes
 
-- [ ] **¿De qué palabra en inglés antigua se deriva la palabra 'rigging' según el Encyclopædia Britannica Eleventh Edition?**  `es`
-  - note: `sailing/rigging.md`
-  - span: Anglo-Saxon *wrigan* or *wringing*,
+- [ ] **Quali sono i due tipi di mozzarella menzionati in base al tipo di latte utilizzato?**  `it`
+  - note: `cheese/mozzarella.md`
+  - span: mozzarella fior di latte when prepared with cow's milk and buffalo mozzarella (mozzarella di bufala in Italian) when the milk of the Italian buffalo is used
 
-- [ ] **¿Cuándo se considera que un solo piedra o grupo de piedras es capturado en el juego Go?**  `es`
-  - note: `board-games/go-game.md`
-  - span: surrounded by the opponent's stones on all orthogonally adjacent points
-
-## exact_term  (34 cases, showing 5)
+## exact_term  (34 cases, showing 5: 5 en)
 
 - [ ] **What tool in backgammon allows players to raise the stakes during a game?**  `en`
   - note: `board-games/backgammon.md`
   - span: doubling cube
 
-- [ ] **What do chess endgame textbooks primarily teach?**  `en`
-  - note: `board-games/chess-endgame.md`
-  - span: best play. However, most endgames are not solved, and even those which are can be difficult for humans to play, so textbooks teach useful strategies and tactics about them
+- [ ] **What does a partial batten extend from on the mainsail?**  `en`
+  - note: `sailing/mainsail.md`
+  - span: leech partway to the mast
 
-- [ ] **What are diamond stays and jumpers used for in relation to a mast?**  `en`
-  - note: `sailing/rigging.md`
-  - span: to keep a thin mast in column especially under the load of a large down wind sail or in strong wind
+- [ ] **What type of container was used to hold the cylinder roaster over for heating in Cairo around 1650?**  `en`
+  - note: `coffee/coffee-roasting.md`
+  - span: brazier or open fire
 
-- [ ] **How long did it take for the first Bezzera and Pavoni espresso machines to make a cup of coffee?**  `en`
-  - note: `coffee/espresso.md`
-  - span: 45 seconds
+- [ ] **What was reliant on sail for exploration across long distances before the second half of the 19th century?**  `en`
+  - note: `sailing/sailing.md`
+  - span: exploration across the seas and oceans was reliant on sail for anything other than the shortest distances
 
-- [ ] **What are used in some forms of rock music and jazz fusion to produce sound?**  `en`
-  - note: `string-instruments/violin.md`
-  - span: Electric violins with solid bodies and piezoelectric pickups
+- [ ] **What happens to a piece after it is jumped in international draughts?**  `en`
+  - note: `board-games/checkers.md`
+  - span: jumped pieces remain on the board until the turn is completed
 
-## paraphrase  (53 cases, showing 5)
+## paraphrase  (53 cases, showing 5: 5 en)
 
 - [ ] **what historical similarity gave cappuccino its name?**  `en`
   - note: `coffee/cappuccino-bevanda-it.md`
   - span: Il nome si riferiva, in passato, tendenzialmente alla somiglianza con il color marrone del saio dei frati minori cappuccini
 
-- [ ] **What is the time frame for aging cheese?**  `en`
-  - note: `cheese/cheese-ripening.md`
-  - span: three weeks to two or more years
+- [ ] **How do chess experts spend time improving their game?**  `en`
+  - note: `board-games/chess-opening.md`
+  - span: Professional chess players spend years studying openings, and they continue doing so throughout their careers as opening theory continues to evolve.
 
-- [ ] **What is a notable characteristic of fresh mozzarella when consumed?**  `en`
-  - note: `cheese/mozzarella.md`
-  - span: Fresh mozzarella makes a distinct squeaky sound when chewed or rubbed.
+- [ ] **Where is a ship's directional control typically placed?**  `en`
+  - note: `sailing/rudder.md`
+  - span: suspended at the back of the ship in a central position
 
-- [ ] **What distinguishes sweet whey from acid whey in cheese production?**  `en`
-  - note: `cheese/whey.md`
-  - span: Sweet whey has a pH greater than or equal to 5.6; acid whey has a pH less than or equal to 5.1.
+- [ ] **What famous violin piece can be adapted for mandolin?**  `en`
+  - note: `string-instruments/mandolino-it.md`
+  - span: Concerto in Do maggiore Op.3 n.6
 
-- [ ] **What are the initial stages in crafting blue cheese?**  `en`
-  - note: `cheese/blue-cheese.md`
-  - span: the culturing of suitable spore-rich inocula and fermentation for maximum, typical flavor
+- [ ] **what does cello mean in italian?**  `en`
+  - note: `string-instruments/cello.md`
+  - span: little violone

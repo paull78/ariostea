@@ -62,6 +62,7 @@ import json
 import os
 import sys
 import tempfile
+from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -272,13 +273,29 @@ def write_gold(path: Path, cases: list[WikiGoldCase]) -> None:
     path.write_text(json.dumps(rows, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def _evenly_spaced(items: list, count: int) -> list:
+    """`count` items spread across `items`, first one included.
+
+    Indices are computed as `round(i * len / count)` rather than by a fixed
+    stride. A stride phase-locks onto any periodic structure in the list --
+    which is exactly what happened with the alternating it/es cross-lingual
+    cases -- while spacing derived from the length does not divide evenly into
+    the period in the same way.
+    """
+    if count >= len(items):
+        return list(items)
+    return [items[round(index * len(items) / count)] for index in range(count)]
+
+
 def review_markdown(cases: list[WikiGoldCase], sample_size: int) -> str:
     """Render a sample for stage 4, human spot-review.
 
-    Sampled by taking every nth case of each type rather than the first n:
-    selection is round-robin by note, so the first cases of a type all come
-    from the same handful of articles, and reviewing them would say more about
-    those articles than about the gate.
+    Stratified by query type *and* query language. Type alone is not enough:
+    the cross-lingual track alternates Italian and Spanish, and sampling it by
+    a fixed stride returned five Spanish cases and no Italian -- while Italian
+    is the half the generator handles worse (40% of Italian candidates survive
+    the automatic gate against 67% of Spanish ones). A review that cannot see
+    the weaker half is not auditing the thing most likely to be wrong.
     """
     lines = [
         "# Gold spot-review sample",
@@ -299,9 +316,22 @@ def review_markdown(cases: list[WikiGoldCase], sample_size: int) -> str:
 
     for query_type in sorted(by_type):
         pool = by_type[query_type]
-        step = max(1, len(pool) // per_type)
-        sample = pool[::step][:per_type]
-        lines += [f"## {query_type}  ({len(pool)} cases, showing {len(sample)})", ""]
+        by_lang: dict[str, list[WikiGoldCase]] = {}
+        for case in pool:
+            by_lang.setdefault(case.query_lang, []).append(case)
+
+        # Every language present gets at least one slot; the rest are shared
+        # out in proportion, so a track's minority language is always visible.
+        sample: list[WikiGoldCase] = []
+        per_lang = max(1, per_type // len(by_lang))
+        for lang in sorted(by_lang):
+            sample += _evenly_spaced(by_lang[lang], per_lang)
+
+        lines += [
+            f"## {query_type}  ({len(pool)} cases, showing {len(sample)}: "
+            f"{', '.join(f'{n} {lang}' for lang, n in sorted(Counter(c.query_lang for c in sample).items()))})",
+            "",
+        ]
         for case in sample:
             span = case.answer_spans[0]
             lines += [
