@@ -125,7 +125,8 @@ REVIEW_SAMPLE = 20
 
 @dataclass(frozen=True)
 class Rejection:
-    stage: str  # "generate" | "automatic" | "adversarial" | "discrimination"
+    # "generate" | "automatic" | "adversarial" | "judge-unreachable" | "discrimination"
+    stage: str
     reason: str
     query: str
     note: str
@@ -217,14 +218,19 @@ def _judge_all(
     cases: list[WikiGoldCase] = []
     rejections: list[Rejection] = []
     for index, candidate in enumerate(survivors, start=1):
+        stage = "adversarial"
         try:
             reason = adversarial_gate(judge, candidate, title=titles[candidate.note])
         except ChatError as exc:
+            # An endpoint that cannot load the model says nothing about this
+            # candidate. Filing it under "adversarial" would launder an
+            # outage into a quality rejection and quietly shrink the gold set.
             reason = f"judge unreachable: {exc}"
+            stage = "judge-unreachable"
         if reason:
             rejections.append(
                 Rejection(
-                    "adversarial",
+                    stage,
                     reason,
                     candidate.query,
                     candidate.note,
@@ -347,6 +353,11 @@ def review_markdown(cases: list[WikiGoldCase], sample_size: int) -> str:
                 "",
             ]
     return "\n".join(lines)
+
+
+def unreachable_count(rejections: list[Rejection]) -> int:
+    """How many candidates were lost to the judge endpoint rather than judged."""
+    return sum(1 for rejection in rejections if rejection.stage == "judge-unreachable")
 
 
 def rejection_summary(rejections: list[Rejection]) -> str:
@@ -513,6 +524,17 @@ def main(argv: list[str] | None = None) -> int:
     print(rejection_summary(rejections))
     print(f"\nwrote {len(cases)} cases to {GOLD}")
     print(f"spot-review sample: {REVIEW}")
+
+    lost = unreachable_count(rejections)
+    if lost:
+        print(
+            f"\nINCOMPLETE: {lost} candidates were never judged -- the judge endpoint "
+            f"was unreachable. They are recorded as 'judge-unreachable', not as "
+            f"rejections. Free the memory the judge model needs and re-run; "
+            f"generation replays from cache and only the missing verdicts cost calls.",
+            file=sys.stderr,
+        )
+        return 4
     return 0 if cases else 1
 
 

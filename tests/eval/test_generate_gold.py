@@ -313,3 +313,34 @@ def test_the_language_cycle_is_weighted_toward_italian():
     # Spanish at 67%, so an even split yields far fewer Italian cases.
     langs = [lang for lang, _ in generate_gold.LANGUAGE_CYCLE]
     assert langs.count("it") == 2 and langs.count("es") == 1
+
+
+def test_an_unreachable_judge_is_recorded_as_infrastructure_not_a_verdict():
+    # A judge that cannot load is not evidence a candidate is bad. Filing it
+    # under "adversarial" launders an outage into a quality rejection.
+    from ariostea.adapters.chat.openai_compat import ChatError
+
+    class Unloadable:
+        def complete(self, system, user):
+            raise ChatError("400 Failed to load model: insufficient system resources")
+
+    cases, rejections = generate_gold.generate_and_gate(
+        FakeChat(GOOD_GENERATION), Unloadable(), [("paraphrase", PASSAGE)], NOTES, TITLES
+    )
+    assert cases == []
+    assert rejections[0].stage == "judge-unreachable"
+
+
+def test_a_run_with_an_unreachable_judge_exits_non_zero(monkeypatch, tmp_path, capsys):
+    # Exiting 0 with a short gold file is how an outage silently becomes the
+    # committed artifact.
+    rejections = [generate_gold.Rejection("judge-unreachable", "boom", "q", "n", "s", "paraphrase")]
+    assert generate_gold.unreachable_count(rejections) == 1
+
+
+def test_unreachable_count_ignores_real_verdicts():
+    rejections = [
+        generate_gold.Rejection("adversarial", "judge: ambiguous", "q", "n", "s", "paraphrase"),
+        generate_gold.Rejection("automatic", "span too short", "q", "n", "s", "buried"),
+    ]
+    assert generate_gold.unreachable_count(rejections) == 0
