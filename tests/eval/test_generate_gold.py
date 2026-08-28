@@ -66,7 +66,7 @@ def test_a_cross_lingual_case_gets_the_arrow_scenario():
     assert cases[0].scenario == f"en→{cases[0].query_lang}"
 
 
-def test_cross_lingual_cases_alternate_between_the_two_languages():
+def test_cross_lingual_cases_cycle_through_the_two_languages():
     generations = [
         '{"query": "quali note produce lo strumento", '
         '"answer_span": "tuned in perfect fifths: G, D, A, E"}',
@@ -282,9 +282,7 @@ def test_review_sample_covers_every_query_language_in_a_type():
     # reviewer saw five Spanish cases and no Italian at all — and Italian is
     # the half with the lower generation quality, so the gate went unaudited
     # exactly where it was needed.
-    cases = [
-        _case("cross_lingual", "es" if i % 6 else "it", f"q{i}") for i in range(32)
-    ]
+    cases = [_case("cross_lingual", "es" if i % 6 else "it", f"q{i}") for i in range(32)]
     text = generate_gold.review_markdown(cases, sample_size=5)
     assert "`it`" in text and "`es`" in text
 
@@ -308,3 +306,10 @@ def test_review_sample_handles_a_type_with_one_language():
 def test_review_sample_is_deterministic():
     cases = [_case("cross_lingual", "it" if i % 2 else "es", f"q{i}") for i in range(20)]
     assert generate_gold.review_markdown(cases, 6) == generate_gold.review_markdown(cases, 6)
+
+
+def test_the_language_cycle_is_weighted_toward_italian():
+    # Not cosmetic: Italian candidates survive the gates at 40% against
+    # Spanish at 67%, so an even split yields far fewer Italian cases.
+    langs = [lang for lang, _ in generate_gold.LANGUAGE_CYCLE]
+    assert langs.count("it") == 2 and langs.count("es") == 1

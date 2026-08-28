@@ -93,11 +93,17 @@ CACHE = WIKI_DIR / ".gold_cache.jsonl"
 # cached, so raising these numbers tops the set up rather than regenerating
 # it. cross_lingual is smaller because it is the most expensive to review by
 # hand.
-BUDGET = {"paraphrase": 80, "exact_term": 80, "buried": 80, "cross_lingual": 60}
+BUDGET = {"paraphrase": 80, "exact_term": 80, "buried": 80, "cross_lingual": 90}
 
-# Cross-lingual queries alternate between the two languages the corpus holds
-# parallel articles in, so neither track ends up a footnote.
-LANGUAGES = (("it", "Italian"), ("es", "Spanish"))
+# Cross-lingual queries cycle through the two languages the corpus holds
+# parallel articles in -- weighted two-to-one toward Italian, which is not
+# arbitrary. Measured on the first full run, Italian candidates survive the
+# gates at 40% against Spanish at 67%: the generator drifts from copying the
+# English span verbatim more often when it is writing an Italian query. An
+# even split therefore yields far fewer Italian cases than Spanish ones (12
+# against 20), and Italian is the half that matters most here, since the
+# vault this project is built for is English/Italian.
+LANGUAGE_CYCLE = (("it", "Italian"), ("es", "Spanish"), ("it", "Italian"))
 
 BASE_URL = os.environ.get("ARIOSTEA_GOLD_BASE_URL", "http://localhost:1234/v1")
 MODEL = os.environ.get("ARIOSTEA_GOLD_MODEL", "qwen2.5-14b-instruct-mlx")
@@ -165,7 +171,7 @@ def _generate_all(
 
     for index, (query_type, passage) in enumerate(selected, start=1):
         if query_type == "cross_lingual":
-            query_lang, lang_name = LANGUAGES[cross_lingual_seen % len(LANGUAGES)]
+            query_lang, lang_name = LANGUAGE_CYCLE[cross_lingual_seen % len(LANGUAGE_CYCLE)]
             cross_lingual_seen += 1
         else:
             query_lang, lang_name = "en", "Italian"  # lang_name unused for en types
