@@ -10,7 +10,19 @@ drop cases as "too easy" for a pipeline the evaluation never actually runs.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+
+# fastembed defaults its model cache to `tempfile.gettempdir()/fastembed_cache`,
+# which on macOS is /private/tmp -- a directory the OS periodically purges. The
+# purge deletes the downloaded blobs but leaves the snapshot symlinks pointing
+# at them, so the next run finds a cache that looks populated and is not: either
+# onnxruntime raises NoSuchFile on a dangling `model.onnx`, or huggingface_hub
+# re-fetches under a stale lock and deadlocks with no timeout (observed hung for
+# three days on a zero-byte blob). Both failures happen *after* the expensive
+# LLM stages, so they waste a whole run. Pinning the cache under $HOME keeps it
+# outside the reaper's reach. `setdefault`, so an explicit env var still wins.
+os.environ.setdefault("FASTEMBED_CACHE_PATH", str(Path.home() / ".cache" / "fastembed"))
 
 from ariostea.adapters.embedding.fastembed_local import FastEmbedEmbeddings
 from ariostea.adapters.store.sqlite_store import SqliteStore
