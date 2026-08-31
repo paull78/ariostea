@@ -32,7 +32,8 @@ Outputs, all under eval/wiki/:
     gold.json           the accepted cases, in the Plan 1 schema
     gold_rejected.json  every rejected candidate, with its stage and reason
     gold.meta.json      which models produced this gold, and the counts
-    gold_review.md      a sample rendered for stage 4, human spot-review
+    gold_review.md      (written to eval/, not eval/wiki/ -- see REVIEW)
+                        a sample rendered for stage 4, human spot-review
 
 Memory: run the two halves separately on a machine that cannot hold both the
 LLMs and an embedding pass at once. The discrimination filter indexes all 79
@@ -90,7 +91,16 @@ WIKI_DIR = Path(__file__).resolve().parent / "wiki"
 GOLD = WIKI_DIR / "gold.json"
 REJECTED = WIKI_DIR / "gold_rejected.json"
 META = WIKI_DIR / "gold.meta.json"
-REVIEW = WIKI_DIR / "gold_review.md"
+# Deliberately *outside* WIKI_DIR. Everything under eval/wiki/ with a `.md`
+# suffix is indexed as a corpus note, and this file quotes the sampled gold
+# queries verbatim next to their answer spans. Written inside the corpus it
+# became an 80th note that matched those queries better than any real article
+# -- and since it is nobody's expected note, every such match counted as a
+# miss while occupying a top-k slot. It silently depressed the very cases it
+# exists to document, and skewed the discrimination filter that runs against
+# the same index. Keep generated artifacts that quote queries out of the
+# indexed tree.
+REVIEW = WIKI_DIR.parent / "gold_review.md"
 # Raw model responses, keyed by prompt. Makes an interrupted run resumable and
 # makes re-running with tuned gates free. Not committed -- it is a local
 # scratch file, and `gold.json` is the artifact of record.
@@ -528,7 +538,6 @@ def main(argv: list[str] | None = None) -> int:
         _write_outputs(cases, rejections, len(selected))
         print(f"\ncache: {chat.hits + judge.hits} hits, {chat.misses + judge.misses} live calls")
 
-    print("\nrejections by stage:")
     print("\nrejections by stage:")
     print(rejection_summary(rejections))
     print(f"\nwrote {len(cases)} cases to {GOLD}")

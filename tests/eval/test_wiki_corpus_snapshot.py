@@ -93,3 +93,20 @@ def test_each_notice_row_cites_the_revision_its_note_was_built_from(cluster, art
     revid_in_note = _REVID.search(_text(cluster, article))
     assert revid_in_note is not None
     assert f"oldid={revid_in_note.group(1)}" in row
+
+
+def test_no_markdown_sits_at_the_corpus_root() -> None:
+    """Every `.md` under eval/wiki/ is indexed as a note under test, so the
+    corpus root must hold none: notes live in cluster subdirectories.
+
+    This is a contamination guard, not tidiness. `gold_review.md` was
+    generated into this directory and became an 80th note quoting the sampled
+    gold queries verbatim beside their answer spans -- a document that
+    outranked every real article for those queries while belonging to no
+    expected note, so each match burned a top-k slot and scored as a miss. It
+    depressed 19 of 191 cases and skewed the discrimination filter, which
+    indexes the same tree. Generated artifacts that quote queries belong
+    outside eval/wiki/.
+    """
+    stray = sorted(path.name for path in WIKI.glob("*.md"))
+    assert stray == [], f"markdown at the corpus root would be indexed as notes: {stray}"
