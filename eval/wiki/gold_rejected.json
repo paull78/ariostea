@@ -154,15 +154,15 @@
   {
     "stage": "automatic",
     "reason": "span is not verbatim in the passage the model was shown",
-    "query": "¿Qué es una boya en vela y cómo mejora el control de la vela?",
+    "query": "Che funzione ha lo sparo in vela?",
     "note": "sailing/boom-sailing.md",
-    "span": "a spar (pole), along the of a fore and aft rigged sail, that greatly improves control of the angle and shape of the sail",
+    "span": "keep the foot flatter when the sail angle is away from the centerline of the boat",
     "type": "cross_lingual"
   },
   {
     "stage": "automatic",
     "reason": "span is shorter than 10 characters",
-    "query": "Qual'è il materiale utilizzato per la membrana nei banjo moderni?",
+    "query": "¿Qué material se utiliza comúnmente en la membrana de los banjos modernos?",
     "note": "string-instruments/banjo.md",
     "span": "BOPET",
     "type": "cross_lingual"
@@ -186,7 +186,7 @@
   {
     "stage": "automatic",
     "reason": "span is shorter than 10 characters",
-    "query": "¿Cuál es el nombre abreviado del violonchelo?",
+    "query": "Qual è l'abbreviazione comune per violoncello?",
     "note": "string-instruments/cello.md",
     "span": "cello",
     "type": "cross_lingual"
@@ -194,7 +194,7 @@
   {
     "stage": "automatic",
     "reason": "span is shorter than 10 characters",
-    "query": "Come si indica in notazione algebrica un gioco che termina con una scacchiera?",
+    "query": "¿Cuál es el símbolo utilizado en la notación algebraica para indicar un jaque mate?",
     "note": "board-games/checkmate.md",
     "span": "#",
     "type": "cross_lingual"
@@ -209,6 +209,14 @@
   },
   {
     "stage": "automatic",
+    "reason": "span is not verbatim in the passage the model was shown",
+    "query": "¿Cuándo comienza la fase final en un juego de ajedrez según este artículo?",
+    "note": "board-games/chess-endgame.md",
+    "span": "The endgame (or ending) is the final stage of a chess game which occurs after the middlegame.",
+    "type": "cross_lingual"
+  },
+  {
+    "stage": "automatic",
     "reason": "span adds nothing beyond the article title",
     "query": "Quale specie di caffè è stata la prima a essere coltivata?",
     "note": "coffee/coffea-arabica.md",
@@ -217,10 +225,10 @@
   },
   {
     "stage": "automatic",
-    "reason": "span is not verbatim in the passage the model was shown",
-    "query": "Quali sono i tre fasi principali di una partita di scacchi?",
-    "note": "board-games/chess-opening.md",
-    "span": "The other phases are the middlegame and the chess-endgame|endgame",
+    "reason": "span adds nothing beyond the article title",
+    "query": "Qual è il nome in italiano del contrabbasso nella sezione di un'orchestra simfonica?",
+    "note": "string-instruments/double-bass.md",
+    "span": "double bass",
     "type": "cross_lingual"
   },
   {
@@ -245,14 +253,6 @@
     "query": "Che cosa è un'albero su una nave da vela?",
     "note": "sailing/mast-sailing.md",
     "span": "The mast of a sailing vessel is a tall spar, or arrangement of spars, erected vertically or near-vertically on the median line of a ship or boat.",
-    "type": "cross_lingual"
-  },
-  {
-    "stage": "automatic",
-    "reason": "span is not verbatim in the passage the model was shown",
-    "query": "¿Qué es el fingerboard en un instrumento de cuerdas?",
-    "note": "string-instruments/fingerboard.md",
-    "span": "The fingerboard (also known as a fretboard on fretted instruments) is an important component of most stringed instruments.",
     "type": "cross_lingual"
   },
   {
@@ -289,10 +289,26 @@
   },
   {
     "stage": "automatic",
+    "reason": "span is shorter than 10 characters",
+    "query": "Quali pezzi si chiamano in gioco della Go?",
+    "note": "board-games/go-game.md",
+    "span": "*stones*",
+    "type": "cross_lingual"
+  },
+  {
+    "stage": "automatic",
     "reason": "span is not verbatim in the passage the model was shown",
-    "query": "Quali nomi sono designazioni di origine protette per i formaggi prodotti in quelle province secondo la legge italiana e europea?",
+    "query": "¿Cuál es la designación de origen protegida que se usa para el queso Parmesano fuera de la Unión Europea?",
     "note": "cheese/parmesan.md",
-    "span": "Parmigiano Reggiano and Parmesan",
+    "span": "the name Parmesan is legally used for imitations",
+    "type": "cross_lingual"
+  },
+  {
+    "stage": "automatic",
+    "reason": "span is not verbatim in the passage the model was shown",
+    "query": "Come si filtra il caffè durante la preparazione del cold brew?",
+    "note": "coffee/cold-brew-coffee.md",
+    "span": "they are filtered out of the water using a paper coffee filter, or a fine metal sieve (e.g. in a French press), or felt.",
     "type": "cross_lingual"
   },
   {
@@ -322,17 +338,73 @@
   {
     "stage": "automatic",
     "reason": "span is not verbatim in the passage the model was shown",
-    "query": "Qual è la principale funzione del rennet nella produzione di formaggi?",
-    "note": "cheese/rennet.md",
-    "span": "separate milk into solid curds and liquid whey",
+    "query": "Cosa contiene un flat white?",
+    "note": "coffee/flat-white.md",
+    "span": "espresso coffee and steamed milk",
+    "type": "cross_lingual"
+  },
+  {
+    "stage": "automatic",
+    "reason": "span is shorter than 10 characters",
+    "query": "¿Cuál fue la principal forma de propulsión que reemplazó a las velas en los barcos durante la segunda mitad del siglo XIX?",
+    "note": "sailing/sailing.md",
+    "span": "steam",
+    "type": "cross_lingual"
+  },
+  {
+    "stage": "automatic",
+    "reason": "span adds nothing beyond the article title",
+    "query": "Cosa è noto anche come una 'caffettiera a stantuffo' in italiano?",
+    "note": "coffee/french-press.md",
+    "span": "French press",
     "type": "cross_lingual"
   },
   {
     "stage": "automatic",
     "reason": "span is not verbatim in the passage the model was shown",
-    "query": "¿Qué tipo de café se compone de espresso y leche vaporizada?",
-    "note": "coffee/flat-white.md",
-    "span": "A flat white is a drink consisting of espresso coffee and steamed milk",
+    "query": "Quali caratteristiche distingue una bicicletta da corsa su pista da quelle utilizzate per strada?",
+    "note": "cycling/track-bicycle.md",
+    "span": "Unlike road bicycles, the track bike is a fixed-gear bicycle; thus, it has only a single gear ratio and has neither a freewheel nor brakes.",
+    "type": "cross_lingual"
+  },
+  {
+    "stage": "automatic",
+    "reason": "span is not verbatim in the passage the model was shown",
+    "query": "¿Qué tipo de vela está diseñada específicamente para navegar con el viento a favor?",
+    "note": "sailing/spinnaker.md",
+    "span": "spinnaker is a sail designed specifically for sailing off the wind",
+    "type": "cross_lingual"
+  },
+  {
+    "stage": "automatic",
+    "reason": "span is shorter than 10 characters",
+    "query": "¿Cuál es el nombre alternativo del instrumento violin?",
+    "note": "string-instruments/violin.md",
+    "span": "fiddle",
+    "type": "cross_lingual"
+  },
+  {
+    "stage": "automatic",
+    "reason": "span is shorter than 10 characters",
+    "query": "¿Cuál es el nombre dado a un jib que se encuentra detrás del mástil en una embarcación?",
+    "note": "sailing/jib.md",
+    "span": "genoa jib",
+    "type": "cross_lingual"
+  },
+  {
+    "stage": "automatic",
+    "reason": "span is not verbatim in the passage the model was shown",
+    "query": "Chi suona il violoncello?",
+    "note": "string-instruments/cello.md",
+    "span": "cellist or violoncellist",
+    "type": "cross_lingual"
+  },
+  {
+    "stage": "automatic",
+    "reason": "span adds nothing beyond the article title",
+    "query": "¿Cuánto peso aproximadamente produjo Estados Unidos de queso cheddar en 2014?",
+    "note": "cheese/cheddar-cheese.md",
+    "span": "3000000000 lb of cheddar",
     "type": "cross_lingual"
   },
   {
@@ -341,14 +413,6 @@
     "query": "What is the term for the equipment used to prepare espresso?",
     "note": "coffee/caffe-espresso-it.md",
     "span": "macchina",
-    "type": "exact_term"
-  },
-  {
-    "stage": "automatic",
-    "reason": "span is shorter than 10 characters",
-    "query": "What joint connects the forward end of the boom to the mast in sailing?",
-    "note": "sailing/boom-sailing.md",
-    "span": "gooseneck",
     "type": "exact_term"
   },
   {
@@ -413,22 +477,6 @@
     "query": "What type of sailboat has a single mast mounted far forward and does not carry a jib?",
     "note": "sailing/sailboat.md",
     "span": "catboat",
-    "type": "exact_term"
-  },
-  {
-    "stage": "automatic",
-    "reason": "span is not verbatim in the passage the model was shown",
-    "query": "What does it mean when a spinnaker is said to be flown?",
-    "note": "sailing/spinnaker.md",
-    "span": "attached at only three points and said to be flown",
-    "type": "exact_term"
-  },
-  {
-    "stage": "automatic",
-    "reason": "span is shorter than 10 characters",
-    "query": "What is the largest size of ukulele mentioned?",
-    "note": "string-instruments/ukulele.md",
-    "span": "baritone",
     "type": "exact_term"
   },
   {
@@ -537,35 +585,35 @@
   },
   {
     "stage": "automatic",
-    "reason": "span is not verbatim in the passage the model was shown",
-    "query": "What type of bike lacks gears and brakes for indoor racing?",
-    "note": "cycling/track-bicycle.md",
-    "span": "Unlike road bicycles, the track bike is a fixed-gear bicycle; thus, it has only a single gear ratio and has neither a freewheel nor brakes.",
-    "type": "paraphrase"
+    "reason": "span is shorter than 10 characters",
+    "query": "What are the circular blocks used to tension shrouds called?",
+    "note": "sailing/rigging.md",
+    "span": "deadeyes",
+    "type": "exact_term"
   },
   {
     "stage": "automatic",
     "reason": "span is shorter than 10 characters",
-    "query": "What is another name for a stringed instrument called violin?",
-    "note": "string-instruments/violin.md",
-    "span": "fiddle",
-    "type": "paraphrase"
-  },
-  {
-    "stage": "automatic",
-    "reason": "span is shorter than 10 characters",
-    "query": "What is another term for a jib that overlaps the mainsail?",
-    "note": "sailing/jib.md",
-    "span": "genoa jib",
-    "type": "paraphrase"
+    "query": "What region is mentioned in the passage where mozzarella was offered to pilgrims with bread?",
+    "note": "cheese/mozzarella.md",
+    "span": "Campania",
+    "type": "exact_term"
   },
   {
     "stage": "automatic",
     "reason": "span is not verbatim in the passage the model was shown",
-    "query": "What is the shortest time in moves for a checkmate with all pieces on board?",
-    "note": "board-games/checkmate.md",
-    "span": "A mate may occur in as few as two moves on one side with all of the pieces still on the board",
-    "type": "paraphrase"
+    "query": "What design feature of the rear derailleur allows for easier shifting by maintaining a more constant distance from different sized sprockets?",
+    "note": "cycling/derailleur.md",
+    "span": "slant-parallelogram rear derailleur",
+    "type": "exact_term"
+  },
+  {
+    "stage": "automatic",
+    "reason": "span is not verbatim in the passage the model was shown",
+    "query": "What is the term for a player of a lute?",
+    "note": "string-instruments/lute.md",
+    "span": "lutenist, lutanist or lutist",
+    "type": "exact_term"
   },
   {
     "stage": "automatic",
@@ -648,6 +696,22 @@
     "type": "paraphrase"
   },
   {
+    "stage": "automatic",
+    "reason": "span is not verbatim in the passage the model was shown",
+    "query": "Who created the design for today's classical guitar?",
+    "note": "string-instruments/luthier.md",
+    "span": "Antonio Torres Jurado is credited with developing the form of classical guitar still in use",
+    "type": "paraphrase"
+  },
+  {
+    "stage": "automatic",
+    "reason": "span is not verbatim in the passage the model was shown",
+    "query": "What are the primary sails on a small training boat?",
+    "note": "sailing/sailboat.md",
+    "span": "the mainsail, jib, and spinnaker",
+    "type": "paraphrase"
+  },
+  {
     "stage": "adversarial",
     "reason": "judge: span does not answer the query (The span fails to specify the actual type of curvature requested, merely stating that guitars have 'some curvature,' which does not answer the query.)",
     "query": "What type of curvature do most guitars have compared to classical guitars?",
@@ -681,6 +745,22 @@
   },
   {
     "stage": "adversarial",
+    "reason": "judge: span does not answer the query (The span lists variant names but omits the 12x12 board specification, so it cannot independently verify the query without additional context.)",
+    "query": "Quale variante del gioco degli scacchi da tavolo si gioca su una scacchiera 12x12?",
+    "note": "board-games/checkers.md",
+    "span": "Canadian checkers and Malaysian/Singaporean checkers (also locally known as **dam**)",
+    "type": "cross_lingual"
+  },
+  {
+    "stage": "adversarial",
+    "reason": "judge: span does not answer the query (The span only names a generic protection category rather than the specific registered name 'Orkney Cheddar', so it fails to answer the query.)",
+    "query": "Qual è la designazione protetta per il formaggio Cheddar prodotto nelle isole Orkney?",
+    "note": "cheese/cheddar-cheese.md",
+    "span": "Protected Geographical Indication (PGI)",
+    "type": "cross_lingual"
+  },
+  {
+    "stage": "adversarial",
     "reason": "judge: span does not answer the query (The span only describes historical rigging configurations and fails to address the mainsail's relative size or how it has changed over time.)",
     "query": "In passato, la vela principale era solitamente la più grande della barca? Quanto è cambiato questo?",
     "note": "sailing/mainsail.md",
@@ -689,26 +769,34 @@
   },
   {
     "stage": "adversarial",
-    "reason": "judge: answerable from the title alone (The span explicitly identifies Gouda as the market location, directly answering the clear query, which is also inferable from the title alone.)",
-    "query": "In quale città olandese veniva commerciato il formaggio gouda nel Medioevo?",
-    "note": "cheese/gouda-cheese.md",
-    "span": "Gouda acquired market rights on cheese, the sole right to have a market in which the county's farmers could sell their cheese.",
+    "reason": "judge: span does not answer the query (The span is a sentence fragment that merely states importance without defining the object, failing to answer the query.)",
+    "query": "Che cos'è la tastiera su uno strumento a corde?",
+    "note": "string-instruments/fingerboard.md",
+    "span": "is an important component of most stringed instruments",
     "type": "cross_lingual"
   },
   {
     "stage": "adversarial",
-    "reason": "judge: answerable from the title alone (The span directly answers the clear factual query, and the answer is common knowledge derivable from the title alone.)",
-    "query": "¿Cuántos cuadrados tiene un tablero de ajedrez?",
+    "reason": "judge: answerable from the title alone (The span directly provides the correct number of squares for a standard chessboard, which is a straightforward fact also inferable from the title alone.)",
+    "query": "Quante caselle ha un scacchiera?",
     "note": "board-games/chessboard.md",
     "span": "64 squares",
     "type": "cross_lingual"
   },
   {
     "stage": "adversarial",
-    "reason": "judge: span does not answer the query (The span merely restates the query's condition without providing the actual name of the rule, so it fails to answer the question.)",
-    "query": "¿Cuál es la regla que prohíbe que los generales se enfrenten directamente en el juego de xiangqi?",
+    "reason": "judge: span does not answer the query (The span merely restates the query's premise without actually naming the specific rule, so it does not answer the question.)",
+    "query": "In xiangqi, quale regola impedisce che i generali si facciano fronte direttamente?",
     "note": "board-games/xiangqi.md",
     "span": "a rule prohibiting the generals from facing each other directly",
+    "type": "cross_lingual"
+  },
+  {
+    "stage": "adversarial",
+    "reason": "judge: answerable from the title alone (The span explicitly names the maneuver as 'tacking' or 'coming about', the query is clear, and the article title alone reveals the answer.)",
+    "query": "¿Qué se llama a la maniobra de cambiar de rumbo en vela cuando se navega cerca del límite del viento?",
+    "note": "sailing/tacking-sailing.md",
+    "span": "The act of transitioning from one tack to the other is called \"tacking\" or \"coming about\".",
     "type": "cross_lingual"
   },
   {
@@ -717,14 +805,6 @@
     "query": "What happens if a player does not capture an opponent's piece when it is possible?",
     "note": "board-games/checkers.md",
     "span": "capturing is mandatory in most official rules",
-    "type": "exact_term"
-  },
-  {
-    "stage": "adversarial",
-    "reason": "judge: span does not answer the query (The answer span is a fragmented noun phrase that fails to clearly identify or explain the specific design feature requested by the query.)",
-    "query": "What design feature of modern bicycle chains was incorporated into the inner side plate to reduce the number of parts needed?",
-    "note": "cycling/bicycle-chain.md",
-    "span": "The bearing surface of the bushing",
     "type": "exact_term"
   },
   {
@@ -801,19 +881,27 @@
   },
   {
     "stage": "adversarial",
-    "reason": "judge: answerable from the title alone (The span directly answers the clear query, and the article title alone provides the exact answer.)",
-    "query": "What type of bike is designed for quick travel on smooth surfaces?",
-    "note": "cycling/road-bicycle.md",
-    "span": "bicycles built for traveling at speed on paved roads",
-    "type": "paraphrase"
+    "reason": "judge: span does not answer the query (The span \"deliveries\" refers to the act or items being delivered rather than a professional role, so it does not answer the query.)",
+    "query": "What type of professional uses bicycles for delivering items?",
+    "note": "cycling/bicycle.md",
+    "span": "deliveries",
+    "type": "exact_term"
   },
   {
     "stage": "adversarial",
-    "reason": "judge: answerable from the title alone (The span correctly provides the nautical term, the query is clearly defined with a single answer, and the article title itself contains the answer.)",
-    "query": "What term describes sailing towards the wind by zigzagging?",
-    "note": "sailing/tacking-sailing.md",
-    "span": "beating to windward",
-    "type": "paraphrase"
+    "reason": "judge: span does not answer the query (The answer span is a vague fragment that merely repeats part of the question without specifying an actual tradition.)",
+    "query": "What political tradition do harps have according to the passage?",
+    "note": "string-instruments/harp.md",
+    "span": "symbolic political traditions",
+    "type": "exact_term"
+  },
+  {
+    "stage": "adversarial",
+    "reason": "judge: span does not answer the query (The span lacks the actual term requested, providing only a descriptive phrase instead.)",
+    "query": "What term describes all types of oars, paddles, and rudders?",
+    "note": "sailing/rudder.md",
+    "span": "denoting all types of oars, paddles, and rudders",
+    "type": "exact_term"
   },
   {
     "stage": "adversarial",
@@ -821,14 +909,6 @@
     "query": "What were large sailing ships' multi-part support structures called?",
     "note": "sailing/mast-sailing.md",
     "span": "made masts",
-    "type": "paraphrase"
-  },
-  {
-    "stage": "adversarial",
-    "reason": "judge: span does not answer the query (The span references boerenkaas rather than explicitly confirming Gouda production, so it does not directly answer the query.)",
-    "query": "artisanal gouda production in netherlands",
-    "note": "cheese/gouda-cheese.md",
-    "span": "some 300 Dutch farmers still produce *boerenkaas*",
     "type": "paraphrase"
   },
   {
@@ -870,6 +950,30 @@
     "note": "board-games/chess-piece.md",
     "span": "referring only to a queen, rook, bishop, knight, or king",
     "type": "paraphrase"
+  },
+  {
+    "stage": "adversarial",
+    "reason": "judge: span does not answer the query (The span describes draining whey and adding water but never mentions lactose elimination or sweetness, so it fails to answer the query.)",
+    "query": "What process is used to make the cheese sweeter by eliminating some lactose?",
+    "note": "cheese/gouda-cheese.md",
+    "span": "After cultured milk is curdled, some of the whey is drained and water is added to the batch, making Gouda a washed-curd cheese.",
+    "type": "paraphrase"
+  },
+  {
+    "stage": "adversarial",
+    "reason": "judge: span does not answer the query (The span lacks explicit reference to the second sail or steering efficiency, making it an incomplete fragment that does not answer the query.)",
+    "query": "How did adding a second sail affect steering efficiency?",
+    "note": "sailing/rudder.md",
+    "span": "minimize the need for course corrections by the steering oar, which would have substantially improved sail performance",
+    "type": "paraphrase"
+  },
+  {
+    "stage": "discrimination",
+    "reason": "every channel answers at rank 1",
+    "query": "What happens if a player rolls a 6 and a 5 but has no pieces on the 6-point?",
+    "note": "board-games/backgammon.md",
+    "span": "the 6 and the 5 must be used to bear off the two pieces from the 5-point",
+    "type": "buried"
   },
   {
     "stage": "discrimination",
@@ -962,14 +1066,6 @@
   {
     "stage": "discrimination",
     "reason": "every channel answers at rank 1",
-    "query": "What mold is associated with the creation of Roquefort cheese?",
-    "note": "cheese/blue-cheese.md",
-    "span": "*Penicillium roqueforti*",
-    "type": "exact_term"
-  },
-  {
-    "stage": "discrimination",
-    "reason": "every channel answers at rank 1",
     "query": "What is one of the two types of brie officially certified by the French government?",
     "note": "cheese/brie.md",
     "span": "brie de Meaux",
@@ -994,25 +1090,9 @@
   {
     "stage": "discrimination",
     "reason": "every channel answers at rank 1",
-    "query": "What is another name for a French press in Italian?",
-    "note": "coffee/french-press.md",
-    "span": "caffettiera a stantuffo",
-    "type": "exact_term"
-  },
-  {
-    "stage": "discrimination",
-    "reason": "every channel answers at rank 1",
     "query": "What is the governing body for Keirin competitions in Japan?",
     "note": "cycling/track-bicycle.md",
     "span": "JKA Foundation (Japan Keirin Autorace Foundation)",
-    "type": "exact_term"
-  },
-  {
-    "stage": "discrimination",
-    "reason": "every channel answers at rank 1",
-    "query": "What is the trade name of the original moka pot model produced by Bialetti Industries?",
-    "note": "coffee/moka-pot.md",
-    "span": "Moka Express",
     "type": "exact_term"
   },
   {
@@ -1026,14 +1106,6 @@
   {
     "stage": "discrimination",
     "reason": "every channel answers at rank 1",
-    "query": "What genre of music is the banjo frequently used in, which is also mentioned alongside the term 'minstrel shows'?",
-    "note": "string-instruments/banjo.md",
-    "span": "Dixieland jazz",
-    "type": "exact_term"
-  },
-  {
-    "stage": "discrimination",
-    "reason": "every channel answers at rank 1",
     "query": "Who modified the cello for Indian classical music with Saskia Rao-de Haas?",
     "note": "string-instruments/cello.md",
     "span": "Nancy Lesh",
@@ -1042,10 +1114,10 @@
   {
     "stage": "discrimination",
     "reason": "every channel answers at rank 1",
-    "query": "What organization oversees the production and sale of a specific type of cheese in Italy?",
-    "note": "cheese/parmesan.md",
-    "span": "The Consortium of Parmigiano Reggiano",
-    "type": "paraphrase"
+    "query": "What was the name of the commercial hot-air roasting process that inspired the Siemens Sirocco home roaster?",
+    "note": "coffee/coffee-roasting.md",
+    "span": "commercial hot-air roasting process which was named after the hot Sahara winds called sirocco",
+    "type": "exact_term"
   },
   {
     "stage": "discrimination",
