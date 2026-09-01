@@ -29,6 +29,21 @@ TITLE_OVERLAP = 0.8
 
 _CONTENT_WORD = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
 
+# A query pointing at "the passage" is a generation artefact: the model was
+# shown a passage and wrote a question about *it*, but at eval time there is no
+# passage in view -- only a query going to a retriever. No real user phrases
+# one this way, and the deixis makes the query unanswerable as written.
+# Anchored on a preposition ("according to", "in", "secondo") so that ordinary
+# uses of the same nouns survive: "which article of the racing rules" is a
+# perfectly good query.
+_SOURCE_DEIXIS = re.compile(
+    r"\b(?:according to|based on|in|from|per|secondo|nel|nella|dal|dalla|según|segun|en el|del)\s+"
+    r"(?:the|this|il|lo|la|el|questo|questa|este|esta|dicho)\s+"
+    r"(?:passage|text|excerpt|article|paragraph|snippet|passaggio|testo|brano|articolo|"
+    r"paragrafo|pasaje|texto|art\u00edculo|p\u00e1rrafo)\b",
+    re.IGNORECASE | re.UNICODE,
+)
+
 
 def _content_tokens(text: str) -> set[str]:
     return {word.lower() for word in _CONTENT_WORD.findall(text)}
@@ -55,6 +70,19 @@ def automatic_gate(
         return f"span is shorter than {MIN_SPAN_CHARS} characters"
     if len(candidate.span) > MAX_SPAN_CHARS:
         return f"span is longer than {MAX_SPAN_CHARS} characters"
+
+    if normalize_ws(notes[candidate.note]).count(span) > 1:
+        # The span metric scores a chunk as a hit when it *contains* the span,
+        # with no notion of which occurrence. A span appearing in several
+        # places in its note therefore marks chunks that do not answer the
+        # query as correct, and the case silently decays from measuring span
+        # retrieval to measuring note retrieval. Measured on the first real
+        # gold set this hit 28 of 187 cases -- "Parmigiano Reggiano" occurred
+        # 30 times in its own note.
+        return "span occurs more than once in the cited note"
+
+    if _SOURCE_DEIXIS.search(candidate.query):
+        return "query refers to the source text the retriever cannot see"
 
     title_tokens = _content_tokens(titles[candidate.note])
     query_tokens = _content_tokens(candidate.query)

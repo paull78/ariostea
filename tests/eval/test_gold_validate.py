@@ -172,3 +172,55 @@ def test_an_unparseable_judge_response_is_a_rejection_not_a_crash():
 def test_a_judge_verdict_wrapped_in_a_reasoning_block_is_read():
     judge = FakeJudge(f"<think>hmm {{}} </think>\n{APPROVAL}")
     assert adversarial_gate(judge, GOOD, title="Violin") is None
+
+
+# --- span uniqueness within the note --------------------------------------
+# The span metric scores a chunk as a hit when it *contains* the span, so a
+# span occurring in several places in its note makes chunks that do not answer
+# the query score as correct. Measured on the first real gold set, 28 of 187
+# cases had this: "Parmigiano Reggiano" appeared 30 times in its own note, so
+# span recall had quietly decayed into note recall for those cases.
+
+_DUP_SPAN = "made from cow's milk"
+_DUP_PASSAGE = "Mozzarella is made from cow's milk in Italy."
+
+
+def _milk_candidate() -> Candidate:
+    return replace(GOOD, passage=_DUP_PASSAGE, span=_DUP_SPAN, query="what milk is used")
+
+
+def test_a_span_occurring_twice_in_its_note_is_rejected():
+    notes = {"strings/violin.md": _DUP_PASSAGE + " Pizza cheese is also made from cow's milk."}
+    assert "more than once" in (automatic_gate(_milk_candidate(), notes, TITLES) or "")
+
+
+def test_a_span_occurring_once_in_its_note_survives():
+    notes = {"strings/violin.md": _DUP_PASSAGE + " Pizza cheese is a different product."}
+    assert automatic_gate(_milk_candidate(), notes, TITLES) is None
+
+
+def test_span_uniqueness_ignores_whitespace_and_case():
+    # Same containment normalisation the metric uses, or the gate would pass
+    # spans the metric then treats as duplicates.
+    notes = {"strings/violin.md": _DUP_PASSAGE + " Also MADE   FROM\n COW'S MILK here."}
+    assert "more than once" in (automatic_gate(_milk_candidate(), notes, TITLES) or "")
+
+
+# --- queries that point at a passage the retriever cannot see --------------
+
+
+def test_a_query_referring_to_the_passage_is_rejected():
+    bad = replace(GOOD, query="What is the violin tuned to according to the passage?")
+    assert "refers to the source text" in (automatic_gate(bad, NOTES, TITLES) or "")
+
+
+def test_a_query_referring_to_the_article_in_spanish_is_rejected():
+    bad = replace(GOOD, query="¿En qué intervalos se afina el violín según el artículo?")
+    assert "refers to the source text" in (automatic_gate(bad, NOTES, TITLES) or "")
+
+
+def test_a_query_merely_containing_the_word_article_is_not_rejected():
+    # The check must catch deictic references to the source, not every use of
+    # a word like "article" -- "which article of the rules" is a real query.
+    bad = replace(GOOD, query="Which article of the racing rules covers bowing technique?")
+    assert automatic_gate(bad, NOTES, TITLES) is None
