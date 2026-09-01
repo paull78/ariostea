@@ -3032,7 +3032,9 @@ Expected: every type represented, every cluster represented, and cases spread ov
 
 - [ ] **Step 6: Human spot-review (validation stage 4)**
 
-Open `eval/wiki/gold_review.md` and work through the sample. For each case check that the query is answerable, that the span answers it, and that the span is not the only sentence in the corpus that could plausibly answer — an unfair query is as useless as a trivial one.
+Open `eval/gold_review.md` (outside `eval/wiki/`, so it is not indexed as a corpus note) and work through the sample. For each case check that the query is answerable, that the span answers it, and that no *other* passage in the corpus answers it just as well — an unfair query is as useless as a trivial one, and a query with two valid answers but one labelled span is exactly that: a retriever returning the unlabelled one is correct and scored as a miss.
+
+> **Corrected 2026-09-01.** This step originally read "the span is *not* the only sentence in the corpus that could plausibly answer", which inverts the test — and the inverted wording shipped into the generated review header before a reader trying to apply it caught the contradiction with the very next clause. The uniqueness check is also not something a human can perform against 79 notes by inspection; it is a retrieval problem, and is now automated as the stage 3.5 ambiguity gate.
 
 **This step needs the repository owner, not an agent.** Stop here and hand the file over. Record the outcome — how many of the sample were sound — in the commit message, since it is the only evidence stage 4 ran at all.
 

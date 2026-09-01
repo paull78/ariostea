@@ -6,9 +6,12 @@ Pipeline, per selected passage:
 
     select -> generate -> stage 1 automatic -> stage 2 adversarial judge
                                                    |
-                        stage 3 discrimination <---+
-                                  |
-                        eval/wiki/gold.json
+              stage 3 <- stage 2.5 ambiguity <-----+
+              discrimination
+              eval/wiki/gold.json
+
+Stages 2.5 and 3 both need the corpus indexed, so they share one build of it;
+`--no-discrimination` skips both (and with them the whole embedding pass).
 
 Point it at a running OpenAI-compatible endpoint with:
     ARIOSTEA_GOLD_BASE_URL    (default http://localhost:1234/v1, LM Studio)
@@ -78,6 +81,11 @@ from pathlib import Path
 
 from ariostea.adapters.chat.openai_compat import ChatError, OpenAICompatChat
 from ariostea.eval.chat_cache import CachingChat
+from ariostea.eval.gold_ambiguity import (
+    UNREACHABLE_PREFIX,
+    ambiguity_filter,
+    collect_competitors,
+)
 from ariostea.eval.gold_discriminate import discrimination_filter
 from ariostea.eval.gold_generate import Candidate, generate_case
 from ariostea.eval.gold_passages import Passage, select_passages
@@ -332,8 +340,14 @@ def review_markdown(cases: list[WikiGoldCase], sample_size: int) -> str:
         "# Gold spot-review sample",
         "",
         "Tick a case only if **all three** hold: the query is answerable, the span "
-        "answers it, and the span is not the only sentence in the corpus that "
-        "plausibly could.",
+        "answers it, and no *other* passage in the corpus answers it just as well.",
+        "",
+        "The third is not a stylistic preference. `answer_spans` is a fixed list, and "
+        "a retrieved chunk scores as a hit only if it sits in the labelled note and "
+        "contains the labelled span. So if some other passage also answers the query, "
+        "a retriever that ranks it first is *correct* and scored as a **miss** -- the "
+        "case would punish the behaviour we want. Rejecting those keeps the metric "
+        "honest.",
         "",
     ]
     if not cases:
@@ -514,9 +528,40 @@ def main(argv: list[str] | None = None) -> int:
         if not args.no_discrimination and cases:
             with tempfile.TemporaryDirectory() as tmp:
                 db = str(Path(tmp) / "eval.db")
-                print("indexing the corpus for the discrimination filter ...", flush=True)
+                print("indexing the corpus for the retrieval-backed stages ...", flush=True)
                 container = index_wiki_corpus(WIKI_DIR, db)
-                cases, dropped = discrimination_filter(cases, wiki_channels(db, container))
+                channels = wiki_channels(db, container)
+
+                # Discrimination first because it is free -- pure retrieval,
+                # no model calls -- so every case it drops is one the judge
+                # below never has to be paid for.
+                cases, dropped = discrimination_filter(cases, channels)
+                print(f"{len(dropped)} dropped as too easy; {len(cases)} remain", flush=True)
+
+                # Collected here, judged *after* this block. Retrieval holds an
+                # embedding model and a store; judging holds a 35B reasoning
+                # model. Both at once is what SIGKILLed two earlier runs, and
+                # SIGKILL cannot be caught -- so the index is released first.
+                collected = collect_competitors(cases, channels)
+
+            print(f"judging {len(collected)} cases for ambiguity ...", flush=True)
+            cases, ambiguous = ambiguity_filter(collected, judge)
+            print(f"{len(ambiguous)} dropped as ambiguous; {len(cases)} remain", flush=True)
+            rejections += [
+                Rejection(
+                    # An outage is not a verdict. Filing it under "ambiguity"
+                    # would shrink the gold set and report the shrinkage as a
+                    # quality finding; "judge-unreachable" is what
+                    # `unreachable_count` reads to fail the run instead.
+                    "judge-unreachable" if reason.startswith(UNREACHABLE_PREFIX) else "ambiguity",
+                    reason,
+                    case.query,
+                    case.expected_notes[0],
+                    case.answer_spans[0].text,
+                    case.type,
+                )
+                for case, reason in ambiguous
+            ]
             rejections += [
                 Rejection(
                     "discrimination",
@@ -528,7 +573,6 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 for case in dropped
             ]
-            print(f"{len(dropped)} dropped as too easy; {len(cases)} remain", flush=True)
     finally:
         # In a `finally` for the same reason `build_wiki_corpus.py` writes its
         # manifest in one: the first full run was killed after every model
