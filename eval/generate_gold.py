@@ -71,6 +71,7 @@ the old one.
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 import os
 import sys
@@ -465,6 +466,35 @@ def _write_outputs(
     REVIEW.write_text(review_markdown(cases, REVIEW_SAMPLE), encoding="utf-8")
 
 
+def _retrieval_stages(
+    cases: list[WikiGoldCase],
+) -> tuple[list[WikiGoldCase], list[WikiGoldCase], list[tuple[WikiGoldCase, tuple[str, ...]]]]:
+    """Run everything that needs the corpus indexed, and release it on return.
+
+    A function rather than an inline `with` block, and that is the whole
+    point: `wiki_channels` returns closures holding an embedding model and an
+    open store, so binding them to a local in `main` keeps roughly 15GB alive
+    for the rest of the run no matter that the temporary *directory* has been
+    cleaned up. The first version of this code did exactly that and was
+    SIGKILLed the moment the judge model loaded on top. Locals of a returned
+    frame are dropped, so the memory can actually go.
+
+    Returns `(kept, dropped_as_too_easy, collected_competitors)`.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        db = str(Path(tmp) / "eval.db")
+        print("indexing the corpus for the retrieval-backed stages ...", flush=True)
+        container = index_wiki_corpus(WIKI_DIR, db)
+        channels = wiki_channels(db, container)
+
+        # Discrimination first because it is free -- pure retrieval, no model
+        # calls -- so every case it drops is one the judge is not paid for.
+        kept, dropped = discrimination_filter(cases, channels)
+        print(f"{len(dropped)} dropped as too easy; {len(kept)} remain", flush=True)
+
+        return kept, dropped, collect_competitors(kept, channels)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Generate the wiki eval gold set.")
     parser.add_argument("--limit", type=int, help="cap the total passages (for a smoke run)")
@@ -526,23 +556,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{len(cases)} candidates survived stages 1 and 2", flush=True)
 
         if not args.no_discrimination and cases:
-            with tempfile.TemporaryDirectory() as tmp:
-                db = str(Path(tmp) / "eval.db")
-                print("indexing the corpus for the retrieval-backed stages ...", flush=True)
-                container = index_wiki_corpus(WIKI_DIR, db)
-                channels = wiki_channels(db, container)
+            cases, dropped, collected = _retrieval_stages(cases)
 
-                # Discrimination first because it is free -- pure retrieval,
-                # no model calls -- so every case it drops is one the judge
-                # below never has to be paid for.
-                cases, dropped = discrimination_filter(cases, channels)
-                print(f"{len(dropped)} dropped as too easy; {len(cases)} remain", flush=True)
-
-                # Collected here, judged *after* this block. Retrieval holds an
-                # embedding model and a store; judging holds a 35B reasoning
-                # model. Both at once is what SIGKILLed two earlier runs, and
-                # SIGKILL cannot be caught -- so the index is released first.
-                collected = collect_competitors(cases, channels)
+            # The embedding model and store are only actually freed once
+            # `_retrieval_stages` has returned and its locals are gone; a
+            # collection here makes that release happen *before* the judge is
+            # asked for its first verdict and LM Studio loads 20GB of
+            # reasoning model on top. Leaving the two overlapping is what
+            # killed the previous run at exactly this line.
+            gc.collect()
 
             print(f"judging {len(collected)} cases for ambiguity ...", flush=True)
             cases, ambiguous = ambiguity_filter(collected, judge)
