@@ -121,7 +121,16 @@ CACHE = WIKI_DIR / ".gold_cache.jsonl"
 # cached, so raising these numbers tops the set up rather than regenerating
 # it. cross_lingual is smaller because it is the most expensive to review by
 # hand.
-BUDGET = {"paraphrase": 80, "exact_term": 80, "buried": 80, "cross_lingual": 90}
+# Sized from measured survival, not guessed. The three validation gates reject
+# about two thirds of candidates -- and unevenly: on the 330-candidate run
+# `buried` and `paraphrase` survived at ~40%, `cross_lingual` at 32%, and
+# `exact_term` at only 20%, because rare-term spans are short and often repeat
+# in their note, which trips both the length and the uniqueness check. A flat
+# budget therefore produced a lopsided set (16 exact_term against 32 buried),
+# and n=16 is too coarse for a track whose whole job is attributing a change
+# to lexical matching. These numbers divide the target through each type's own
+# survival rate; `select_passages` confirms all 505 are supplied.
+BUDGET = {"paraphrase": 105, "exact_term": 175, "buried": 100, "cross_lingual": 125}
 
 # Cross-lingual queries cycle through the two languages the corpus holds
 # parallel articles in -- weighted two-to-one toward Italian, which is not
@@ -567,7 +576,15 @@ def main(argv: list[str] | None = None) -> int:
             gc.collect()
 
             print(f"judging {len(collected)} cases for ambiguity ...", flush=True)
-            cases, ambiguous = ambiguity_filter(collected, judge)
+            cases, ambiguous = ambiguity_filter(
+                collected,
+                judge,
+                on_progress=lambda done, total, kept: (
+                    print(f"  ambiguity {done}/{total}, {kept} kept", flush=True)
+                    if done % 10 == 0 or done == total
+                    else None
+                ),
+            )
             print(f"{len(ambiguous)} dropped as ambiguous; {len(cases)} remain", flush=True)
             rejections += [
                 Rejection(

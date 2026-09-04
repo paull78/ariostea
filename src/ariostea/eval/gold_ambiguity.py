@@ -24,6 +24,8 @@ inverted the test as well.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from ariostea.adapters.chat.openai_compat import ChatError
 from ariostea.eval.gold_prompts import parse_json_object
 from ariostea.eval.harness import SpanSearchFn
@@ -156,11 +158,19 @@ UNREACHABLE_PREFIX = "judge unreachable:"
 def ambiguity_filter(
     collected: list[tuple[WikiGoldCase, tuple[str, ...]]],
     judge: ChatProvider,
+    on_progress: Callable[[int, int, int], None] | None = None,
 ) -> tuple[list[WikiGoldCase], list[tuple[WikiGoldCase, str]]]:
     """Split pre-collected cases into `(kept, [(dropped, reason)])`, in order.
 
     Takes the output of `collect_competitors` rather than channels, so it needs
     no index of its own -- see that function for why the two are separated.
+
+    `on_progress(done, total, kept)` is called after each verdict. Not
+    decoration: judging the real set takes over half an hour of model calls,
+    and a stage that prints nothing while it works is indistinguishable from a
+    stage that has hung -- this pipeline has already lost days to that
+    ambiguity once, and two runs were stopped mid-judging while they were in
+    fact making steady progress.
 
     A `ChatError` drops the case with `UNREACHABLE_PREFIX` rather than aborting
     the run or being recorded as ambiguity. An endpoint that cannot load the
@@ -170,7 +180,7 @@ def ambiguity_filter(
     """
     kept: list[WikiGoldCase] = []
     dropped: list[tuple[WikiGoldCase, str]] = []
-    for case, passages in collected:
+    for index, (case, passages) in enumerate(collected, start=1):
         try:
             reason = ambiguity_gate(judge, case, passages)
         except ChatError as exc:
@@ -179,4 +189,6 @@ def ambiguity_filter(
             kept.append(case)
         else:
             dropped.append((case, reason))
+        if on_progress is not None:
+            on_progress(index, len(collected), len(kept))
     return kept, dropped

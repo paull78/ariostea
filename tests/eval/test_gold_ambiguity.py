@@ -168,3 +168,20 @@ def test_a_judge_outage_is_marked_unreachable_not_ambiguous():
     kept, dropped = ambiguity_filter(collected, DeadJudge())
     assert kept == []
     assert dropped[0][1].startswith(UNREACHABLE_PREFIX)
+
+
+def test_progress_is_reported_after_every_verdict():
+    # A stage that prints nothing for half an hour of model calls is
+    # indistinguishable from one that has hung; two real runs were stopped
+    # mid-judging while they were in fact progressing normally.
+    judge = FakeJudge('{"competes": false, "reason": "no"}')
+    collected = collect_competitors([CASE, CASE], {"DENSE": _channel(HIT, OTHER_NOTE)}, limit=5)
+    seen: list[tuple[int, int, int]] = []
+    ambiguity_filter(collected, judge, on_progress=lambda *args: seen.append(args))
+    assert seen == [(1, 2, 1), (2, 2, 2)]
+
+
+def test_progress_is_optional():
+    judge = FakeJudge('{"competes": false, "reason": "no"}')
+    collected = collect_competitors([CASE], {"DENSE": _channel(HIT, OTHER_NOTE)}, limit=5)
+    assert ambiguity_filter(collected, judge)[0] == [CASE]
