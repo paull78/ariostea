@@ -1,87 +1,89 @@
 # Gold spot-review sample
 
-Tick a case only if **all three** hold: the query is answerable, the span answers it, and the span is not the only sentence in the corpus that plausibly could.
+Tick a case only if **all three** hold: the query is answerable, the span answers it, and no *other* passage in the corpus answers it just as well.
 
-## buried  (46 cases, showing 5: 5 en)
+The third is not a stylistic preference. `answer_spans` is a fixed list, and a retrieved chunk scores as a hit only if it sits in the labelled note and contains the labelled span. So if some other passage also answers the query, a retriever that ranks it first is *correct* and scored as a **miss** -- the case would punish the behaviour we want. Rejecting those keeps the metric honest.
 
-- [ ] **What is the temperature range for ripening blue cheese?**  `en`
+## buried  (40 cases, showing 5: 5 en)
+
+- [x] **What is the temperature range for ripening blue cheese?**  `en`
   - note: `cheese/blue-cheese.md`
   - span: 8-10 degrees Celsius
 
-- [ ] **What is a key difference between the dry processing method and other methods in terms of cost?**  `en`
+- [x] **What material can be used for the chessboard in FIDE tournaments other than championships?**  `en`
+  - note: `board-games/chessboard.md`
+  - span: wood, plastic, or cardboard boards
+
+- [x] **What plant species is also known as Paneer Booti, Ashwagandha and the Indian Cheesemaker?**  `en`
+  - note: `cheese/rennet.md`
+  - span: *Withania coagulans* (also known as Paneer Booti, Ashwagandh and the Indian Cheesemaker)
+
+- [x] **What keys do beginning violin students often start with?**  `en`
+  - note: `string-instruments/violin.md`
+  - span: A Major and G major
+
+- [x] **What is the name of the coffee made from beans excreted by the Asian palm civet?**  `en`
   - note: `coffee/coffee-bean.md`
-  - span: cheaper and simpler
+  - span: These beans are called *kopi luwak*, and are sold as a rare coffee at a high price
 
-- [ ] **What is the oldest known depiction of a sternpost-mounted rudder?**  `en`
-  - note: `sailing/rudder.md`
-  - span: The world's oldest known depiction of a sternpost-mounted rudder can be seen on a pottery model of a Chinese junk dating from the 1st century AD during the Han dynasty
+## cross_lingual  (46 cases, showing 4: 2 es, 2 it)
 
-- [ ] **How many moves does it take for two xiangqi soldiers to be able to protect each other?**  `en`
-  - note: `board-games/xiangqi.md`
-  - span: a minimum of five soldier moves
-
-- [ ] **Who wrote the book 'How to Play the Five-String Banjo'?**  `en`
-  - note: `string-instruments/banjo.md`
-  - span: Pete Seeger
-
-## cross_lingual  (50 cases, showing 4: 2 es, 2 it)
-
-- [ ] **¿Cuándo se cree que los mineros del período Hallstatt consumieron queso azul y cerveza?**  `es`
+- [x] **¿Cuándo se cree que los mineros del período Hallstatt consumieron queso azul y cerveza?**  `es`
   - note: `cheese/blue-cheese.md`
   - span: miners of the Hallstatt Period (800 to 400 BC) already consumed blue cheese and beer
 
-- [ ] **¿De qué tipo de leche se prepara la mozzarella fior di latte?**  `es`
-  - note: `cheese/mozzarella.md`
-  - span: cow's milk
+- [x] **¿Cómo se operaba el freno en las bicicletas de la época del boneshaker?**  `es`
+  - note: `cycling/bicycle-brake.md`
+  - span: by a lever or by a cord connecting to the handlebars
 
-- [ ] **Quali sono i due principali tipi di freni per biciclette?**  `it`
+- [x] **Quali sono i due principali tipi di freni per biciclette?**  `it`
   - note: `cycling/bicycle-brake.md`
   - span: rim brakes and disc brakes
 
-- [ ] **Che tipo di biciclette sono definite come 'road bicycle'?**  `it`
-  - note: `cycling/road-bicycle.md`
-  - span: bicycles built for traveling at speed on paved roads
+- [x] **Qual è il nome dato al brie che viene lasciato maturare per mesi o anni?**  `it`
+  - note: `cheese/brie.md`
+  - span: Brie noir ('black brie')
 
-## exact_term  (34 cases, showing 5: 5 en)
+## exact_term  (42 cases, showing 5: 5 en)
 
-- [ ] **Who introduced the front brake on penny-farthings?**  `en`
+- [x] **Who introduced the front brake on penny-farthings?**  `en`
   - note: `cycling/bicycle-brake.md`
   - span: John Kean in 1873
 
-- [ ] **What are diamond stays and jumpers used for in relation to a mast?**  `en`
-  - note: `sailing/rigging.md`
-  - span: to keep a thin mast in column especially under the load of a large down wind sail or in strong wind
+- [x] **What happens to a piece after it is jumped in international draughts?**  `en`
+  - note: `board-games/checkers.md`
+  - span: jumped pieces remain on the board until the turn is completed
 
-- [ ] **What are the three major manufacturers of complete groupsets for racing bicycles?**  `en`
-  - note: `cycling/racing-bicycle.md`
-  - span: Shimano, SRAM, and Campagnolo
+- [ ] **What material are modern violin strings trying to combine the sound quality of?**  `en`  <- REJECTED: spot-review: English query over a Spanish span shares no lexical term with it, so it cannot test lexical matching; the English violin article is also a near-competitor
+  - note: `string-instruments/violin-es.md`
+  - span: tripa y la resistencia de los metales
 
-- [ ] **What part of the cello is used to support it between the player's legs?**  `en`
-  - note: `string-instruments/violoncello-it.md`
-  - span: puntale presente nella parte inferiore dello strumento
+- [x] **What is marked on the board to indicate where cannons start?**  `en`
+  - note: `board-games/xiangqi.md`
+  - span: starting points of the soldiers and cannons are usually, but not always, marked with small crosses
 
-- [ ] **What field is chess relevant to according to the passage?**  `en`
-  - note: `board-games/chess.md`
-  - span: mathematics, computer science, and psychology
-
-## paraphrase  (57 cases, showing 5: 5 en)
-
-- [ ] **what historical similarity gave cappuccino its name?**  `en`
-  - note: `coffee/cappuccino-bevanda-it.md`
-  - span: Il nome si riferiva, in passato, tendenzialmente alla somiglianza con il color marrone del saio dei frati minori cappuccini
-
-- [ ] **What happens to a sail's efficiency when it moves towards the downwind direction?**  `en`
-  - note: `sailing/sail.md`
-  - span: The more that the angle of attack diverges from the apparent wind as a sailing craft turns downwind, the more drag increases and lift decreases
-
-- [ ] **What is a common sweetener added to lattes in America?**  `en`
-  - note: `coffee/latte.md`
-  - span: usually with 3% or more of refined white sugar, artificial sweeteners or agave syrup
-
-- [ ] **who first officially named coffee arabica in scientific literature?**  `en`
+- [x] **What is Coffea arabica classified as in southeast Queensland due to its invasiveness?**  `en`
   - note: `coffee/coffea-arabica.md`
-  - span: Carl Linnaeus
+  - span: an environmental weed
 
-- [ ] **When did gear-changing bikes debut in a major cycling event?**  `en`
-  - note: `cycling/derailleur.md`
-  - span: 1937, the derailleur system was introduced to the Tour de France
+## paraphrase  (41 cases, showing 5: 5 en)
+
+- [x] **Are racing bikes permitted on public roads?**  `en`
+  - note: `cycling/racing-bicycle.md`
+  - span: Racing bicycles are generally legal for use on public roads
+
+- [x] **What limitation did traditional main sails face before Herreshoff's innovation?**  `en`
+  - note: `sailing/mainsail.md`
+  - span: mainsails were limited in height
+
+- [x] **What maneuver did Peter Claydon pioneer in narrow waterways that later proved beneficial in open seas?**  `en`
+  - note: `sailing/tacking-sailing.md`
+  - span: roll tacking technique he developed on the narrow river gave a distinct advantage in open water too
+
+- [ ] **how do chess pieces take enemy units?**  `en`  <- REJECTED: spot-review: chess.md states twice that a piece captures by moving onto the enemy's square, answering the query as well as the labelled span
+  - note: `board-games/chess-piece.md`
+  - span: Pieces other than pawns capture in the same way that they move.
+
+- [x] **When did steam-powered milk frothing in coffee drinks become feasible?**  `en`
+  - note: `coffee/latte.md`
+  - span: in 1903, which made it possible to add heat and texture to milk added to coffee

@@ -2,13 +2,13 @@
   "generator_model": "qwen2.5-14b-instruct-mlx",
   "judge_model": "qwen/qwen3.6-35b-a3b",
   "base_url": "http://localhost:1234/v1",
-  "passages_selected": 330,
-  "accepted": 187,
-  "rejected": 143,
+  "passages_selected": 505,
+  "accepted": 167,
+  "rejected": 338,
   "by_type": {
-    "buried": 46,
-    "cross_lingual": 50,
-    "exact_term": 34,
-    "paraphrase": 57
+    "buried": 40,
+    "cross_lingual": 46,
+    "exact_term": 41,
+    "paraphrase": 40
   }
 }
