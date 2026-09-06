@@ -84,6 +84,7 @@ from ariostea.adapters.chat.openai_compat import ChatError, OpenAICompatChat
 from ariostea.eval.chat_cache import CachingChat
 from ariostea.eval.gold_ambiguity import (
     UNREACHABLE_PREFIX,
+    UNREADABLE_PREFIX,
     ambiguity_filter,
     collect_competitors,
 )
@@ -162,7 +163,8 @@ REVIEW_SAMPLE = 20
 
 @dataclass(frozen=True)
 class Rejection:
-    # "generate" | "automatic" | "adversarial" | "judge-unreachable" | "discrimination"
+    # "generate" | "automatic" | "adversarial" | "judge-unreachable" | "judge-unreadable"
+    # | "discrimination" | "ambiguity" | "spot-review"
     stage: str
     reason: str
     query: str
@@ -398,6 +400,14 @@ def review_markdown(cases: list[WikiGoldCase], sample_size: int) -> str:
     return "\n".join(lines)
 
 
+def _ambiguity_stage(reason: str) -> str:
+    if reason.startswith(UNREACHABLE_PREFIX):
+        return "judge-unreachable"
+    if reason.startswith(UNREADABLE_PREFIX):
+        return "judge-unreadable"
+    return "ambiguity"
+
+
 def unreachable_count(rejections: list[Rejection]) -> int:
     """How many candidates were lost to the judge endpoint rather than judged."""
     return sum(1 for rejection in rejections if rejection.stage == "judge-unreachable")
@@ -501,7 +511,17 @@ def _retrieval_stages(
         kept, dropped = discrimination_filter(cases, channels)
         print(f"{len(dropped)} dropped as too easy; {len(kept)} remain", flush=True)
 
-        return kept, dropped, collect_competitors(kept, channels)
+        print(f"collecting competitors for {len(kept)} cases ...", flush=True)
+        collected = collect_competitors(
+            kept,
+            channels,
+            on_progress=lambda done, total: (
+                print(f"  collected {done}/{total}", flush=True)
+                if done % 10 == 0 or done == total
+                else None
+            ),
+        )
+        return kept, dropped, collected
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -591,8 +611,10 @@ def main(argv: list[str] | None = None) -> int:
                     # An outage is not a verdict. Filing it under "ambiguity"
                     # would shrink the gold set and report the shrinkage as a
                     # quality finding; "judge-unreachable" is what
-                    # `unreachable_count` reads to fail the run instead.
-                    "judge-unreachable" if reason.startswith(UNREACHABLE_PREFIX) else "ambiguity",
+                    # `unreachable_count` reads to fail the run instead. An
+                    # unreadable verdict is likewise the judge's failure, not
+                    # the case's, though not one that should fail the run.
+                    _ambiguity_stage(reason),
                     reason,
                     case.query,
                     case.expected_notes[0],

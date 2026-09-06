@@ -344,3 +344,17 @@ def test_unreachable_count_ignores_real_verdicts():
         generate_gold.Rejection("automatic", "span too short", "q", "n", "s", "buried"),
     ]
     assert generate_gold.unreachable_count(rejections) == 0
+
+
+def test_ambiguity_rejections_are_filed_by_what_the_judge_did():
+    # A verdict is ambiguity. An outage fails the run. A verdict nobody can
+    # parse is neither: the judge's failure, not the case's, and not one that
+    # should abort a run that is otherwise healthy.
+    from ariostea.eval.gold_ambiguity import UNREACHABLE_PREFIX, UNREADABLE_PREFIX
+
+    stage = generate_gold._ambiguity_stage
+    assert stage("another passage answers the query as well (x)") == "ambiguity"
+    assert stage(f"{UNREACHABLE_PREFIX} model failed to load") == "judge-unreachable"
+    assert stage(f"{UNREADABLE_PREFIX} no JSON object in response") == "judge-unreadable"
+    rejections = [generate_gold.Rejection("judge-unreadable", "x", "q", "n", "s", "paraphrase")]
+    assert generate_gold.unreachable_count(rejections) == 0

@@ -95,6 +95,14 @@ def competing_passages(
     return tuple(competitors[:limit])
 
 
+# Prefix marking a verdict the judge produced but nobody can parse -- empty
+# output, truncated JSON, a missing key. Still a rejection (see
+# `ambiguity_gate`), but a parse failure is not a finding about the case, and
+# filing it as ambiguity would let a flaky judge pass for a quality signal.
+# Three of the 75 "ambiguous" drops on the first full run were this.
+UNREADABLE_PREFIX = "ambiguity verdict unreadable:"
+
+
 def ambiguity_gate(
     judge: ChatProvider, case: WikiGoldCase, passages: tuple[str, ...]
 ) -> str | None:
@@ -112,6 +120,8 @@ def ambiguity_gate(
 
     Every failure to read a verdict is a rejection, matching `adversarial_gate`:
     an unparseable or truncated response is not evidence the case is sound.
+    It is not evidence of ambiguity either, so those reasons carry
+    `UNREADABLE_PREFIX` and the runner files them under their own stage.
     """
     if not passages:
         return None
@@ -120,10 +130,10 @@ def ambiguity_gate(
     try:
         verdict = parse_json_object(raw)
     except ValueError as exc:
-        return f"ambiguity verdict unreadable: {exc}"
+        return f"{UNREADABLE_PREFIX} {exc}"
 
     if "competes" not in verdict:
-        return "ambiguity verdict missing the 'competes' key"
+        return f"{UNREADABLE_PREFIX} missing the 'competes' key"
 
     reason = str(verdict.get("reason", "")).strip()
     if verdict.get("competes"):
@@ -135,8 +145,15 @@ def collect_competitors(
     cases: list[WikiGoldCase],
     channels: dict[str, SpanSearchFn],
     limit: int = COMPETITOR_LIMIT,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> list[tuple[WikiGoldCase, tuple[str, ...]]]:
     """Gather each case's competing passages. Needs the index; makes no model calls.
+
+    `on_progress(done, total)` is called after each case. Same reasoning as
+    in `ambiguity_filter`: the hybrid channel reranks its whole pool on CPU
+    for every query, which took over two hours on the real set, and a stage
+    that is silent for that long looks hung. One healthy run was killed on
+    exactly that suspicion.
 
     Split from `ambiguity_filter` on purpose, and the reason is memory rather
     than tidiness. Retrieval holds an embedding model and a store open; judging
@@ -146,7 +163,12 @@ def collect_competitors(
     afterwards means the index is closed before the judge is ever called, so
     the peak is one of them rather than their sum.
     """
-    return [(case, competing_passages(case, channels, limit)) for case in cases]
+    collected: list[tuple[WikiGoldCase, tuple[str, ...]]] = []
+    for index, case in enumerate(cases, start=1):
+        collected.append((case, competing_passages(case, channels, limit)))
+        if on_progress is not None:
+            on_progress(index, len(cases))
+    return collected
 
 
 # Prefix marking a drop caused by the endpoint rather than by the case. The

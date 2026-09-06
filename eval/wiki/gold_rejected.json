@@ -1912,7 +1912,7 @@
     "type": "buried"
   },
   {
-    "stage": "ambiguity",
+    "stage": "judge-unreadable",
     "reason": "ambiguity verdict unreadable: Expecting value: line 4 column 13 (char 48)",
     "query": "What type of bacteria is used in Swiss cheese to create holes?",
     "note": "cheese/cheese.md",
@@ -2128,7 +2128,7 @@
     "type": "exact_term"
   },
   {
-    "stage": "ambiguity",
+    "stage": "judge-unreadable",
     "reason": "ambiguity verdict unreadable: no JSON object in response: ''",
     "query": "What variant chess uses a board with four additional squares in each corner?",
     "note": "board-games/chessboard.md",
@@ -2160,7 +2160,7 @@
     "type": "exact_term"
   },
   {
-    "stage": "ambiguity",
+    "stage": "judge-unreadable",
     "reason": "ambiguity verdict unreadable: Expecting value: line 4 column 13 (char 48)",
     "query": "What does laying the keel mark in ship construction?",
     "note": "sailing/keel.md",

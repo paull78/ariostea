@@ -3,6 +3,7 @@ import pytest
 from ariostea.adapters.chat.openai_compat import ChatError
 from ariostea.eval.gold_ambiguity import (
     UNREACHABLE_PREFIX,
+    UNREADABLE_PREFIX,
     ambiguity_filter,
     ambiguity_gate,
     collect_competitors,
@@ -185,3 +186,31 @@ def test_progress_is_optional():
     judge = FakeJudge('{"competes": false, "reason": "no"}')
     collected = collect_competitors([CASE], {"DENSE": _channel(HIT, OTHER_NOTE)}, limit=5)
     assert ambiguity_filter(collected, judge)[0] == [CASE]
+
+
+def test_collect_competitors_reports_progress_per_case():
+    # Collection reranks every case against the full pool on CPU and took
+    # over two hours on the real set while printing nothing. Silence that
+    # long is indistinguishable from a hang, and got a healthy run killed.
+    seen: list[tuple[int, int]] = []
+    collect_competitors(
+        [CASE, CASE],
+        {"DENSE": _channel(HIT, OTHER_NOTE)},
+        limit=5,
+        on_progress=lambda *args: seen.append(args),
+    )
+    assert seen == [(1, 2), (2, 2)]
+
+
+def test_an_unreadable_verdict_is_marked_as_such():
+    # A parse failure is not a finding about the case. It needs its own
+    # prefix so the runner can file it apart from real ambiguity verdicts.
+    judge = FakeJudge("I think, on balance, probably not?")
+    reason = ambiguity_gate(judge, CASE, ("something",))
+    assert reason is not None and reason.startswith(UNREADABLE_PREFIX)
+
+
+def test_a_verdict_missing_the_key_is_marked_unreadable():
+    judge = FakeJudge('{"reason": "forgot the verdict"}')
+    reason = ambiguity_gate(judge, CASE, ("something",))
+    assert reason is not None and reason.startswith(UNREADABLE_PREFIX)
