@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from ariostea.domain.models import Chunk, Note
@@ -50,8 +51,41 @@ def _token_count(text: str) -> int:
 
 
 class HeadingAwareChunker(Chunker):
-    def __init__(self, max_tokens: int = 512) -> None:
+    """Split at every heading, then cut long sections into windows.
+
+    `max_tokens` caps each piece's total cost. A word costs 1 unless `count`
+    is given, in which case it costs `count(word)` -- the embedding model's
+    tokenizer, so the cap means what the model actually reads. `overlap`
+    repeats up to that much cost from the end of one piece at the start of the
+    next, so a span cut at a boundary is still whole in one chunk. Windows
+    never cross a heading: the heading split is the part of the policy that
+    already follows the document's structure.
+
+    With the defaults the output is identical to the chunker before overlap
+    and cost functions existed; a test pins that on the whole wiki corpus.
+    """
+
+    def __init__(
+        self,
+        max_tokens: int = 512,
+        overlap: int = 0,
+        count: Callable[[str], int] | None = None,
+        unit: str = "words",
+    ) -> None:
         self.max_tokens = max_tokens
+        self.overlap = overlap
+        self._count = count
+        self._unit = unit
+
+    @property
+    def fingerprint(self) -> str:
+        """Empty for the default policy, so an index built before chunking was
+        configurable keeps its stored fingerprint instead of being forced into
+        a full reindex it does not need. Any other policy names itself, so
+        changing it re-chunks every note."""
+        if (self.max_tokens, self.overlap, self._unit, self._count) == (512, 0, "words", None):
+            return ""
+        return f"chunk:heading_aware:{self.max_tokens}:{self.overlap}:{self._unit}"
 
     def chunk(self, note: Note, body: str) -> list[Chunk]:
         chunks: list[Chunk] = []
@@ -72,9 +106,27 @@ class HeadingAwareChunker(Chunker):
 
     def _fit(self, text: str) -> list[str]:
         words = text.split()
-        if len(words) <= self.max_tokens:
-            return [text]
+        costs = [1] * len(words) if self._count is None else [self._count(w) for w in words]
+        if sum(costs) <= self.max_tokens:
+            return [text]  # untouched, newlines and all, as before
+
         pieces: list[str] = []
-        for i in range(0, len(words), self.max_tokens):
-            pieces.append(" ".join(words[i : i + self.max_tokens]))
+        start = 0
+        while start < len(words):
+            end, total = start, 0
+            # Always take at least one word, so a word costlier than the whole
+            # budget becomes its own piece instead of stalling the window.
+            while end < len(words) and (end == start or total + costs[end] <= self.max_tokens):
+                total += costs[end]
+                end += 1
+            pieces.append(" ".join(words[start:end]))
+            if end >= len(words):
+                break
+            # Step back to repeat up to `overlap` of cost, but always leave the
+            # next window starting at least one word further on.
+            back, repeated = end, 0
+            while back > start + 1 and repeated + costs[back - 1] <= self.overlap:
+                repeated += costs[back - 1]
+                back -= 1
+            start = back
         return pieces
