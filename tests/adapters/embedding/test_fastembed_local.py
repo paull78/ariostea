@@ -18,3 +18,12 @@ def test_embeds_documents_and_query_consistently():
 
     # query is closer to its matching doc than the unrelated one
     assert dot(q, docs[1]) > dot(q, docs[0])
+
+
+@pytest.mark.integration
+def test_count_tokens_excludes_the_models_special_tokens():
+    emb = FastEmbedEmbeddings()
+    assert emb.count_tokens("") == 0
+    # Subword counting: a rare word costs more tokens than a common one.
+    assert emb.count_tokens("the") == 1
+    assert emb.count_tokens("Hallstatt") > 1

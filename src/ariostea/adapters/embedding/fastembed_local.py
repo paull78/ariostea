@@ -19,6 +19,12 @@ class FastEmbedEmbeddings(EmbeddingProvider):
     def embed_query(self, text: str) -> list[float]:
         return next(iter(self._model.embed([text]))).tolist()
 
+    def count_tokens(self, text: str) -> int:
+        """Subword tokens the model reads for `text`, without the start and end
+        markers it adds. Not on the EmbeddingProvider port: only a local model
+        has a tokenizer to ask. Used to size chunks in the model's own units."""
+        return len(self._model.model.tokenizer.encode(text, add_special_tokens=False).ids)
+
     @property
     def dimension(self) -> int:
         if self._dim is None:
