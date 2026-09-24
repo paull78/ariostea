@@ -1,0 +1,220 @@
+
+[1/9] 512w
+
+##### 512w  (512 words)  spans reachable 167/167
+  indexing ...
+/Users/paolo/code/personal/ariostea/src/ariostea/adapters/embedding/fastembed_local.py:13: UserWarning: The model sentence-transformers/paraphrase-multilingual-mpnet-base-v2 now uses mean pooling instead of CLS embedding. In order to preserve the previous behaviour, consider either pinning fastembed version to 0.5.1 or using `add_custom_model` functionality.
+  self._model = TextEmbedding(model_name=model_name)
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.800     0.507     0.563      0.325     0.197     0.200
+cross_lingual   46      0.609     0.424     0.455      0.391     0.248     0.270
+exact_term      41      0.707     0.523     0.549      0.317     0.160     0.185
+paraphrase      40      0.775     0.561     0.599      0.300     0.228     0.214
+overall        167      0.719     0.501     0.538      0.335     0.209     0.219
+  discriminated-out cases (29): span recall 1.000
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.887     0.904      0.925     0.819     0.843
+cross_lingual   46      0.087     0.034     0.039      0.022     0.015     0.014
+exact_term      41      0.951     0.915     0.924      0.878     0.820     0.834
+paraphrase      40      0.775     0.582     0.616      0.675     0.418     0.472
+overall        167      0.671     0.586     0.602      0.605     0.502     0.523
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-09-24-chunk-512w-dense-sparse
+
+[2/9] 96t
+
+##### 96t  (96 tokens)  spans reachable 142/167
+  indexing ...
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.900     0.801     0.816      0.575     0.485     0.492
+cross_lingual   46      0.652     0.570     0.576      0.370     0.255     0.276
+exact_term      41      0.951     0.792     0.828      0.463     0.333     0.352
+paraphrase      40      0.900     0.676     0.724      0.500     0.398     0.408
+overall        167      0.844     0.705     0.731      0.473     0.364     0.378
+  discriminated-out cases (29): span recall 0.621
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.877     0.896      0.700     0.629     0.642
+cross_lingual   46      0.087     0.037     0.041      0.022     0.013     0.014
+exact_term      41      0.927     0.894     0.900      0.659     0.534     0.558
+paraphrase      40      0.825     0.628     0.671      0.400     0.293     0.315
+overall        167      0.677     0.590     0.608      0.431     0.356     0.370
+  discriminated-out cases (29): span recall 0.690
+  logged 2026-09-24-chunk-96t-dense-sparse
+
+[3/9] 96t+24
+
+##### 96t+24  (96 tokens, overlap 24)  spans reachable 161/167
+  indexing ...
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.975     0.890     0.910      0.625     0.506     0.521
+cross_lingual   46      0.652     0.523     0.544      0.457     0.316     0.343
+exact_term      41      0.951     0.745     0.795      0.610     0.401     0.438
+paraphrase      40      1.000     0.772     0.829      0.675     0.487     0.525
+overall        167      0.886     0.725     0.762      0.587     0.423     0.453
+  discriminated-out cases (29): span recall 0.931
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.896     0.910      0.750     0.662     0.678
+cross_lingual   46      0.065     0.032     0.031      0.022     0.011     0.011
+exact_term      41      0.927     0.893     0.900      0.756     0.640     0.661
+paraphrase      40      0.800     0.568     0.616      0.400     0.280     0.294
+overall        167      0.665     0.579     0.595      0.467     0.386     0.398
+  discriminated-out cases (29): span recall 0.931
+  logged 2026-09-24-chunk-96t+24-dense-sparse
+
+[4/9] 128t
+
+##### 128t  (128 tokens)  spans reachable 157/167
+  indexing ...
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.900     0.746     0.779      0.625     0.528     0.535
+cross_lingual   46      0.674     0.514     0.543      0.391     0.319     0.324
+exact_term      41      0.878     0.724     0.753      0.512     0.374     0.397
+paraphrase      40      0.825     0.670     0.693      0.575     0.450     0.461
+overall        167      0.814     0.658     0.687      0.521     0.414     0.425
+  discriminated-out cases (29): span recall 0.828
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.852     0.877      0.825     0.719     0.741
+cross_lingual   46      0.087     0.036     0.041      0.022     0.013     0.014
+exact_term      41      0.927     0.896     0.901      0.756     0.707     0.715
+paraphrase      40      0.850     0.538     0.610      0.475     0.281     0.318
+overall        167      0.683     0.563     0.589      0.503     0.417     0.433
+  discriminated-out cases (29): span recall 0.897
+  logged 2026-09-24-chunk-128t-dense-sparse
+
+[5/9] 128t+32
+
+##### 128t+32  (128 tokens, overlap 32)  spans reachable 167/167
+  indexing ...
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.875     0.816     0.821      0.625     0.512     0.522
+cross_lingual   46      0.630     0.559     0.567      0.457     0.345     0.361
+exact_term      41      0.976     0.796     0.841      0.561     0.440     0.458
+paraphrase      40      0.925     0.699     0.749      0.625     0.467     0.489
+overall        167      0.844     0.712     0.739      0.563     0.438     0.454
+  discriminated-out cases (29): span recall 0.862
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.896     0.910      0.875     0.791     0.807
+cross_lingual   46      0.087     0.036     0.041      0.022     0.013     0.014
+exact_term      41      0.927     0.905     0.909      0.805     0.691     0.716
+paraphrase      40      0.825     0.543     0.605      0.450     0.295     0.324
+overall        167      0.677     0.577     0.597      0.521     0.433     0.450
+  discriminated-out cases (29): span recall 0.931
+  logged 2026-09-24-chunk-128t+32-dense-sparse
+
+[6/9] 160t
+
+##### 160t  (160 tokens)  spans reachable 154/167
+  indexing ...
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.875     0.751     0.774      0.600     0.411     0.449
+cross_lingual   46      0.652     0.548     0.560      0.435     0.322     0.339
+exact_term      41      0.902     0.770     0.795      0.512     0.411     0.421
+paraphrase      40      0.925     0.674     0.731      0.600     0.446     0.473
+overall        167      0.832     0.681     0.710      0.533     0.395     0.417
+  discriminated-out cases (29): span recall 0.897
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.858     0.882      0.750     0.688     0.697
+cross_lingual   46      0.087     0.039     0.044      0.022     0.014     0.014
+exact_term      41      0.927     0.902     0.906      0.756     0.680     0.694
+paraphrase      40      0.775     0.513     0.565      0.425     0.262     0.291
+overall        167      0.665     0.561     0.581      0.473     0.398     0.411
+  discriminated-out cases (29): span recall 0.897
+  logged 2026-09-24-chunk-160t-dense-sparse
+
+[7/9] 160t+40
+
+##### 160t+40  (160 tokens, overlap 40)  spans reachable 167/167
+  indexing ...
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.875     0.776     0.797      0.575     0.451     0.467
+cross_lingual   46      0.652     0.533     0.548      0.500     0.408     0.421
+exact_term      41      0.902     0.692     0.735      0.561     0.422     0.442
+paraphrase      40      0.900     0.676     0.726      0.550     0.439     0.444
+overall        167      0.826     0.664     0.696      0.545     0.429     0.443
+  discriminated-out cases (29): span recall 0.931
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.881     0.899      0.850     0.776     0.785
+cross_lingual   46      0.087     0.034     0.040      0.022     0.013     0.014
+exact_term      41      0.927     0.894     0.900      0.805     0.741     0.753
+paraphrase      40      0.825     0.554     0.614      0.525     0.307     0.350
+overall        167      0.677     0.573     0.594      0.533     0.445     0.461
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-09-24-chunk-160t+40-dense-sparse
+
+[8/9] 256t
+
+##### 256t  (256 tokens)  spans reachable 163/167
+  indexing ...
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.850     0.674     0.702      0.475     0.385     0.371
+cross_lingual   46      0.609     0.447     0.476      0.391     0.277     0.292
+exact_term      41      0.878     0.718     0.747      0.512     0.452     0.455
+paraphrase      40      0.925     0.707     0.758      0.525     0.353     0.374
+overall        167      0.808     0.630     0.664      0.473     0.364     0.371
+  discriminated-out cases (29): span recall 0.966
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.894     0.908      0.875     0.768     0.793
+cross_lingual   46      0.087     0.033     0.041      0.022     0.014     0.014
+exact_term      41      0.951     0.900     0.912      0.829     0.780     0.787
+paraphrase      40      0.825     0.590     0.638      0.575     0.366     0.406
+overall        167      0.683     0.586     0.606      0.557     0.467     0.484
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-09-24-chunk-256t-dense-sparse
+
+[9/9] 256t+64
+
+##### 256t+64  (256 tokens, overlap 64)  spans reachable 167/167
+  indexing ...
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.900     0.701     0.741      0.675     0.441     0.486
+cross_lingual   46      0.630     0.461     0.494      0.391     0.278     0.293
+exact_term      41      0.878     0.713     0.746      0.537     0.449     0.458
+paraphrase      40      0.925     0.665     0.728      0.475     0.342     0.345
+overall        167      0.826     0.629     0.671      0.515     0.374     0.392
+  discriminated-out cases (29): span recall 1.000
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.894     0.908      0.875     0.827     0.832
+cross_lingual   46      0.087     0.034     0.040      0.022     0.015     0.014
+exact_term      41      0.927     0.911     0.912      0.878     0.796     0.815
+paraphrase      40      0.775     0.599     0.630      0.600     0.400     0.440
+overall        167      0.665     0.591     0.603      0.575     0.493     0.508
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-09-24-chunk-256t+64-dense-sparse
+
+rendered /Users/paolo/code/personal/ariostea/eval/results/experiment_log.html

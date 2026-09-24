@@ -1,0 +1,21 @@
+
+##### 512w  (512 words)  spans reachable 167/167
+  indexing ...
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.800     0.507     0.563      0.325     0.197     0.200
+cross_lingual   46      0.609     0.424     0.455      0.391     0.248     0.270
+exact_term      41      0.707     0.523     0.549      0.317     0.160     0.185
+paraphrase      40      0.775     0.561     0.599      0.300     0.228     0.214
+overall        167      0.719     0.501     0.538      0.335     0.209     0.219
+  discriminated-out cases (29): span recall 1.000
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.887     0.904      0.925     0.819     0.843
+cross_lingual   46      0.087     0.034     0.039      0.022     0.015     0.014
+exact_term      41      0.951     0.915     0.924      0.878     0.820     0.834
+paraphrase      40      0.775     0.582     0.616      0.675     0.418     0.472
+overall        167      0.671     0.586     0.602      0.605     0.502     0.523
+  discriminated-out cases (29): span recall 1.000
