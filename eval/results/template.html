@@ -247,7 +247,7 @@
 
 <div class="page">
   <header>
-    <div class="eyebrow">ariostea · retrieval experiments</div>
+    <div class="eyebrow">ariostea &middot; retrieval experiments</div>
     <h1>Ariostea retrieval log</h1>
     <p class="lede">Every evaluation run against the span-anchored Wikipedia gold set. Each cell is shaded by its change against that run's control, so a configuration that helps one channel and hurts another reads as exactly that.</p>
     <dl class="facts" id="facts"></dl>
@@ -265,7 +265,7 @@
     <div class="scale" aria-hidden="true">
       <div class="scale-bar" id="scale-bar"></div>
       <div class="scale-ticks" id="scale-ticks"></div>
-      <p class="scale-note" id="scale-note">Change against control. Grey means within ±0.03, the smallest change 167 queries can resolve. Green is a gain, magenta a loss. Every cell also prints its signed change.</p>
+      <p class="scale-note" id="scale-note">Change against control. Grey means within &plusmn;0.03, the smallest change 167 queries can resolve. Green is a gain, magenta a loss. Every cell also prints its signed change.</p>
     </div>
   </div>
 
@@ -325,7 +325,7 @@
 
   const esc = text => String(text).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
   const fmt = v => v.toFixed(3);
-  const signed = d => (d >= 0 ? "+" : "−") + Math.abs(d).toFixed(3);
+  const signed = d => (d >= 0 ? "+" : "\u2212") + Math.abs(d).toFixed(3);
   const bucket = d => {
     const step = EDGES.filter(e => Math.abs(d) >= e - 1e-9).length;
     return step === 0 ? "n" : (d > 0 ? "g" : "l") + step;
@@ -344,7 +344,7 @@
     const c = run.config?.chunking;
     if (!c) return "";
     const unit = c.unit === "model_tokens" ? "tokens" : "words";
-    return `max ${c.max_tokens} ${unit} · overlap ${c.overlap ?? 0}`;
+    return `max ${c.max_tokens} ${unit} \u00b7 overlap ${c.overlap ?? 0}`;
   };
 
   function renderFacts() {
@@ -386,7 +386,7 @@
     document.getElementById("scale-bar").replaceChildren(
       ...steps.map(s => el("i", { class: `b-${s}` }))
     );
-    const ticks = ["−.22", "−.15", "−.10", "−.06", "−.03", "0", "+.03", "+.06", "+.10", "+.15", "+.22"];
+    const ticks = ["\u2212.22", "\u2212.15", "\u2212.10", "\u2212.06", "\u2212.03", "0", "+.03", "+.06", "+.10", "+.15", "+.22"];
     document.getElementById("scale-ticks").replaceChildren(...ticks.map(t => el("span", { text: t })));
   }
 
@@ -419,7 +419,7 @@
         const isControl = run.id === run.control;
         const label = el("th", { class: "run-col", scope: "row" },
           el("div", { class: "run-name" }, el("span", { text: run.label }), isControl ? el("span", { class: "tag", text: "control" }) : null),
-          el("div", { class: "run-meta", text: [configLine(run), `${run.date} · ${run.commit}`].filter(Boolean).join("\n") })
+          el("div", { class: "run-meta", text: [configLine(run), `${run.date} \u00b7 ${run.commit}`].filter(Boolean).join("\n") })
         );
         label.querySelector(".run-meta").style.whiteSpace = "pre-line";
 
@@ -437,7 +437,7 @@
             if (!score) {
               row.append(el("td", {
                 class: [...cls, "na"].join(" "), tabindex: "0",
-                "data-tip": JSON.stringify({ head: `${channel} · ${typeLabel}`, lines: ["Not run for this configuration."] }),
+                "data-tip": JSON.stringify({ head: `${channel} \u00b7 ${typeLabel}`, lines: ["Not run for this configuration."] }),
               }, el("span", { class: "v", text: "not run" })));
               return;
             }
@@ -455,7 +455,7 @@
             }
             row.append(el("td", {
               class: [...cls, `b-${tone}`].join(" "), tabindex: "0",
-              "data-tip": JSON.stringify({ head: `${run.label} · ${channel} · ${typeLabel}`, lines }),
+              "data-tip": JSON.stringify({ head: `${run.label} \u00b7 ${channel} \u00b7 ${typeLabel}`, lines }),
             },
               el("span", { class: "v", text: fmt(value) }),
               delta === null ? null : el("span", { class: "d", text: signed(delta) })
@@ -472,7 +472,7 @@
     const list = document.getElementById("run-list");
     list.replaceChildren(...runs.map(run => el("li", {},
       el("div", { class: "run-name" }, el("span", { text: run.label }), el("span", { class: "tag", text: run.experiment })),
-      el("code", { text: `${run.id} · ${run.date} · ${run.commit} · control: ${run.control}` }),
+      el("code", { text: `${run.id} \u00b7 ${run.date} \u00b7 ${run.commit} \u00b7 control: ${run.control}` }),
       configLine(run) ? el("code", { text: configLine(run) }) : null,
       run.notes ? el("p", { text: run.notes }) : null
     )));

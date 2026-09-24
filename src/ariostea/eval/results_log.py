@@ -120,9 +120,12 @@ def render_html(runs: list[dict[str, Any]], template: str) -> str:
     """Embed `runs` into `template` at its placeholder.
 
     `</` is escaped so no string inside the data -- a run's free-text notes
-    above all -- can close the script element the JSON sits in.
+    above all -- can close the script element the JSON sits in. The data is
+    also written ASCII-only, as the template is: the published page was once
+    shown garbled because its host decoded UTF-8 as Latin-1, and an all-ASCII
+    page reads the same under any charset.
     """
     if PLACEHOLDER not in template:
         raise ValueError(f"template has no {PLACEHOLDER} slot to embed the runs in")
-    payload = json.dumps(runs, ensure_ascii=False).replace("</", "<\\/")
+    payload = json.dumps(runs, ensure_ascii=True).replace("</", "<\\/")
     return template.replace(PLACEHOLDER, payload)

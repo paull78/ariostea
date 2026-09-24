@@ -123,3 +123,19 @@ def test_render_cannot_be_broken_out_of_by_a_note():
 def test_render_needs_the_placeholder():
     with pytest.raises(ValueError, match="__RUNS_JSON__"):
         render_html([_run()], template="<p>no slot</p>")
+
+
+def test_render_output_is_pure_ascii():
+    # The published page was shown with middle dots and minus signs garbled:
+    # the viewer decoded UTF-8 as Latin-1. An all-ASCII page cannot be
+    # mis-decoded, whatever charset the host declares or guesses.
+    html = render_html([_run(notes="café · −")], template="<script>__RUNS_JSON__</script>")
+    assert html.isascii()
+
+
+def test_the_committed_template_is_pure_ascii():
+    from pathlib import Path
+
+    template = Path(__file__).resolve().parents[2] / "eval" / "results" / "template.html"
+    offenders = sorted({ch for ch in template.read_text(encoding="utf-8") if not ch.isascii()})
+    assert offenders == []
