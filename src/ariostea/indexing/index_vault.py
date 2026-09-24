@@ -26,9 +26,18 @@ class IndexVault:
         self._contextualizer = contextualizer
 
     def _fingerprint(self) -> str:
-        # Both the embedding model AND the contextualization change embedding_text,
-        # so a change in either must invalidate every stored vector.
-        return f"{self._embeddings.fingerprint}|{self._contextualizer.fingerprint}"
+        # The embedding model and the contextualization both change embedding_text,
+        # and the chunking policy changes which texts exist at all, so a change in
+        # any of them must rebuild every note. Empty parts are skipped: the default
+        # chunker's fingerprint is "" so indexes built before chunking was
+        # configurable keep the "emb|ctx" string they stored, and are not forced
+        # into a full reindex on upgrade.
+        parts = (
+            self._embeddings.fingerprint,
+            self._contextualizer.fingerprint,
+            self._chunker.fingerprint,
+        )
+        return "|".join(part for part in parts if part)
 
     def index(self, root: str | Path, ignore: Sequence[str] = ()) -> IndexStats:
         seen: set[str] = set()
