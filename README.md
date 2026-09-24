@@ -215,3 +215,21 @@ uv run python eval/generate_gold.py    # regenerate it (needs a local model)
 A full regeneration takes a few hours. The retrieval-backed gates rerank
 every candidate on CPU, so unload the judge model from LM Studio before they
 start; it reloads on demand when the ambiguity gate makes its first call.
+
+### Experiment log
+
+Every evaluation run is recorded in `eval/results/runs.jsonl`: its
+configuration, commit, gold coverage, and every metric per channel and query
+type, compared against a named control run. `eval/results/experiment_log.html`
+renders it as a table shaded green for gains and magenta for losses, grey within
+±0.03, the smallest change 167 queries can resolve.
+
+```bash
+uv run python eval/run_chunk_sweep.py 512w 128t 128t+32 --channels DENSE,SPARSE
+uv run python eval/render_results.py    # rebuild the page from the log
+```
+
+The sweep runner indexes the corpus once per chunking policy, logs each result,
+and re-renders the page. A spec is a size, a unit (`w` words, `t` model tokens)
+and an optional `+overlap`. Dense and sparse take a few minutes per policy; the
+hybrid channel reranks on CPU and takes about an hour.

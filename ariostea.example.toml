@@ -28,6 +28,14 @@ enabled = true                                          # multilingual cross-enc
 model = "jinaai/jina-reranker-v2-base-multilingual"     # ONNX, no API key
 pool = 100      # fused candidates re-scored by the reranker (recall vs latency)
 
+[chunking]
+# How notes are cut into chunks. Every note is first split at its headings;
+# a section longer than max_tokens is then cut into windows.
+# Changing any of these re-chunks and re-embeds the whole vault on the next index.
+max_tokens = 512   # cap per chunk, in `unit`
+overlap = 0        # repeated from the end of one chunk at the start of the next
+unit = "words"     # "words" | "model_tokens" (the local embedding model's own tokenizer)
+
 [contextual]
 # Prepend an LLM-written note-level blurb to each chunk before embedding/indexing.
 # Off by default; the zero-key install runs without it (plain hybrid search).
