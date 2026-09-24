@@ -53,3 +53,12 @@ def test_index_and_channels_retrieve_from_the_real_corpus(tmp_path):
         assert hits, name
         note, text = hits[0]
         assert note.endswith(".md") and text
+
+
+def test_wiki_config_carries_a_chunking_policy(tmp_path):
+    from ariostea.config.schema import ChunkingCfg
+    from ariostea.eval.wiki_index import wiki_config
+
+    assert wiki_config(tmp_path, "db").chunking == ChunkingCfg()
+    policy = ChunkingCfg(max_tokens=128, overlap=32, unit="model_tokens")
+    assert wiki_config(tmp_path, "db", chunking=policy).chunking == policy

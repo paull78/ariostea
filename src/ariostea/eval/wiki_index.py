@@ -27,7 +27,14 @@ os.environ.setdefault("FASTEMBED_CACHE_PATH", str(Path.home() / ".cache" / "fast
 from ariostea.adapters.embedding.fastembed_local import FastEmbedEmbeddings
 from ariostea.adapters.store.sqlite_store import SqliteStore
 from ariostea.config.container import Container, build_container
-from ariostea.config.schema import Config, ContextualCfg, EmbeddingCfg, StoreCfg, VaultCfg
+from ariostea.config.schema import (
+    ChunkingCfg,
+    Config,
+    ContextualCfg,
+    EmbeddingCfg,
+    StoreCfg,
+    VaultCfg,
+)
 from ariostea.eval.channels import (
     make_dense_chunk_fn,
     make_hybrid_chunk_fn,
@@ -43,23 +50,36 @@ MULTILINGUAL_MODEL = "sentence-transformers/paraphrase-multilingual-mpnet-base-v
 CHUNK_POOL = 50
 
 
-def wiki_config(corpus: Path, db: str, contextual: ContextualCfg | None = None) -> Config:
+def wiki_config(
+    corpus: Path,
+    db: str,
+    contextual: ContextualCfg | None = None,
+    chunking: ChunkingCfg | None = None,
+) -> Config:
     """Config for indexing `corpus` into `db`.
 
     `ignore=[]` overrides the default `.obsidian/` skip: the eval corpus has
-    no such directory, and every file in it is a note under test.
+    no such directory, and every file in it is a note under test. `chunking`
+    defaults to the production default, so an eval that does not ask for a
+    policy measures the one users get.
     """
     return Config(
         vault=VaultCfg(path=str(corpus), ignore=[]),
         embedding=EmbeddingCfg(local_model=MULTILINGUAL_MODEL),
         store=StoreCfg(backend="sqlite", path=db),
         contextual=contextual or ContextualCfg(enabled=False),
+        chunking=chunking or ChunkingCfg(),
     )
 
 
-def index_wiki_corpus(corpus: Path, db: str, contextual: ContextualCfg | None = None) -> Container:
+def index_wiki_corpus(
+    corpus: Path,
+    db: str,
+    contextual: ContextualCfg | None = None,
+    chunking: ChunkingCfg | None = None,
+) -> Container:
     """Build the index and return the container that owns it."""
-    container = build_container(wiki_config(corpus, db, contextual))
+    container = build_container(wiki_config(corpus, db, contextual, chunking))
     reindex_payload(container)
     return container
 
