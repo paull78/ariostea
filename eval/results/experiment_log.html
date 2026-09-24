@@ -1,0 +1,515 @@
+<meta charset="utf-8">
+<title>Ariostea retrieval log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground: #f3f6f4;
+    --surface: #ffffff;
+    --ink: #14201a;
+    --ink-2: #3c4b44;
+    --muted: #5f6e67;
+    --rule: #d9e1dc;
+    --rule-strong: #b7c4bd;
+    --focus: #14201a;
+    --tip-bg: #14201a;
+    --tip-fg: #f3f6f4;
+
+    /* Change against control. Grey is "within noise"; green gains, magenta losses. */
+    --n-bg: #eaeeeb;  --n-fg: #14201a;
+    --g1-bg: #dff0e2; --g1-fg: #14201a;
+    --g2-bg: #bde1c3; --g2-fg: #14201a;
+    --g3-bg: #8cc997; --g3-fg: #14201a;
+    --g4-bg: #4fa65d; --g4-fg: #0c1510;
+    --g5-bg: #2a7f37; --g5-fg: #ffffff;
+    --l1-bg: #f7e4ee; --l1-fg: #14201a;
+    --l2-bg: #edc4da; --l2-fg: #14201a;
+    --l3-bg: #dc96bd; --l3-fg: #14201a;
+    --l4-bg: #c0629a; --l4-fg: #14201a;
+    --l5-bg: #8c2d66; --l5-fg: #ffffff;
+
+    --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --cond: "IBM Plex Sans Condensed", "Arial Narrow", "IBM Plex Sans", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0f1512;
+      --surface: #151d19;
+      --ink: #e4ece7;
+      --ink-2: #c0ccc6;
+      --muted: #8f9f97;
+      --rule: #26312b;
+      --rule-strong: #394740;
+      --focus: #e4ece7;
+      --tip-bg: #e4ece7;
+      --tip-fg: #0f1512;
+      --n-bg: #1d2521;  --n-fg: #e4ece7;
+      --g1-bg: #1b3222; --g1-fg: #e4ece7;
+      --g2-bg: #1f4a2a; --g2-fg: #e4ece7;
+      --g3-bg: #276a36; --g3-fg: #e4ece7;
+      --g4-bg: #3a9249; --g4-fg: #0b110e;
+      --g5-bg: #6cc67a; --g5-fg: #0b110e;
+      --l1-bg: #35202c; --l1-fg: #e4ece7;
+      --l2-bg: #512740; --l2-fg: #e4ece7;
+      --l3-bg: #76345b; --l3-fg: #e4ece7;
+      --l4-bg: #a54c80; --l4-fg: #0b110e;
+      --l5-bg: #d57bae; --l5-fg: #0b110e;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0f1512;
+    --surface: #151d19;
+    --ink: #e4ece7;
+    --ink-2: #c0ccc6;
+    --muted: #8f9f97;
+    --rule: #26312b;
+    --rule-strong: #394740;
+    --focus: #e4ece7;
+    --tip-bg: #e4ece7;
+    --tip-fg: #0f1512;
+    --n-bg: #1d2521;  --n-fg: #e4ece7;
+    --g1-bg: #1b3222; --g1-fg: #e4ece7;
+    --g2-bg: #1f4a2a; --g2-fg: #e4ece7;
+    --g3-bg: #276a36; --g3-fg: #e4ece7;
+    --g4-bg: #3a9249; --g4-fg: #0b110e;
+    --g5-bg: #6cc67a; --g5-fg: #0b110e;
+    --l1-bg: #35202c; --l1-fg: #e4ece7;
+    --l2-bg: #512740; --l2-fg: #e4ece7;
+    --l3-bg: #76345b; --l3-fg: #e4ece7;
+    --l4-bg: #a54c80; --l4-fg: #0b110e;
+    --l5-bg: #d57bae; --l5-fg: #0b110e;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font: 15px/1.55 var(--sans);
+    padding: 0 clamp(16px, 4vw, 48px);
+  }
+  .page { max-width: 1320px; margin: 0 auto; padding-block: 40px 64px; display: grid; gap: 28px; }
+
+  header { display: grid; gap: 10px; }
+  .eyebrow {
+    font: 500 12px/1 var(--mono);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  h1 {
+    font: 600 clamp(28px, 3.4vw, 38px)/1.1 var(--cond);
+    letter-spacing: -.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .lede { margin: 0; max-width: 65ch; color: var(--ink-2); }
+  .facts {
+    display: flex; flex-wrap: wrap; gap: 6px 28px;
+    margin: 6px 0 0; padding: 0;
+    font: 13px/1.4 var(--mono); color: var(--muted);
+  }
+  .facts div { display: flex; gap: 8px; }
+  .facts dt { margin: 0; }
+  .facts dd { margin: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 32px;
+    padding-block: 16px; border-block: 1px solid var(--rule);
+  }
+  fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
+  legend {
+    padding: 0; font: 500 11px/1 var(--mono);
+    letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  }
+  .seg { display: flex; flex-wrap: wrap; border: 1px solid var(--rule-strong); border-radius: 6px; overflow: hidden; }
+  .seg label { position: relative; }
+  .seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .seg span {
+    display: block; padding: 7px 12px; font: 500 13px/1.2 var(--sans);
+    color: var(--ink-2); border-right: 1px solid var(--rule); cursor: pointer;
+  }
+  .seg label:last-child span { border-right: 0; }
+  .seg input:checked + span { background: var(--ink); color: var(--ground); }
+  .seg input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: -4px; }
+  .checks { display: flex; gap: 16px; flex-wrap: wrap; }
+  .checks label { display: flex; align-items: center; gap: 6px; font: 500 13px/1.2 var(--sans); color: var(--ink-2); cursor: pointer; }
+  .checks input { accent-color: var(--ink); width: 15px; height: 15px; margin: 0; }
+
+  .scale { display: grid; gap: 8px; margin-left: auto; }
+  .scale-bar { display: grid; grid-template-columns: repeat(11, minmax(26px, 1fr)); gap: 2px; }
+  .scale-bar i { display: block; height: 14px; border-radius: 2px; }
+  .scale-ticks {
+    display: grid; grid-template-columns: repeat(11, minmax(26px, 1fr)); gap: 2px;
+    font: 11px/1 var(--mono); color: var(--muted); text-align: center; font-variant-numeric: tabular-nums;
+  }
+  .scale-note { margin: 0; font-size: 12px; line-height: 1.45; color: var(--muted); max-width: 52ch; }
+
+  .table-wrap {
+    overflow-x: auto; background: var(--surface);
+    border: 1px solid var(--rule); border-radius: 8px;
+  }
+  table { border-collapse: separate; border-spacing: 0; width: 100%; font-variant-numeric: tabular-nums; }
+  thead th {
+    font: 600 13px/1.2 var(--cond); text-align: center; color: var(--ink-2);
+    padding: 10px 8px; border-bottom: 1px solid var(--rule); white-space: nowrap;
+  }
+  thead tr:first-child th.chan {
+    font: 600 12px/1 var(--mono); letter-spacing: .1em; color: var(--ink);
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  thead th.run-col, thead th.reach-col { text-align: left; vertical-align: bottom; }
+  th.group-start, td.group-start { border-left: 1px solid var(--rule-strong); }
+  th.overall, td.overall { box-shadow: inset 1px 0 0 var(--rule); }
+  thead th.overall { color: var(--ink); }
+
+  .run-col {
+    position: sticky; left: 0; z-index: 1; background: var(--surface);
+    min-width: 200px; max-width: 260px; text-align: left;
+    box-shadow: 1px 0 0 var(--rule);
+  }
+  tbody th.run-col { font-weight: 400; padding: 10px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .run-name { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font: 600 14px/1.3 var(--sans); }
+  .tag {
+    font: 500 10px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase;
+    padding: 3px 5px; border-radius: 3px; border: 1px solid var(--rule-strong); color: var(--muted);
+  }
+  .run-meta { font: 12px/1.45 var(--mono); color: var(--muted); margin-top: 3px; }
+
+  tr.exp th {
+    text-align: left; padding: 16px 14px 8px; font: 600 11px/1 var(--mono);
+    letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+    background: var(--surface); border-bottom: 1px solid var(--rule);
+  }
+  tr.exp th .exp-inner { position: sticky; left: 14px; }
+
+  td { padding: 0; border-bottom: 1px solid var(--rule); }
+  td.reach {
+    padding: 10px 14px; font: 13px/1.3 var(--mono); color: var(--ink-2);
+    white-space: nowrap; vertical-align: top;
+  }
+  td.reach small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
+
+  td.cell {
+    min-width: 60px; padding: 9px 6px; text-align: center; vertical-align: middle;
+    border-left: 2px solid var(--surface); cursor: default;
+  }
+  td.cell:focus-visible { outline: 2px solid var(--focus); outline-offset: -3px; }
+  td.cell .v { display: block; font: 500 13.5px/1.2 var(--mono); }
+  td.cell .d { display: block; font: 11px/1.2 var(--mono); margin-top: 2px; opacity: .85; }
+  td.na {
+    background: repeating-linear-gradient(135deg, transparent 0 5px, var(--rule) 5px 6px);
+    color: var(--muted);
+  }
+  td.na .v { font: 11px/1.2 var(--mono); }
+
+  .b-n  { background: var(--n-bg);  color: var(--n-fg); }
+  .b-g1 { background: var(--g1-bg); color: var(--g1-fg); }
+  .b-g2 { background: var(--g2-bg); color: var(--g2-fg); }
+  .b-g3 { background: var(--g3-bg); color: var(--g3-fg); }
+  .b-g4 { background: var(--g4-bg); color: var(--g4-fg); }
+  .b-g5 { background: var(--g5-bg); color: var(--g5-fg); }
+  .b-l1 { background: var(--l1-bg); color: var(--l1-fg); }
+  .b-l2 { background: var(--l2-bg); color: var(--l2-fg); }
+  .b-l3 { background: var(--l3-bg); color: var(--l3-fg); }
+  .b-l4 { background: var(--l4-bg); color: var(--l4-fg); }
+  .b-l5 { background: var(--l5-bg); color: var(--l5-fg); }
+  .b-ctl { background: var(--surface); color: var(--ink); }
+
+  .tip {
+    position: fixed; z-index: 10; pointer-events: none; max-width: 280px;
+    background: var(--tip-bg); color: var(--tip-fg);
+    padding: 10px 12px; border-radius: 6px; font: 12px/1.5 var(--mono);
+    box-shadow: 0 6px 18px rgb(0 0 0 / .18);
+  }
+  .tip b { font-weight: 500; }
+  .tip .t-head { font: 600 12px/1.3 var(--sans); margin-bottom: 4px; }
+
+  section.runs { display: grid; gap: 14px; }
+  h2 { font: 600 20px/1.2 var(--cond); margin: 0; }
+  .run-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+  .run-list li { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+  .run-list .run-name { font-size: 14px; }
+  .run-list p { margin: 0; font-size: 13.5px; color: var(--ink-2); max-width: 60ch; }
+  .run-list code { font: 12px/1.5 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+
+  footer { font-size: 13px; color: var(--muted); max-width: 70ch; }
+  footer code { font: 12.5px var(--mono); color: var(--ink-2); }
+
+  @media (max-width: 700px) {
+    .scale { margin-left: 0; }
+    .run-col { min-width: 150px; }
+  }
+</style>
+
+<div class="page">
+  <header>
+    <div class="eyebrow">ariostea · retrieval experiments</div>
+    <h1>Ariostea retrieval log</h1>
+    <p class="lede">Every evaluation run against the span-anchored Wikipedia gold set. Each cell is shaded by its change against that run's control, so a configuration that helps one channel and hurts another reads as exactly that.</p>
+    <dl class="facts" id="facts"></dl>
+  </header>
+
+  <div class="controls">
+    <fieldset>
+      <legend>Metric</legend>
+      <div class="seg" id="metric"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Channels</legend>
+      <div class="checks" id="channels"></div>
+    </fieldset>
+    <div class="scale" aria-hidden="true">
+      <div class="scale-bar" id="scale-bar"></div>
+      <div class="scale-ticks" id="scale-ticks"></div>
+      <p class="scale-note" id="scale-note">Change against control. Grey means within ±0.03, the smallest change 167 queries can resolve. Green is a gain, magenta a loss. Every cell also prints its signed change.</p>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table id="log" aria-describedby="scale-note"></table>
+  </div>
+
+  <section class="runs">
+    <h2>Runs</h2>
+    <ul class="run-list" id="run-list"></ul>
+  </section>
+
+  <footer>
+    Source of record: <code>eval/results/runs.jsonl</code>, one line per run. Rebuild this page with <code>uv run python eval/render_results.py</code>.
+  </footer>
+</div>
+
+<div class="tip" id="tip" hidden></div>
+
+<script id="runs-data" type="application/json">[{"id": "2026-09-06-baseline", "experiment": "Baseline", "label": "Committed gold set", "date": "2026-09-06", "commit": "861a432", "control": "2026-09-06-baseline", "config": {"k": 5, "embedding": "sentence-transformers/paraphrase-multilingual-mpnet-base-v2", "chunking": {"max_tokens": 512, "overlap": 0, "unit": "words"}}, "cases": 167, "reachable": 167, "channels": {"DENSE": {"buried": {"n": 40, "note_recall": 0.8, "note_mrr": 0.507, "note_ndcg": 0.563, "span_recall": 0.325, "span_mrr": 0.197, "span_ndcg": 0.2}, "cross_lingual": {"n": 46, "note_recall": 0.609, "note_mrr": 0.424, "note_ndcg": 0.455, "span_recall": 0.391, "span_mrr": 0.248, "span_ndcg": 0.27}, "exact_term": {"n": 41, "note_recall": 0.707, "note_mrr": 0.523, "note_ndcg": 0.549, "span_recall": 0.317, "span_mrr": 0.16, "span_ndcg": 0.185}, "paraphrase": {"n": 40, "note_recall": 0.775, "note_mrr": 0.561, "note_ndcg": 0.599, "span_recall": 0.3, "span_mrr": 0.228, "span_ndcg": 0.214}, "overall": {"n": 167, "note_recall": 0.719, "note_mrr": 0.501, "note_ndcg": 0.538, "span_recall": 0.335, "span_mrr": 0.209, "span_ndcg": 0.219}}, "SPARSE": {"buried": {"n": 40, "note_recall": 0.95, "note_mrr": 0.887, "note_ndcg": 0.904, "span_recall": 0.925, "span_mrr": 0.819, "span_ndcg": 0.843}, "cross_lingual": {"n": 46, "note_recall": 0.087, "note_mrr": 0.034, "note_ndcg": 0.039, "span_recall": 0.022, "span_mrr": 0.015, "span_ndcg": 0.014}, "exact_term": {"n": 41, "note_recall": 0.951, "note_mrr": 0.915, "note_ndcg": 0.924, "span_recall": 0.878, "span_mrr": 0.82, "span_ndcg": 0.834}, "paraphrase": {"n": 40, "note_recall": 0.775, "note_mrr": 0.582, "note_ndcg": 0.616, "span_recall": 0.675, "span_mrr": 0.418, "span_ndcg": 0.472}, "overall": {"n": 167, "note_recall": 0.671, "note_mrr": 0.586, "note_ndcg": 0.602, "span_recall": 0.605, "span_mrr": 0.502, "span_ndcg": 0.523}}, "HYBRID": {"buried": {"n": 40, "note_recall": 1.0, "note_mrr": 0.94, "note_ndcg": 0.955, "span_recall": 0.95, "span_mrr": 0.924, "span_ndcg": 0.928}, "cross_lingual": {"n": 46, "note_recall": 0.739, "note_mrr": 0.684, "note_ndcg": 0.694, "span_recall": 0.63, "span_mrr": 0.596, "span_ndcg": 0.602}, "exact_term": {"n": 41, "note_recall": 1.0, "note_mrr": 0.938, "note_ndcg": 0.953, "span_recall": 0.927, "span_mrr": 0.845, "span_ndcg": 0.863}, "paraphrase": {"n": 40, "note_recall": 0.95, "note_mrr": 0.916, "note_ndcg": 0.922, "span_recall": 0.85, "span_mrr": 0.82, "span_ndcg": 0.822}, "overall": {"n": 167, "note_recall": 0.916, "note_mrr": 0.863, "note_ndcg": 0.875, "span_recall": 0.832, "span_mrr": 0.789, "span_ndcg": 0.797}}}, "notes": "First reading of the 167-case gold set on today's chunking policy. Every later run compares against this one."}, {"id": "2026-09-24-pilot-256w", "experiment": "Chunk size pilot", "label": "256 words", "date": "2026-09-24", "commit": "9289359", "control": "2026-09-06-baseline", "config": {"k": 5, "embedding": "sentence-transformers/paraphrase-multilingual-mpnet-base-v2", "chunking": {"max_tokens": 256, "overlap": 0, "unit": "words"}}, "cases": 167, "reachable": 164, "channels": {"DENSE": {"buried": {"n": 40, "note_recall": 0.825, "note_mrr": 0.579, "note_ndcg": 0.626, "span_recall": 0.475, "span_mrr": 0.302, "span_ndcg": 0.329}, "cross_lingual": {"n": 46, "note_recall": 0.63, "note_mrr": 0.429, "note_ndcg": 0.471, "span_recall": 0.37, "span_mrr": 0.251, "span_ndcg": 0.264}, "exact_term": {"n": 41, "note_recall": 0.805, "note_mrr": 0.616, "note_ndcg": 0.649, "span_recall": 0.439, "span_mrr": 0.268, "span_ndcg": 0.299}, "paraphrase": {"n": 40, "note_recall": 0.85, "note_mrr": 0.595, "note_ndcg": 0.647, "span_recall": 0.425, "span_mrr": 0.313, "span_ndcg": 0.313}, "overall": {"n": 167, "note_recall": 0.772, "note_mrr": 0.55, "note_ndcg": 0.594, "span_recall": 0.425, "span_mrr": 0.282, "span_ndcg": 0.3}}, "SPARSE": {"buried": {"n": 40, "note_recall": 0.95, "note_mrr": 0.896, "note_ndcg": 0.91, "span_recall": 0.825, "span_mrr": 0.73, "span_ndcg": 0.75}, "cross_lingual": {"n": 46, "note_recall": 0.087, "note_mrr": 0.032, "note_ndcg": 0.042, "span_recall": 0.022, "span_mrr": 0.014, "span_ndcg": 0.014}, "exact_term": {"n": 41, "note_recall": 0.927, "note_mrr": 0.912, "note_ndcg": 0.913, "span_recall": 0.902, "span_mrr": 0.815, "span_ndcg": 0.837}, "paraphrase": {"n": 40, "note_recall": 0.75, "note_mrr": 0.541, "note_ndcg": 0.576, "span_recall": 0.575, "span_mrr": 0.343, "span_ndcg": 0.386}, "overall": {"n": 167, "note_recall": 0.659, "note_mrr": 0.577, "note_ndcg": 0.592, "span_recall": 0.563, "span_mrr": 0.461, "span_ndcg": 0.481}}}, "notes": "Scratch sweep, dense and sparse only; hybrid needs about an hour per configuration on CPU. Its 512-word row reproduced the baseline exactly."}, {"id": "2026-09-24-pilot-160w", "experiment": "Chunk size pilot", "label": "160 words", "date": "2026-09-24", "commit": "9289359", "control": "2026-09-06-baseline", "config": {"k": 5, "embedding": "sentence-transformers/paraphrase-multilingual-mpnet-base-v2", "chunking": {"max_tokens": 160, "overlap": 0, "unit": "words"}}, "cases": 167, "reachable": 158, "channels": {"DENSE": {"buried": {"n": 40, "note_recall": 0.9, "note_mrr": 0.725, "note_ndcg": 0.758, "span_recall": 0.55, "span_mrr": 0.366, "span_ndcg": 0.393}, "cross_lingual": {"n": 46, "note_recall": 0.609, "note_mrr": 0.455, "note_ndcg": 0.477, "span_recall": 0.37, "span_mrr": 0.29, "span_ndcg": 0.297}, "exact_term": {"n": 41, "note_recall": 0.829, "note_mrr": 0.719, "note_ndcg": 0.734, "span_recall": 0.439, "span_mrr": 0.391, "span_ndcg": 0.392}, "paraphrase": {"n": 40, "note_recall": 0.875, "note_mrr": 0.669, "note_ndcg": 0.709, "span_recall": 0.6, "span_mrr": 0.365, "span_ndcg": 0.407}, "overall": {"n": 167, "note_recall": 0.796, "note_mrr": 0.636, "note_ndcg": 0.663, "span_recall": 0.485, "span_mrr": 0.351, "span_ndcg": 0.37}}, "SPARSE": {"buried": {"n": 40, "note_recall": 0.95, "note_mrr": 0.906, "note_ndcg": 0.917, "span_recall": 0.825, "span_mrr": 0.764, "span_ndcg": 0.776}, "cross_lingual": {"n": 46, "note_recall": 0.087, "note_mrr": 0.03, "note_ndcg": 0.041, "span_recall": 0.022, "span_mrr": 0.014, "span_ndcg": 0.014}, "exact_term": {"n": 41, "note_recall": 0.927, "note_mrr": 0.9, "note_ndcg": 0.904, "span_recall": 0.78, "span_mrr": 0.719, "span_ndcg": 0.729}, "paraphrase": {"n": 40, "note_recall": 0.775, "note_mrr": 0.564, "note_ndcg": 0.604, "span_recall": 0.5, "span_mrr": 0.306, "span_ndcg": 0.337}, "overall": {"n": 167, "note_recall": 0.665, "note_mrr": 0.581, "note_ndcg": 0.598, "span_recall": 0.515, "span_mrr": 0.436, "span_ndcg": 0.449}}}, "notes": "Scratch sweep, dense and sparse only; hybrid needs about an hour per configuration on CPU. Its 512-word row reproduced the baseline exactly."}, {"id": "2026-09-24-pilot-96w", "experiment": "Chunk size pilot", "label": "96 words", "date": "2026-09-24", "commit": "9289359", "control": "2026-09-06-baseline", "config": {"k": 5, "embedding": "sentence-transformers/paraphrase-multilingual-mpnet-base-v2", "chunking": {"max_tokens": 96, "overlap": 0, "unit": "words"}}, "cases": 167, "reachable": 155, "channels": {"DENSE": {"buried": {"n": 40, "note_recall": 0.9, "note_mrr": 0.744, "note_ndcg": 0.777, "span_recall": 0.65, "span_mrr": 0.47, "span_ndcg": 0.508}, "cross_lingual": {"n": 46, "note_recall": 0.652, "note_mrr": 0.552, "note_ndcg": 0.567, "span_recall": 0.478, "span_mrr": 0.358, "span_ndcg": 0.381}, "exact_term": {"n": 41, "note_recall": 0.878, "note_mrr": 0.764, "note_ndcg": 0.78, "span_recall": 0.463, "span_mrr": 0.373, "span_ndcg": 0.377}, "paraphrase": {"n": 40, "note_recall": 0.925, "note_mrr": 0.65, "note_ndcg": 0.713, "span_recall": 0.625, "span_mrr": 0.416, "span_ndcg": 0.457}, "overall": {"n": 167, "note_recall": 0.832, "note_mrr": 0.673, "note_ndcg": 0.704, "span_recall": 0.551, "span_mrr": 0.402, "span_ndcg": 0.428}}, "SPARSE": {"buried": {"n": 40, "note_recall": 0.95, "note_mrr": 0.871, "note_ndcg": 0.891, "span_recall": 0.775, "span_mrr": 0.688, "span_ndcg": 0.705}, "cross_lingual": {"n": 46, "note_recall": 0.087, "note_mrr": 0.034, "note_ndcg": 0.04, "span_recall": 0.022, "span_mrr": 0.014, "span_ndcg": 0.014}, "exact_term": {"n": 41, "note_recall": 0.927, "note_mrr": 0.905, "note_ndcg": 0.909, "span_recall": 0.683, "span_mrr": 0.606, "span_ndcg": 0.617}, "paraphrase": {"n": 40, "note_recall": 0.75, "note_mrr": 0.548, "note_ndcg": 0.582, "span_recall": 0.425, "span_mrr": 0.352, "span_ndcg": 0.352}, "overall": {"n": 167, "note_recall": 0.659, "note_mrr": 0.572, "note_ndcg": 0.587, "span_recall": 0.461, "span_mrr": 0.402, "span_ndcg": 0.408}}}, "notes": "Scratch sweep, dense and sparse only; hybrid needs about an hour per configuration on CPU. Its 512-word row reproduced the baseline exactly."}, {"id": "2026-09-24-pilot-64w", "experiment": "Chunk size pilot", "label": "64 words", "date": "2026-09-24", "commit": "9289359", "control": "2026-09-06-baseline", "config": {"k": 5, "embedding": "sentence-transformers/paraphrase-multilingual-mpnet-base-v2", "chunking": {"max_tokens": 64, "overlap": 0, "unit": "words"}}, "cases": 167, "reachable": 144, "channels": {"DENSE": {"buried": {"n": 40, "note_recall": 0.95, "note_mrr": 0.764, "note_ndcg": 0.809, "span_recall": 0.5, "span_mrr": 0.381, "span_ndcg": 0.395}, "cross_lingual": {"n": 46, "note_recall": 0.63, "note_mrr": 0.541, "note_ndcg": 0.554, "span_recall": 0.37, "span_mrr": 0.315, "span_ndcg": 0.319}, "exact_term": {"n": 41, "note_recall": 0.902, "note_mrr": 0.771, "note_ndcg": 0.797, "span_recall": 0.561, "span_mrr": 0.42, "span_ndcg": 0.442}, "paraphrase": {"n": 40, "note_recall": 0.925, "note_mrr": 0.715, "note_ndcg": 0.761, "span_recall": 0.575, "span_mrr": 0.431, "span_ndcg": 0.456}, "overall": {"n": 167, "note_recall": 0.844, "note_mrr": 0.693, "note_ndcg": 0.724, "span_recall": 0.497, "span_mrr": 0.384, "span_ndcg": 0.4}}, "SPARSE": {"buried": {"n": 40, "note_recall": 0.95, "note_mrr": 0.896, "note_ndcg": 0.91, "span_recall": 0.6, "span_mrr": 0.578, "span_ndcg": 0.575}, "cross_lingual": {"n": 46, "note_recall": 0.087, "note_mrr": 0.035, "note_ndcg": 0.04, "span_recall": 0.022, "span_mrr": 0.014, "span_ndcg": 0.014}, "exact_term": {"n": 41, "note_recall": 0.927, "note_mrr": 0.905, "note_ndcg": 0.909, "span_recall": 0.707, "span_mrr": 0.61, "span_ndcg": 0.629}, "paraphrase": {"n": 40, "note_recall": 0.775, "note_mrr": 0.594, "note_ndcg": 0.625, "span_recall": 0.375, "span_mrr": 0.284, "span_ndcg": 0.299}, "overall": {"n": 167, "note_recall": 0.665, "note_mrr": 0.589, "note_ndcg": 0.602, "span_recall": 0.413, "span_mrr": 0.36, "span_ndcg": 0.368}}}, "notes": "Scratch sweep, dense and sparse only; hybrid needs about an hour per configuration on CPU. Its 512-word row reproduced the baseline exactly."}]</script>
+<script>
+(() => {
+  const runs = JSON.parse(document.getElementById("runs-data").textContent);
+  const byId = Object.fromEntries(runs.map(r => [r.id, r]));
+
+  const TYPES = [
+    ["buried", "Buried"],
+    ["cross_lingual", "Cross-lingual"],
+    ["exact_term", "Exact term"],
+    ["paraphrase", "Paraphrase"],
+    ["overall", "Overall"],
+  ];
+  const CHANNELS = ["HYBRID", "DENSE", "SPARSE"]; // hybrid first: it is what production serves
+  const k = runs.find(r => r.config && r.config.k)?.config.k ?? 5;
+  const METRICS = [
+    ["span_recall", `Span recall@${k}`],
+    ["span_mrr", "Span MRR"],
+    ["span_ndcg", `Span nDCG@${k}`],
+    ["note_recall", `Note recall@${k}`],
+    ["note_mrr", "Note MRR"],
+    ["note_ndcg", `Note nDCG@${k}`],
+  ];
+  // Bucket edges on |change|. Below the first edge is noise for a 167-case set.
+  const EDGES = [0.03, 0.06, 0.10, 0.15, 0.22];
+
+  const store = {
+    get(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } },
+    set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage blocked */ } },
+  };
+  const state = {
+    metric: store.get("ariostea-log-metric", "span_recall"),
+    channels: store.get("ariostea-log-channels", CHANNELS),
+  };
+  if (!METRICS.some(([key]) => key === state.metric)) state.metric = "span_recall";
+  state.channels = CHANNELS.filter(c => state.channels.includes(c));
+  if (!state.channels.length) state.channels = [...CHANNELS];
+
+  const esc = text => String(text).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+  const fmt = v => v.toFixed(3);
+  const signed = d => (d >= 0 ? "+" : "−") + Math.abs(d).toFixed(3);
+  const bucket = d => {
+    const step = EDGES.filter(e => Math.abs(d) >= e - 1e-9).length;
+    return step === 0 ? "n" : (d > 0 ? "g" : "l") + step;
+  };
+  const el = (tag, attrs = {}, ...kids) => {
+    const node = document.createElement(tag);
+    for (const [name, value] of Object.entries(attrs)) {
+      if (name === "class") node.className = value;
+      else if (name === "text") node.textContent = value;
+      else node.setAttribute(name, value);
+    }
+    node.append(...kids.filter(kid => kid != null));
+    return node;
+  };
+  const configLine = run => {
+    const c = run.config?.chunking;
+    if (!c) return "";
+    const unit = c.unit === "model_tokens" ? "tokens" : "words";
+    return `max ${c.max_tokens} ${unit} · overlap ${c.overlap ?? 0}`;
+  };
+
+  function renderFacts() {
+    const control = runs.find(r => r.id === r.control) ?? runs[0];
+    const facts = [
+      ["runs", String(runs.length)],
+      ["gold queries", String(control?.cases ?? "")],
+      ["ranked at", `k = ${k}`],
+      ["last run", runs.map(r => r.date).sort().at(-1) ?? ""],
+    ];
+    const dl = document.getElementById("facts");
+    dl.replaceChildren(...facts.map(([t, d]) => el("div", {}, el("dt", { text: t }), el("dd", { text: d }))));
+  }
+
+  function renderControls() {
+    const seg = document.getElementById("metric");
+    seg.replaceChildren(...METRICS.map(([key, label]) => {
+      const input = el("input", { type: "radio", name: "metric", id: `metric-${key}`, value: key });
+      input.checked = key === state.metric;
+      input.addEventListener("change", () => { state.metric = key; store.set("ariostea-log-metric", key); renderTable(); });
+      return el("label", { for: `metric-${key}` }, input, el("span", { text: label }));
+    }));
+
+    const checks = document.getElementById("channels");
+    checks.replaceChildren(...CHANNELS.map(channel => {
+      const input = el("input", { type: "checkbox", id: `chan-${channel}`, value: channel });
+      input.checked = state.channels.includes(channel);
+      input.addEventListener("change", () => {
+        const next = CHANNELS.filter(c => document.getElementById(`chan-${c}`).checked);
+        if (!next.length) { input.checked = true; return; }
+        state.channels = next;
+        store.set("ariostea-log-channels", next);
+        renderTable();
+      });
+      return el("label", { for: `chan-${channel}` }, input, el("span", { text: channel.charAt(0) + channel.slice(1).toLowerCase() }));
+    }));
+
+    const steps = ["l5", "l4", "l3", "l2", "l1", "n", "g1", "g2", "g3", "g4", "g5"];
+    document.getElementById("scale-bar").replaceChildren(
+      ...steps.map(s => el("i", { class: `b-${s}` }))
+    );
+    const ticks = ["−.22", "−.15", "−.10", "−.06", "−.03", "0", "+.03", "+.06", "+.10", "+.15", "+.22"];
+    document.getElementById("scale-ticks").replaceChildren(...ticks.map(t => el("span", { text: t })));
+  }
+
+  function renderTable() {
+    const table = document.getElementById("log");
+    const channels = state.channels;
+    const metricLabel = METRICS.find(([key]) => key === state.metric)[1];
+
+    const top = el("tr", {},
+      el("th", { class: "run-col", rowspan: "2", scope: "col", text: "Run" }),
+      el("th", { class: "reach-col", rowspan: "2", scope: "col", text: "Spans reachable" }),
+      ...channels.map(c => el("th", { class: "chan group-start", colspan: String(TYPES.length), scope: "colgroup", text: c }))
+    );
+    const sub = el("tr", {}, ...channels.flatMap(() =>
+      TYPES.map(([key, label], i) => el("th", {
+        scope: "col",
+        class: [i === 0 ? "group-start" : "", key === "overall" ? "overall" : ""].join(" ").trim(),
+        text: label,
+      }))
+    ));
+
+    const body = el("tbody");
+    const experiments = [...new Set(runs.map(r => r.experiment))];
+    const width = 2 + channels.length * TYPES.length;
+    for (const experiment of experiments) {
+      body.append(el("tr", { class: "exp" },
+        el("th", { colspan: String(width), scope: "rowgroup" }, el("span", { class: "exp-inner", text: experiment }))));
+      for (const run of runs.filter(r => r.experiment === experiment)) {
+        const control = byId[run.control];
+        const isControl = run.id === run.control;
+        const label = el("th", { class: "run-col", scope: "row" },
+          el("div", { class: "run-name" }, el("span", { text: run.label }), isControl ? el("span", { class: "tag", text: "control" }) : null),
+          el("div", { class: "run-meta", text: [configLine(run), `${run.date} · ${run.commit}`].filter(Boolean).join("\n") })
+        );
+        label.querySelector(".run-meta").style.whiteSpace = "pre-line";
+
+        const lost = control ? run.reachable - control.reachable : 0;
+        const reach = el("td", { class: "reach" },
+          el("span", { text: `${run.reachable}/${run.cases}` }),
+          !isControl && lost !== 0 ? el("small", { text: `${signed(lost).replace(".000", "")} vs control` }) : null
+        );
+
+        const row = el("tr", {}, label, reach);
+        for (const channel of channels) {
+          TYPES.forEach(([type, typeLabel], i) => {
+            const cls = ["cell", i === 0 ? "group-start" : "", type === "overall" ? "overall" : ""];
+            const score = run.channels?.[channel]?.[type];
+            if (!score) {
+              row.append(el("td", {
+                class: [...cls, "na"].join(" "), tabindex: "0",
+                "data-tip": JSON.stringify({ head: `${channel} · ${typeLabel}`, lines: ["Not run for this configuration."] }),
+              }, el("span", { class: "v", text: "not run" })));
+              return;
+            }
+            const value = score[state.metric];
+            const base = control?.channels?.[channel]?.[type];
+            const lines = [`${metricLabel}: <b>${fmt(value)}</b>`, `queries: ${score.n}`];
+            let tone = "ctl";
+            let delta = null;
+            if (!isControl && base) {
+              delta = value - base[state.metric];
+              tone = bucket(delta);
+              lines.splice(1, 0, `control: ${fmt(base[state.metric])} (${esc(control.label)})`, `change: <b>${signed(delta)}</b>`);
+            } else if (!isControl) {
+              lines.push("control has no score here");
+            }
+            row.append(el("td", {
+              class: [...cls, `b-${tone}`].join(" "), tabindex: "0",
+              "data-tip": JSON.stringify({ head: `${run.label} · ${channel} · ${typeLabel}`, lines }),
+            },
+              el("span", { class: "v", text: fmt(value) }),
+              delta === null ? null : el("span", { class: "d", text: signed(delta) })
+            ));
+          });
+        }
+        body.append(row);
+      }
+    }
+    table.replaceChildren(el("thead", {}, top, sub), body);
+  }
+
+  function renderRunList() {
+    const list = document.getElementById("run-list");
+    list.replaceChildren(...runs.map(run => el("li", {},
+      el("div", { class: "run-name" }, el("span", { text: run.label }), el("span", { class: "tag", text: run.experiment })),
+      el("code", { text: `${run.id} · ${run.date} · ${run.commit} · control: ${run.control}` }),
+      configLine(run) ? el("code", { text: configLine(run) }) : null,
+      run.notes ? el("p", { text: run.notes }) : null
+    )));
+  }
+
+  const tip = document.getElementById("tip");
+  function showTip(cell) {
+    const data = JSON.parse(cell.dataset.tip);
+    tip.innerHTML = "";
+    tip.append(el("div", { class: "t-head", text: data.head }));
+    for (const line of data.lines) {
+      const div = document.createElement("div");
+      div.innerHTML = line; // built above from numbers and escaped labels; <b> is the only markup
+      tip.append(div);
+    }
+    tip.hidden = false;
+    const box = cell.getBoundingClientRect();
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let left = box.left + box.width / 2 - tw / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
+    let top = box.top - th - 8;
+    if (top < 8) top = box.bottom + 8;
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
+  }
+  const hideTip = () => { tip.hidden = true; };
+  const table = document.getElementById("log");
+  table.addEventListener("mouseover", e => { const c = e.target.closest("td.cell"); c ? showTip(c) : hideTip(); });
+  table.addEventListener("mouseleave", hideTip);
+  table.addEventListener("focusin", e => { const c = e.target.closest("td.cell"); if (c) showTip(c); });
+  table.addEventListener("focusout", hideTip);
+  document.querySelector(".table-wrap").addEventListener("scroll", hideTip, { passive: true });
+  window.addEventListener("scroll", hideTip, { passive: true });
+
+  renderFacts();
+  renderControls();
+  renderTable();
+  renderRunList();
+})();
+</script>
