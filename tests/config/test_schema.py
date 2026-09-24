@@ -1,3 +1,5 @@
+import pytest
+
 from ariostea.config.schema import load_config
 
 
@@ -82,3 +84,44 @@ def test_server_section_parses(tmp_path):
     cfg = load_config(cfg_file)
     assert cfg.server.host == "0.0.0.0"
     assert cfg.server.port == 9001
+
+
+def test_chunking_defaults_reproduce_the_original_chunker(tmp_path):
+    # Inert until opted into: an existing config must chunk exactly as before.
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text('[vault]\npath = "~/Vault"\n')
+    cfg = load_config(cfg_file)
+    assert cfg.chunking.max_tokens == 512
+    assert cfg.chunking.overlap == 0
+    assert cfg.chunking.unit == "words"
+
+
+def test_chunking_section_parses(tmp_path):
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text(
+        '[vault]\npath = "~/Vault"\n\n[chunking]\nmax_tokens = 128\noverlap = 32\nunit = "model_tokens"\n'
+    )
+    cfg = load_config(cfg_file)
+    assert (cfg.chunking.max_tokens, cfg.chunking.overlap, cfg.chunking.unit) == (
+        128,
+        32,
+        "model_tokens",
+    )
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"max_tokens": 0},
+        {"max_tokens": 128, "overlap": 128},  # a window that never advances
+        {"max_tokens": 128, "overlap": -1},
+        {"unit": "characters"},
+    ],
+)
+def test_chunking_rejects_impossible_settings(fields):
+    from pydantic import ValidationError
+
+    from ariostea.config.schema import ChunkingCfg
+
+    with pytest.raises(ValidationError):
+        ChunkingCfg(**fields)
