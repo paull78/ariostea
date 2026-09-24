@@ -1,6 +1,6 @@
 # Design: Chunking policy, measured
 
-**Status:** draft, awaiting owner review
+**Status:** approved 2026-09-24, ready for implementation planning
 **Date:** 2026-09-24
 
 ## Problem
@@ -118,6 +118,11 @@ committing an hour per configuration to hybrid. It reuses the existing index and
 scoring code; the only new piece is building the container from a chunking
 config.
 
+Every configuration the runner measures is appended to the experiment log,
+`eval/results/runs.jsonl`, with the 512-word baseline as its control, and the
+shaded page is re-rendered. The owner compares configurations there, so a run
+that is not in the log did not happen as far as the decision is concerned.
+
 ## Experiment protocol
 
 Fixed now, before the real runs, so the result cannot be chosen after seeing it.
@@ -173,13 +178,11 @@ Out of scope, each its own later cycle:
 - Re-indexing a live vault. A chunking change invalidates every stored chunk, so
   the owner reindexes once after adopting a new default.
 
-## Questions for the owner
+## Owner decisions
 
-1. **Is the decision rule's threshold right?** A 0.03 gain with no type losing
-   more than 0.05 is my proposal. A stricter rule protects cross-lingual, the
-   weakest track, at the cost of possibly rejecting a real overall gain.
-2. **Should token-unit sizing become the default** if it wins, or stay opt-in?
-   Making it the default ties the chunker to the embedding model, so switching
-   models changes chunk boundaries and forces a reindex.
-3. **Is an hour of CPU per hybrid configuration acceptable** for four hybrid
-   runs, or should the sweep run fewer?
+1. **Decision rule:** accepted as written.
+2. **Token-unit sizing as the default:** depends on how large the improvement
+   is. The sweep reports the measured gain and the owner decides; the default
+   does not change without that call.
+3. **Compute budget:** not answered. The plan proceeds with four hybrid runs,
+   about four hours of CPU, and reports before spending more.
