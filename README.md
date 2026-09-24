@@ -188,7 +188,7 @@ that command reproduces the committed corpus byte for byte.
 
 ### Evaluation gold set
 
-`eval/wiki/gold.json` holds ~150 span-anchored queries over that corpus. Gold
+`eval/wiki/gold.json` holds 167 span-anchored queries over that corpus. Gold
 points at the answer-bearing **text span**, not just the note, and a retrieved
 chunk counts as a hit when it *contains* that span — so the same labels stay
 valid across chunking policies, and chunking itself becomes measurable.
@@ -198,10 +198,11 @@ stack: `paraphrase` (dense), `exact_term` (BM25/FTS), `buried` (contextual
 blurbs) and `cross_lingual` (multilingual embeddings). Results are reported
 per type, so a change to one mechanism shows up in its own column.
 
-The set is LLM-generated and passes four validation gates: automatic span
+The set is LLM-generated and passes five validation gates: automatic span
 verification, an adversarial check by a *different* model, a discrimination
-filter that drops queries every channel already answers at rank 1, and human
-spot-review. `eval/wiki/gold.meta.json` records which models produced it and
+filter that drops queries every channel already answers at rank 1, an
+ambiguity gate that rejects queries another retrieved passage answers just as
+well, and human spot-review. `eval/wiki/gold.meta.json` records which models produced it and
 `eval/wiki/gold_rejected.json` records every candidate thrown out, with the
 reason. Unlike the corpus, an LLM run is not byte-reproducible, so the
 committed file is the artifact of record.
@@ -210,3 +211,7 @@ committed file is the artifact of record.
 uv run python eval/run_wiki_eval.py    # evaluate against the committed gold
 uv run python eval/generate_gold.py    # regenerate it (needs a local model)
 ```
+
+A full regeneration takes a few hours. The retrieval-backed gates rerank
+every candidate on CPU, so unload the judge model from LM Studio before they
+start; it reloads on demand when the ambiguity gate makes its first call.
