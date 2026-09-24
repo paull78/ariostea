@@ -8,3 +8,6 @@ __pycache__/
 # local experimentation (personal vault config + scratch scripts)
 ariostea.toml
 try_search.py
+
+# Local scratch: raw LLM responses for resumable gold generation.
+eval/wiki/.gold_cache.jsonl

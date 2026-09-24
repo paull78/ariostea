@@ -1,0 +1,665 @@
+"""Generate the span-anchored gold set over the pinned Wikipedia corpus.
+
+Usage:  uv run python eval/generate_gold.py [--limit N] [--no-discrimination]
+
+Pipeline, per selected passage:
+
+    select -> generate -> stage 1 automatic -> stage 2 adversarial judge
+                                                   |
+              stage 3 <- stage 2.5 ambiguity <-----+
+              discrimination
+              eval/wiki/gold.json
+
+Stages 2.5 and 3 both need the corpus indexed, so they share one build of it;
+`--no-discrimination` skips both (and with them the whole embedding pass).
+
+Point it at a running OpenAI-compatible endpoint with:
+    ARIOSTEA_GOLD_BASE_URL    (default http://localhost:1234/v1, LM Studio)
+    ARIOSTEA_GOLD_MODEL       (default qwen2.5-14b-instruct-mlx)
+    ARIOSTEA_GOLD_JUDGE_MODEL (default qwen/qwen3.6-35b-a3b)
+    ARIOSTEA_GOLD_API_KEY     (default empty)
+
+The judge model must differ from the generator. A model asked to audit its
+own output agrees with itself, which turns stage 2 from a gate into a rubber
+stamp -- the script refuses to run when the two names match.
+
+The reasoning model judges and the plain instruct model generates, not the
+other way round. Generation is mechanical -- copy a span, phrase a question --
+and measured on this corpus the 14B instruct model got 6/6 spans verbatim at
+7.5s a call, while the 35B reasoning model spent ~2800 thinking tokens and
+~47s reaching the same kind of answer. Judging is the half that benefits from
+deliberation, and it is also the smaller half, since only candidates that
+survived stage 1 reach it.
+
+Outputs, all under eval/wiki/:
+    gold.json           the accepted cases, in the Plan 1 schema
+    gold_rejected.json  every rejected candidate, with its stage and reason
+    gold.meta.json      which models produced this gold, and the counts
+    gold_review.md      (written to eval/, not eval/wiki/ -- see REVIEW)
+                        a sample rendered for stage 4, human spot-review
+
+Memory: run the two halves separately on a machine that cannot hold both the
+LLMs and an embedding pass at once. The discrimination filter indexes all 79
+notes with a local embedding model, and on a 48GB machine with both chat
+models resident (36GB) that combination was SIGKILLed twice -- which no
+`finally` can catch, since SIGKILL is not deliverable to the process. The
+response cache is what makes that survivable. The recipe:
+
+    lms load <generator>            # generator only
+    uv run python eval/generate_gold.py --no-discrimination
+
+    lms unload --all && lms load <judge>          # swap; the two never coexist
+    uv run python eval/generate_gold.py --no-discrimination
+
+    lms unload --all                              # free it all for indexing
+    uv run python eval/generate_gold.py
+
+Each command replays everything already cached, so only the missing calls
+cost inference and the last one makes none at all. Three phases rather than
+two because the limit bites at *both* stage boundaries: loading the judge
+while the generator is still resident is refused by LM Studio's guardrail,
+which is how 72 candidates once ended up unjudged.
+
+Reproducibility differs from the corpus build on purpose.
+`build_wiki_corpus.py` reproduces byte-identical output from pinned revision
+ids; an LLM run cannot, even at temperature 0, across model builds. So the
+*committed gold* is the artifact of record and `gold.meta.json` records what
+produced it. Re-running this script writes a new gold set; it does not verify
+the old one.
+"""
+
+from __future__ import annotations
+
+import argparse
+import gc
+import json
+import os
+import sys
+import tempfile
+from collections import Counter
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+from ariostea.adapters.chat.openai_compat import ChatError, OpenAICompatChat
+from ariostea.eval.chat_cache import CachingChat
+from ariostea.eval.gold_ambiguity import (
+    UNREACHABLE_PREFIX,
+    UNREADABLE_PREFIX,
+    ambiguity_filter,
+    collect_competitors,
+)
+from ariostea.eval.gold_discriminate import discrimination_filter
+from ariostea.eval.gold_generate import Candidate, generate_case
+from ariostea.eval.gold_passages import Passage, select_passages
+from ariostea.eval.gold_validate import adversarial_gate, automatic_gate
+from ariostea.eval.wiki_gold import AnswerSpan, WikiGoldCase
+from ariostea.eval.wiki_index import index_wiki_corpus, wiki_channels
+from ariostea.eval.wiki_notes import load_corpus_notes, note_titles
+from ariostea.ports.chat import ChatProvider
+
+WIKI_DIR = Path(__file__).resolve().parent / "wiki"
+GOLD = WIKI_DIR / "gold.json"
+REJECTED = WIKI_DIR / "gold_rejected.json"
+META = WIKI_DIR / "gold.meta.json"
+# Deliberately *outside* WIKI_DIR. Everything under eval/wiki/ with a `.md`
+# suffix is indexed as a corpus note, and this file quotes the sampled gold
+# queries verbatim next to their answer spans. Written inside the corpus it
+# became an 80th note that matched those queries better than any real article
+# -- and since it is nobody's expected note, every such match counted as a
+# miss while occupying a top-k slot. It silently depressed the very cases it
+# exists to document, and skewed the discrimination filter that runs against
+# the same index. Keep generated artifacts that quote queries out of the
+# indexed tree.
+REVIEW = WIKI_DIR.parent / "gold_review.md"
+# Raw model responses, keyed by prompt. Makes an interrupted run resumable and
+# makes re-running with tuned gates free. Not committed -- it is a local
+# scratch file, and `gold.json` is the artifact of record.
+CACHE = WIKI_DIR / ".gold_cache.jsonl"
+
+# The design doc asks for ~150 *accepted* queries. The gates reject about half
+# -- a measured 76 of 150 on the first full run -- so the passage budget is
+# roughly double the target. Selection is deterministic and responses are
+# cached, so raising these numbers tops the set up rather than regenerating
+# it. cross_lingual is smaller because it is the most expensive to review by
+# hand.
+# Sized from measured survival, not guessed. The three validation gates reject
+# about two thirds of candidates -- and unevenly: on the 330-candidate run
+# `buried` and `paraphrase` survived at ~40%, `cross_lingual` at 32%, and
+# `exact_term` at only 20%, because rare-term spans are short and often repeat
+# in their note, which trips both the length and the uniqueness check. A flat
+# budget therefore produced a lopsided set (16 exact_term against 32 buried),
+# and n=16 is too coarse for a track whose whole job is attributing a change
+# to lexical matching. These numbers divide the target through each type's own
+# survival rate; `select_passages` confirms all 505 are supplied.
+BUDGET = {"paraphrase": 105, "exact_term": 175, "buried": 100, "cross_lingual": 125}
+
+# Cross-lingual queries cycle through the two languages the corpus holds
+# parallel articles in -- weighted two-to-one toward Italian, which is not
+# arbitrary. Measured on the first full run, Italian candidates survive the
+# gates at 40% against Spanish at 67%: the generator drifts from copying the
+# English span verbatim more often when it is writing an Italian query. An
+# even split therefore yields far fewer Italian cases than Spanish ones (12
+# against 20), and Italian is the half that matters most here, since the
+# vault this project is built for is English/Italian.
+LANGUAGE_CYCLE = (("it", "Italian"), ("es", "Spanish"), ("it", "Italian"))
+
+BASE_URL = os.environ.get("ARIOSTEA_GOLD_BASE_URL", "http://localhost:1234/v1")
+MODEL = os.environ.get("ARIOSTEA_GOLD_MODEL", "qwen2.5-14b-instruct-mlx")
+JUDGE_MODEL = os.environ.get("ARIOSTEA_GOLD_JUDGE_MODEL", "qwen/qwen3.6-35b-a3b")
+API_KEY = os.environ.get("ARIOSTEA_GOLD_API_KEY", "")
+# Generous next to the 128-token default, but a plain instruct model needs no
+# more than this for a query plus a span.
+GEN_MAX_TOKENS = 512
+# The judge is a reasoning model, and `max_tokens` covers its thinking as well
+# as its answer. Measured on real judge prompts it spends 1200-1500 tokens
+# reasoning; at 1024 *every* verdict came back empty. That failed safe rather
+# than silently -- `adversarial_gate` treats an unreadable verdict as a
+# rejection -- but it rejected everything, so the budget has to clear the
+# thinking with room to spare.
+JUDGE_MAX_TOKENS = 4096
+TIMEOUT_S = 600.0
+REVIEW_SAMPLE = 20
+
+
+@dataclass(frozen=True)
+class Rejection:
+    # "generate" | "automatic" | "adversarial" | "judge-unreachable" | "judge-unreadable"
+    # | "discrimination" | "ambiguity" | "spot-review"
+    stage: str
+    reason: str
+    query: str
+    note: str
+    span: str
+    type: str
+
+
+def _scenario(query_type: str, query_lang: str) -> str:
+    """Scenario label in the existing gold sets' vocabulary: the query type
+    for same-language cases, an arrow for cross-lingual ones."""
+    return f"en→{query_lang}" if query_type == "cross_lingual" else query_type
+
+
+def to_gold_case(candidate: Candidate) -> WikiGoldCase:
+    """`Candidate` already carries the query language `generate_case` was told
+    to use, so it is read from there rather than passed again -- two sources
+    for one fact is two things that can disagree."""
+    return WikiGoldCase(
+        query=candidate.query,
+        query_lang=candidate.query_lang,
+        type=candidate.type,
+        scenario=_scenario(candidate.type, candidate.query_lang),
+        expected_notes=(candidate.note,),
+        answer_spans=(AnswerSpan(note=candidate.note, text=candidate.span),),
+    )
+
+
+def _generate_all(
+    chat: ChatProvider,
+    selected: list[tuple[str, Passage]],
+    notes: dict[str, str],
+    titles: dict[str, str],
+) -> tuple[list[Candidate], list[Rejection]]:
+    """Stage 0 and stage 1 over every selected passage.
+
+    A `ChatError` is recorded as a rejection rather than allowed to abort. One
+    model call failing mid-run should cost one candidate, not the hundred
+    already generated.
+    """
+    survivors: list[Candidate] = []
+    rejections: list[Rejection] = []
+    cross_lingual_seen = 0
+
+    for index, (query_type, passage) in enumerate(selected, start=1):
+        if query_type == "cross_lingual":
+            query_lang, lang_name = LANGUAGE_CYCLE[cross_lingual_seen % len(LANGUAGE_CYCLE)]
+            cross_lingual_seen += 1
+        else:
+            query_lang, lang_name = "en", "Italian"  # lang_name unused for en types
+
+        title = titles[passage.note]
+        try:
+            candidate = generate_case(
+                chat,
+                passage,
+                query_type,
+                title=title,
+                lang_name=lang_name,
+                query_lang=query_lang,
+            )
+        except (ValueError, ChatError) as exc:
+            rejections.append(Rejection("generate", str(exc), "", passage.note, "", query_type))
+            continue
+
+        reason = automatic_gate(candidate, notes, titles)
+        if reason:
+            rejections.append(
+                Rejection(
+                    "automatic",
+                    reason,
+                    candidate.query,
+                    candidate.note,
+                    candidate.span,
+                    query_type,
+                )
+            )
+            continue
+        survivors.append(candidate)
+        if index % 10 == 0:
+            print(f"  generated {index}/{len(selected)}, {len(survivors)} past stage 1", flush=True)
+
+    return survivors, rejections
+
+
+def _judge_all(
+    judge: ChatProvider, survivors: list[Candidate], titles: dict[str, str]
+) -> tuple[list[WikiGoldCase], list[Rejection]]:
+    """Stage 2 over the candidates stage 1 accepted."""
+    cases: list[WikiGoldCase] = []
+    rejections: list[Rejection] = []
+    for index, candidate in enumerate(survivors, start=1):
+        stage = "adversarial"
+        try:
+            reason = adversarial_gate(judge, candidate, title=titles[candidate.note])
+        except ChatError as exc:
+            # An endpoint that cannot load the model says nothing about this
+            # candidate. Filing it under "adversarial" would launder an
+            # outage into a quality rejection and quietly shrink the gold set.
+            reason = f"judge unreachable: {exc}"
+            stage = "judge-unreachable"
+        if reason:
+            rejections.append(
+                Rejection(
+                    stage,
+                    reason,
+                    candidate.query,
+                    candidate.note,
+                    candidate.span,
+                    candidate.type,
+                )
+            )
+        else:
+            cases.append(to_gold_case(candidate))
+        if index % 10 == 0:
+            print(f"  judged {index}/{len(survivors)}, {len(cases)} approved", flush=True)
+    return cases, rejections
+
+
+def generate_and_gate(
+    chat: ChatProvider,
+    judge: ChatProvider,
+    selected: list[tuple[str, Passage]],
+    notes: dict[str, str],
+    titles: dict[str, str],
+) -> tuple[list[WikiGoldCase], list[Rejection]]:
+    """Run generation and validation stages 1 and 2 over every selected passage.
+
+    The two stages run as separate passes rather than interleaved per
+    candidate, and that is about hardware, not tidiness. The generator and the
+    judge are different models totalling 36GB on a 48GB machine, so LM Studio
+    cannot hold both; alternating them per candidate would swap models roughly
+    three hundred times over a 150-passage run. Two passes cost one swap.
+
+    Stage 2 still only ever sees candidates stage 1 accepted: the judge costs
+    a model call, and there is nothing worth judging about a span that is not
+    even in the note.
+    """
+    survivors, rejections = _generate_all(chat, selected, notes, titles)
+    cases, judge_rejections = _judge_all(judge, survivors, titles)
+    return cases, rejections + judge_rejections
+
+
+def write_gold(path: Path, cases: list[WikiGoldCase]) -> None:
+    """Write `cases` in the Plan 1 schema `load_wiki_gold` reads back."""
+    rows = [
+        {
+            "query": case.query,
+            "query_lang": case.query_lang,
+            "type": case.type,
+            "scenario": case.scenario,
+            "expected_notes": list(case.expected_notes),
+            "answer_spans": [{"note": s.note, "text": s.text} for s in case.answer_spans],
+        }
+        for case in cases
+    ]
+    path.write_text(json.dumps(rows, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def _evenly_spaced(items: list, count: int) -> list:
+    """`count` items spread across `items`, first one included.
+
+    Indices are computed as `round(i * len / count)` rather than by a fixed
+    stride. A stride phase-locks onto any periodic structure in the list --
+    which is exactly what happened with the alternating it/es cross-lingual
+    cases -- while spacing derived from the length does not divide evenly into
+    the period in the same way.
+    """
+    if count >= len(items):
+        return list(items)
+    return [items[round(index * len(items) / count)] for index in range(count)]
+
+
+def review_markdown(cases: list[WikiGoldCase], sample_size: int) -> str:
+    """Render a sample for stage 4, human spot-review.
+
+    Stratified by query type *and* query language. Type alone is not enough:
+    the cross-lingual track alternates Italian and Spanish, and sampling it by
+    a fixed stride returned five Spanish cases and no Italian -- while Italian
+    is the half the generator handles worse (40% of Italian candidates survive
+    the automatic gate against 67% of Spanish ones). A review that cannot see
+    the weaker half is not auditing the thing most likely to be wrong.
+    """
+    lines = [
+        "# Gold spot-review sample",
+        "",
+        "Tick a case only if **all three** hold: the query is answerable, the span "
+        "answers it, and no *other* passage in the corpus answers it just as well.",
+        "",
+        "The third is not a stylistic preference. `answer_spans` is a fixed list, and "
+        "a retrieved chunk scores as a hit only if it sits in the labelled note and "
+        "contains the labelled span. So if some other passage also answers the query, "
+        "a retriever that ranks it first is *correct* and scored as a **miss** -- the "
+        "case would punish the behaviour we want. Rejecting those keeps the metric "
+        "honest.",
+        "",
+    ]
+    if not cases:
+        lines.append("_No cases in the gold set to review._")
+        return "\n".join(lines)
+
+    by_type: dict[str, list[WikiGoldCase]] = {}
+    for case in cases:
+        by_type.setdefault(case.type, []).append(case)
+    per_type = max(1, sample_size // len(by_type))
+
+    for query_type in sorted(by_type):
+        pool = by_type[query_type]
+        by_lang: dict[str, list[WikiGoldCase]] = {}
+        for case in pool:
+            by_lang.setdefault(case.query_lang, []).append(case)
+
+        # Every language present gets at least one slot; the rest are shared
+        # out in proportion, so a track's minority language is always visible.
+        sample: list[WikiGoldCase] = []
+        per_lang = max(1, per_type // len(by_lang))
+        for lang in sorted(by_lang):
+            sample += _evenly_spaced(by_lang[lang], per_lang)
+
+        lines += [
+            f"## {query_type}  ({len(pool)} cases, showing {len(sample)}: "
+            f"{', '.join(f'{n} {lang}' for lang, n in sorted(Counter(c.query_lang for c in sample).items()))})",
+            "",
+        ]
+        for case in sample:
+            span = case.answer_spans[0]
+            lines += [
+                f"- [ ] **{case.query}**  `{case.query_lang}`",
+                f"  - note: `{span.note}`",
+                f"  - span: {span.text}",
+                "",
+            ]
+    return "\n".join(lines)
+
+
+def _ambiguity_stage(reason: str) -> str:
+    if reason.startswith(UNREACHABLE_PREFIX):
+        return "judge-unreachable"
+    if reason.startswith(UNREADABLE_PREFIX):
+        return "judge-unreadable"
+    return "ambiguity"
+
+
+def unreachable_count(rejections: list[Rejection]) -> int:
+    """How many candidates were lost to the judge endpoint rather than judged."""
+    return sum(1 for rejection in rejections if rejection.stage == "judge-unreachable")
+
+
+def rejection_summary(rejections: list[Rejection]) -> str:
+    """Counts by stage, then by reason within each stage.
+
+    Printed after every run because the first real run is expected to reject a
+    large fraction, and reading *why* is the only way to tell a model that is
+    bad at the task from a threshold that is set wrong.
+    """
+    by_stage: dict[str, dict[str, int]] = {}
+    for rejection in rejections:
+        # Judge reasons carry the model's free text in parentheses; group on
+        # the part before it, so the counts are about causes not phrasings.
+        cause = rejection.reason.split("(")[0].strip()
+        by_stage.setdefault(rejection.stage, {}).setdefault(cause, 0)
+        by_stage[rejection.stage][cause] += 1
+
+    lines: list[str] = []
+    for stage in sorted(by_stage):
+        lines.append(f"  {sum(by_stage[stage].values()):4d}  {stage}")
+        for cause, count in sorted(by_stage[stage].items(), key=lambda kv: (-kv[1], kv[0])):
+            lines.append(f"        {count:4d}  {cause}")
+    return "\n".join(lines)
+
+
+def report_shortfall(budget: dict[str, int], selected: list[tuple[str, Passage]]) -> None:
+    """Print any query type the corpus could not fill.
+
+    A silent shortfall reads as "the corpus supports this design" when it does
+    not -- the same no-silent-caps rule the corpus build's dropped-template
+    report follows.
+    """
+    for query_type, wanted in sorted(budget.items()):
+        got = sum(1 for selected_type, _ in selected if selected_type == query_type)
+        if got < wanted:
+            print(
+                f"  SHORTFALL {query_type}: only {got}/{wanted} eligible passages in the corpus",
+                file=sys.stderr,
+            )
+
+
+def _write_outputs(
+    cases: list[WikiGoldCase], rejections: list[Rejection], passages_selected: int
+) -> None:
+    """Write all four artifacts. Called from a `finally`, so it must cope with
+    a partial run -- an empty `cases` list writes an empty gold file rather
+    than raising, and `run_wiki_eval.py` refuses to score that."""
+    write_gold(GOLD, cases)
+    REJECTED.write_text(
+        json.dumps([asdict(r) for r in rejections], indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    META.write_text(
+        json.dumps(
+            {
+                "generator_model": MODEL,
+                "judge_model": JUDGE_MODEL,
+                "base_url": BASE_URL,
+                "passages_selected": passages_selected,
+                "accepted": len(cases),
+                "rejected": len(rejections),
+                "by_type": {
+                    query_type: sum(1 for case in cases if case.type == query_type)
+                    for query_type in sorted(BUDGET)
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    REVIEW.write_text(review_markdown(cases, REVIEW_SAMPLE), encoding="utf-8")
+
+
+def _retrieval_stages(
+    cases: list[WikiGoldCase],
+) -> tuple[list[WikiGoldCase], list[WikiGoldCase], list[tuple[WikiGoldCase, tuple[str, ...]]]]:
+    """Run everything that needs the corpus indexed, and release it on return.
+
+    A function rather than an inline `with` block, and that is the whole
+    point: `wiki_channels` returns closures holding an embedding model and an
+    open store, so binding them to a local in `main` keeps roughly 15GB alive
+    for the rest of the run no matter that the temporary *directory* has been
+    cleaned up. The first version of this code did exactly that and was
+    SIGKILLed the moment the judge model loaded on top. Locals of a returned
+    frame are dropped, so the memory can actually go.
+
+    Returns `(kept, dropped_as_too_easy, collected_competitors)`.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        db = str(Path(tmp) / "eval.db")
+        print("indexing the corpus for the retrieval-backed stages ...", flush=True)
+        container = index_wiki_corpus(WIKI_DIR, db)
+        channels = wiki_channels(db, container)
+
+        # Discrimination first because it is free -- pure retrieval, no model
+        # calls -- so every case it drops is one the judge is not paid for.
+        kept, dropped = discrimination_filter(cases, channels)
+        print(f"{len(dropped)} dropped as too easy; {len(kept)} remain", flush=True)
+
+        print(f"collecting competitors for {len(kept)} cases ...", flush=True)
+        collected = collect_competitors(
+            kept,
+            channels,
+            on_progress=lambda done, total: (
+                print(f"  collected {done}/{total}", flush=True)
+                if done % 10 == 0 or done == total
+                else None
+            ),
+        )
+        return kept, dropped, collected
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Generate the wiki eval gold set.")
+    parser.add_argument("--limit", type=int, help="cap the total passages (for a smoke run)")
+    parser.add_argument(
+        "--no-discrimination",
+        action="store_true",
+        help="skip stage 3, which has to index the corpus",
+    )
+    args = parser.parse_args(argv)
+
+    if MODEL == JUDGE_MODEL:
+        print(
+            f"generator and judge are both {MODEL!r}; stage 2 needs an independent "
+            f"model. Set ARIOSTEA_GOLD_JUDGE_MODEL to something else.",
+            file=sys.stderr,
+        )
+        return 2
+
+    notes = load_corpus_notes(WIKI_DIR)
+    titles = note_titles(notes)
+    budget = BUDGET
+    if args.limit:
+        share = max(1, args.limit // len(BUDGET))
+        budget = {query_type: share for query_type in BUDGET}
+
+    selected = select_passages(notes, budget)
+    report_shortfall(budget, selected)
+    print(f"{len(selected)} passages selected from {len({p.note for _, p in selected})} notes")
+
+    chat = CachingChat(
+        OpenAICompatChat(
+            base_url=BASE_URL,
+            model=MODEL,
+            api_key=API_KEY,
+            timeout=TIMEOUT_S,
+            max_tokens=GEN_MAX_TOKENS,
+        ),
+        CACHE,
+        label=MODEL,
+    )
+    judge = CachingChat(
+        OpenAICompatChat(
+            base_url=BASE_URL,
+            model=JUDGE_MODEL,
+            api_key=API_KEY,
+            timeout=TIMEOUT_S,
+            max_tokens=JUDGE_MAX_TOKENS,
+        ),
+        CACHE,
+        label=JUDGE_MODEL,
+    )
+    print(f"generating with {MODEL}, judging with {JUDGE_MODEL} at {BASE_URL} ...", flush=True)
+
+    cases: list[WikiGoldCase] = []
+    rejections: list[Rejection] = []
+    dropped: list[WikiGoldCase] = []
+    try:
+        cases, rejections = generate_and_gate(chat, judge, selected, notes, titles)
+        print(f"{len(cases)} candidates survived stages 1 and 2", flush=True)
+
+        if not args.no_discrimination and cases:
+            cases, dropped, collected = _retrieval_stages(cases)
+
+            # The embedding model and store are only actually freed once
+            # `_retrieval_stages` has returned and its locals are gone; a
+            # collection here makes that release happen *before* the judge is
+            # asked for its first verdict and LM Studio loads 20GB of
+            # reasoning model on top. Leaving the two overlapping is what
+            # killed the previous run at exactly this line.
+            gc.collect()
+
+            print(f"judging {len(collected)} cases for ambiguity ...", flush=True)
+            cases, ambiguous = ambiguity_filter(
+                collected,
+                judge,
+                on_progress=lambda done, total, kept: (
+                    print(f"  ambiguity {done}/{total}, {kept} kept", flush=True)
+                    if done % 10 == 0 or done == total
+                    else None
+                ),
+            )
+            print(f"{len(ambiguous)} dropped as ambiguous; {len(cases)} remain", flush=True)
+            rejections += [
+                Rejection(
+                    # An outage is not a verdict. Filing it under "ambiguity"
+                    # would shrink the gold set and report the shrinkage as a
+                    # quality finding; "judge-unreachable" is what
+                    # `unreachable_count` reads to fail the run instead. An
+                    # unreadable verdict is likewise the judge's failure, not
+                    # the case's, though not one that should fail the run.
+                    _ambiguity_stage(reason),
+                    reason,
+                    case.query,
+                    case.expected_notes[0],
+                    case.answer_spans[0].text,
+                    case.type,
+                )
+                for case, reason in ambiguous
+            ]
+            rejections += [
+                Rejection(
+                    "discrimination",
+                    "every channel answers at rank 1",
+                    case.query,
+                    case.expected_notes[0],
+                    case.answer_spans[0].text,
+                    case.type,
+                )
+                for case in dropped
+            ]
+    finally:
+        # In a `finally` for the same reason `build_wiki_corpus.py` writes its
+        # manifest in one: the first full run was killed after every model
+        # call had been paid for and before anything reached disk. The cache
+        # makes those calls recoverable, but whatever this run did establish
+        # should still be written down.
+        _write_outputs(cases, rejections, len(selected))
+        print(f"\ncache: {chat.hits + judge.hits} hits, {chat.misses + judge.misses} live calls")
+
+    print("\nrejections by stage:")
+    print(rejection_summary(rejections))
+    print(f"\nwrote {len(cases)} cases to {GOLD}")
+    print(f"spot-review sample: {REVIEW}")
+
+    lost = unreachable_count(rejections)
+    if lost:
+        print(
+            f"\nINCOMPLETE: {lost} candidates were never judged -- the judge endpoint "
+            f"was unreachable. They are recorded as 'judge-unreachable', not as "
+            f"rejections. Free the memory the judge model needs and re-run; "
+            f"generation replays from cache and only the missing verdicts cost calls.",
+            file=sys.stderr,
+        )
+        return 4
+    return 0 if cases else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

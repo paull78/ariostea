@@ -75,3 +75,44 @@ def test_format_span_report_includes_overall_row():
     text = format_span_report(evaluate_spans(cases, span_fn, k=5))
     assert "overall" in text
     assert "paraphrase" in text
+
+
+def test_report_carries_ndcg_at_both_granularities():
+    cases = [
+        WikiGoldCase(
+            query="q",
+            query_lang="en",
+            type="paraphrase",
+            scenario="paraphrase",
+            expected_notes=("a.md",),
+            answer_spans=(AnswerSpan(note="a.md", text="perfect fifths"),),
+        )
+    ]
+
+    def span_fn(query, k):
+        return [("a.md", "tuned in perfect fifths")]
+
+    report = evaluate_spans(cases, span_fn, k=5)
+    assert report.overall.note_ndcg_at_k == 1.0
+    assert report.overall.span_ndcg_at_k == 1.0
+    assert "ndcg" in format_span_report(report)
+
+
+def test_ndcg_discounts_a_case_answered_at_a_later_rank():
+    cases = [
+        WikiGoldCase(
+            query="q",
+            query_lang="en",
+            type="buried",
+            scenario="buried",
+            expected_notes=("a.md",),
+            answer_spans=(AnswerSpan(note="a.md", text="perfect fifths"),),
+        )
+    ]
+
+    def span_fn(query, k):
+        return [("b.md", "unrelated"), ("a.md", "tuned in perfect fifths")]
+
+    report = evaluate_spans(cases, span_fn, k=5)
+    assert 0.0 < report.overall.span_ndcg_at_k < 1.0
+    assert report.overall.span_ndcg_at_k > report.overall.span_mrr

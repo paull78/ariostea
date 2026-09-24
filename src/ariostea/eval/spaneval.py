@@ -9,8 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ariostea.eval.harness import SpanSearchFn, dedupe
-from ariostea.eval.metrics import recall_at_k, reciprocal_rank
-from ariostea.eval.span_metrics import span_recall_at_k, span_reciprocal_rank
+from ariostea.eval.metrics import ndcg_at_k, recall_at_k, reciprocal_rank
+from ariostea.eval.span_metrics import span_ndcg_at_k, span_recall_at_k, span_reciprocal_rank
 from ariostea.eval.wiki_gold import WikiGoldCase
 
 
@@ -20,8 +20,10 @@ class SpanScore:
     n: int
     note_recall_at_k: float
     note_mrr: float
+    note_ndcg_at_k: float
     span_recall_at_k: float
     span_mrr: float
+    span_ndcg_at_k: float
 
 
 @dataclass(frozen=True)
@@ -31,18 +33,20 @@ class SpanEvalReport:
     by_type: tuple[SpanScore, ...]
 
 
-# Each scored row is (note_recall, note_mrr, span_recall, span_mrr).
-def _aggregate(type_: str, rows: list[tuple[float, float, float, float]]) -> SpanScore:
+# Each row is (note_recall, note_mrr, note_ndcg, span_recall, span_mrr, span_ndcg).
+def _aggregate(type_: str, rows: list[tuple[float, ...]]) -> SpanScore:
     n = len(rows)
     if n == 0:
-        return SpanScore(type_, 0, 0.0, 0.0, 0.0, 0.0)
+        return SpanScore(type_, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
     return SpanScore(
         type=type_,
         n=n,
         note_recall_at_k=sum(r[0] for r in rows) / n,
         note_mrr=sum(r[1] for r in rows) / n,
-        span_recall_at_k=sum(r[2] for r in rows) / n,
-        span_mrr=sum(r[3] for r in rows) / n,
+        note_ndcg_at_k=sum(r[2] for r in rows) / n,
+        span_recall_at_k=sum(r[3] for r in rows) / n,
+        span_mrr=sum(r[4] for r in rows) / n,
+        span_ndcg_at_k=sum(r[5] for r in rows) / n,
     )
 
 
@@ -58,7 +62,7 @@ def evaluate_spans(
     *chunks*, and stays comparable to the note-level channels regardless of how
     many chunks a single note contributes.
     """
-    scored: list[tuple[str, tuple[float, float, float, float]]] = []
+    scored: list[tuple[str, tuple[float, ...]]] = []
     for case in cases:
         retrieved = span_fn(case.query, pool)
         notes = dedupe([note for note, _ in retrieved])
@@ -66,8 +70,10 @@ def evaluate_spans(
         row = (
             recall_at_k(expected, notes, k),
             reciprocal_rank(expected, notes),
+            ndcg_at_k(expected, notes, k),
             span_recall_at_k(case.answer_spans, retrieved, k),
             span_reciprocal_rank(case.answer_spans, retrieved),
+            span_ndcg_at_k(case.answer_spans, retrieved, k),
         )
         scored.append((case.type, row))
 
@@ -78,12 +84,16 @@ def evaluate_spans(
 
 
 def format_span_report(report: SpanEvalReport) -> str:
-    header = f"{'type':<14} {'n':>3}  note_r@{report.k:<2} note_mrr  span_r@{report.k:<2} span_mrr"
+    header = (
+        f"{'type':<14} {'n':>3}  "
+        f"{'note_r@' + str(report.k):>9} {'note_mrr':>9} {'note_ndcg':>9}  "
+        f"{'span_r@' + str(report.k):>9} {'span_mrr':>9} {'span_ndcg':>9}"
+    )
     lines = [header]
     for s in (*report.by_type, report.overall):
         lines.append(
             f"{s.type:<14} {s.n:>3}  "
-            f"{s.note_recall_at_k:>7.3f} {s.note_mrr:>7.3f}  "
-            f"{s.span_recall_at_k:>7.3f} {s.span_mrr:>7.3f}"
+            f"{s.note_recall_at_k:>9.3f} {s.note_mrr:>9.3f} {s.note_ndcg_at_k:>9.3f}  "
+            f"{s.span_recall_at_k:>9.3f} {s.span_mrr:>9.3f} {s.span_ndcg_at_k:>9.3f}"
         )
     return "\n".join(lines)

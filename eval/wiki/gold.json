@@ -1,0 +1,2507 @@
+[
+  {
+    "query": "What is the temperature range for ripening blue cheese?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "cheese/blue-cheese.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/blue-cheese.md",
+        "text": "8-10 degrees Celsius"
+      }
+    ]
+  },
+  {
+    "query": "What material are spars usually associated with fibreglass boats?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "sailing/boom-sailing.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/boom-sailing.md",
+        "text": "Aluminium spars are usually associated with fibreglass boats"
+      }
+    ]
+  },
+  {
+    "query": "What is a common source for naming chess openings?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "board-games/chess-opening.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/chess-opening.md",
+        "text": "Chess players' names are the most common sources of opening names"
+      }
+    ]
+  },
+  {
+    "query": "Who invented the clipless pedal?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "cycling/bicycle-pedal.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-pedal.md",
+        "text": "Charles Hanson in 1895"
+      }
+    ]
+  },
+  {
+    "query": "What was the primary purpose of the foresail on Roman galleys?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "sailing/mast-sailing.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/mast-sailing.md",
+        "text": "rather as an aid to steering than for propulsion"
+      }
+    ]
+  },
+  {
+    "query": "What is a key difference between the dry processing method and other methods in terms of cost?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "coffee/coffee-bean.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/coffee-bean.md",
+        "text": "cheaper and simpler"
+      }
+    ]
+  },
+  {
+    "query": "What happens to trailing spokes when forward torque is applied during acceleration?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "cycling/bicycle-wheel.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-wheel.md",
+        "text": "When forward torque is applied (i.e., during acceleration ), the trailing spokes experience a higher tension"
+      }
+    ]
+  },
+  {
+    "query": "What is a characteristic of the electric percolator's brewing process?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "coffee/coffee-preparation.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/coffee-preparation.md",
+        "text": "It uses the pressure of the boiling water to force it to a chamber above the grounds, but relies on gravity to pass the water down through the grounds"
+      }
+    ]
+  },
+  {
+    "query": "What material can be used for the chessboard in FIDE tournaments other than championships?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "board-games/chessboard.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/chessboard.md",
+        "text": "wood, plastic, or cardboard boards"
+      }
+    ]
+  },
+  {
+    "query": "What happens to coffee beans in terms of mass during roasting?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "coffee/coffee-roasting.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/coffee-roasting.md",
+        "text": "During the roasting process coffee beans lose 15 to 18% of their mass"
+      }
+    ]
+  },
+  {
+    "query": "What must equal the pitch of the rear sprockets in derailleur standards?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "cycling/derailleur.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/derailleur.md",
+        "text": "the product of the derailleur's shift ratio and the length of cable pulled"
+      }
+    ]
+  },
+  {
+    "query": "What is the oldest known depiction of a sternpost-mounted rudder?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "sailing/rudder.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/rudder.md",
+        "text": "The world's oldest known depiction of a sternpost-mounted rudder can be seen on a pottery model of a Chinese junk dating from the 1st century AD during the Han dynasty"
+      }
+    ]
+  },
+  {
+    "query": "What type of wood is often used for the pegs in a lute?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "string-instruments/lute.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/lute.md",
+        "text": "European pearwood"
+      }
+    ]
+  },
+  {
+    "query": "What tool does a battitore use to inspect Parmigiano Reggiano?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "cheese/parmesan.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/parmesan.md",
+        "text": "a small hammer (informally called martelletto)"
+      }
+    ]
+  },
+  {
+    "query": "What is a typical seat tube angle for mountain bikes?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "cycling/mountain-bike.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/mountain-bike.md",
+        "text": "around 73 degrees"
+      }
+    ]
+  },
+  {
+    "query": "What happens to lift and drag as the apparent wind angle moves behind the sail?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "sailing/sail.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/sail.md",
+        "text": "For apparent wind angles behind the sail, lift diminishes and drag increases as the predominant component of propulsion."
+      }
+    ]
+  },
+  {
+    "query": "What plant species is also known as Paneer Booti, Ashwagandha and the Indian Cheesemaker?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "cheese/rennet.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/rennet.md",
+        "text": "*Withania coagulans* (also known as Paneer Booti, Ashwagandh and the Indian Cheesemaker)"
+      }
+    ]
+  },
+  {
+    "query": "What event caused a halt in coffee imports to Italy in 1941?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "coffee/espresso.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/espresso.md",
+        "text": "Italy lost its African territories and all imports of coffee were halted"
+      }
+    ]
+  },
+  {
+    "query": "What is a common inflation pressure for road racing tires?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "cycling/racing-bicycle.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/racing-bicycle.md",
+        "text": "around 70 psi"
+      }
+    ]
+  },
+  {
+    "query": "What feature of some modern trimarans allows them to be rated as unsinkable?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "sailing/sailboat.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/sailboat.md",
+        "text": "should every crew compartment be completely filled with water, the hull itself has sufficient buoyancy to remain afloat"
+      }
+    ]
+  },
+  {
+    "query": "What are the two basic styles of Gibson mandolins?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "string-instruments/mandolin.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/mandolin.md",
+        "text": "the Florentine or F-style, which has a decorative scroll near the neck, two points on the lower body and usually a scroll carved into the headstock; and the A-style, which is pear-shaped, has no points and usually has a simpler headstock"
+      }
+    ]
+  },
+  {
+    "query": "How many moves does it take for two xiangqi soldiers to be able to protect each other?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "board-games/xiangqi.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/xiangqi.md",
+        "text": "a minimum of five soldier moves"
+      }
+    ]
+  },
+  {
+    "query": "What is a characteristic of the sound produced by the classic mandolin when played near the bridge?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "string-instruments/mandolino-it.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/mandolino-it.md",
+        "text": "i sovracuti risultano brillanti e nitidi arrivando a essere decisamente pungenti"
+      }
+    ]
+  },
+  {
+    "query": "What is a key difference between the moka pot and a standard percolator in terms of coffee brewing?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "coffee/moka-pot.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/moka-pot.md",
+        "text": "the moka pot never sends brewed coffee back through the coffee grounds"
+      }
+    ]
+  },
+  {
+    "query": "What keys do beginning violin students often start with?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "string-instruments/violin.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/violin.md",
+        "text": "A Major and G major"
+      }
+    ]
+  },
+  {
+    "query": "What technique is used to play a perfect fifth interval on the cello when playing double stops?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "string-instruments/violoncello-it.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/violoncello-it.md",
+        "text": "si ricorre spesso alla tecnica del *barré*, che consiste nel premere un dito perpendicolarmente su due o più corde"
+      }
+    ]
+  },
+  {
+    "query": "What are some of the prominent odor-contributing compounds in Gorgonzola cheese?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "cheese/blue-cheese.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/blue-cheese.md",
+        "text": "2-nonanone, 1-octen-3-ol, 2-heptanol, ethyl hexanoate, methylanisole and 2-heptanone"
+      }
+    ]
+  },
+  {
+    "query": "What is a first-class cantilever brake that uses a single-sided sliding cam?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "cycling/bicycle-brake.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-brake.md",
+        "text": "the side-pull toggle cam brake"
+      }
+    ]
+  },
+  {
+    "query": "What are two types of hardware that can be attached to a boom?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "sailing/boom-sailing.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/boom-sailing.md",
+        "text": "fairleads, blocks"
+      }
+    ]
+  },
+  {
+    "query": "What is a misleading term often used for chain wear in cycling?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "cycling/bicycle-chain.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-chain.md",
+        "text": "chain stretch"
+      }
+    ]
+  },
+  {
+    "query": "How do Nancy Lesh and Saskia Rao-de Haas typically sit while playing the cello in Indian classical music?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "string-instruments/cello.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/cello.md",
+        "text": "playing duets with her sitarist husband, Pt. Shubhendra Rao. Other cellists performing Indian classical music are Nancy Lesh (Dhrupad) and Anup Biswas. Both Rao and Lesh play the cello sitting cross-legged on the floor"
+      }
+    ]
+  },
+  {
+    "query": "What can be a problem when coffee plants produce too many berries?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "coffee/coffea-arabica.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/coffea-arabica.md",
+        "text": "This can be problematic and deleterious, however, as coffee plants tend to produce too many berries; this can lead to an inferior harvest and even damage yield in the following years"
+      }
+    ]
+  },
+  {
+    "query": "What is the name of the coffee made from beans excreted by the Asian palm civet?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "coffee/coffee-bean.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/coffee-bean.md",
+        "text": "These beans are called *kopi luwak*, and are sold as a rare coffee at a high price"
+      }
+    ]
+  },
+  {
+    "query": "What type of lacing pattern is preferred when torque forces are present?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "cycling/bicycle-wheel.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-wheel.md",
+        "text": "build a crossed-spoke wheel where torque forces, whether driving or braking"
+      }
+    ]
+  },
+  {
+    "query": "What is the purpose of the pierced pressing disc in Indian filter coffee?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "coffee/coffee-preparation.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/coffee-preparation.md",
+        "text": "used to cover the ground coffee, and hot water is poured on top of this disk"
+      }
+    ]
+  },
+  {
+    "query": "Why can track cyclists slow down without brakes?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "cycling/bicycle.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle.md",
+        "text": "To slow down, the rider applies resistance to the pedals, acting as a braking system"
+      }
+    ]
+  },
+  {
+    "query": "Who exposed the concert harp to large new audiences in the early 1980s?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "string-instruments/harp.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/harp.md",
+        "text": "Swiss harpist Andreas Vollenweider"
+      }
+    ]
+  },
+  {
+    "query": "What is a traditional coating used on coffee beans before roasting in Vietnam?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "coffee/coffee-roasting.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/coffee-roasting.md",
+        "text": "oil (traditionally clarified butter) and a small amount of sugar"
+      }
+    ]
+  },
+  {
+    "query": "What system was used to raise or lower larger Chinese rudders into the water?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "sailing/rudder.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/rudder.md",
+        "text": "by a rope tackle system so that they could be raised or lowered into the water"
+      }
+    ]
+  },
+  {
+    "query": "How much suspension travel did the first front suspension forks for mountain bikes have?",
+    "query_lang": "en",
+    "type": "buried",
+    "scenario": "buried",
+    "expected_notes": [
+      "cycling/mountain-bike.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/mountain-bike.md",
+        "text": "about 1 1/2 to 2 inches (38 to 50 mm) of suspension travel"
+      }
+    ]
+  },
+  {
+    "query": "¿Cuándo se cree que los mineros del período Hallstatt consumieron queso azul y cerveza?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "cheese/blue-cheese.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/blue-cheese.md",
+        "text": "miners of the Hallstatt Period (800 to 400 BC) already consumed blue cheese and beer"
+      }
+    ]
+  },
+  {
+    "query": "Quali sono i due principali tipi di freni per biciclette?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "cycling/bicycle-brake.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-brake.md",
+        "text": "rim brakes and disc brakes"
+      }
+    ]
+  },
+  {
+    "query": "¿De qué material están hechas la mayoría de las cadenas de bicicleta?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "cycling/bicycle-chain.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-chain.md",
+        "text": "Most bicycle chains are made from plain carbon or alloy steel"
+      }
+    ]
+  },
+  {
+    "query": "Qual è la differenza principale tra un cappuccino e un caffè latte in termini di consistenza del latte?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "coffee/cappuccino.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/cappuccino.md",
+        "text": "It is typically smaller in volume than that of a caffè latte, and topped with a thick layer of macrofoam rather than being made with microfoam."
+      }
+    ]
+  },
+  {
+    "query": "Dove è obbligatorio stagionare il Roquefort?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "cheese/cheese-ripening.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/cheese-ripening.md",
+        "text": "in designated caves in south-western France"
+      }
+    ]
+  },
+  {
+    "query": "¿Para qué sirve el manillar de una bicicleta?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "cycling/bicycle-handlebar.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-handlebar.md",
+        "text": "It is the equivalent of a tiller for vehicles and vessels, as it is most often directly mechanically linked to a pivoting front wheel via a stem which in turn attaches it to the fork."
+      }
+    ]
+  },
+  {
+    "query": "In quale secolo è emerso il gioco del chaturanga?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "board-games/chess.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/chess.md",
+        "text": "7th-century India"
+      }
+    ]
+  },
+  {
+    "query": "¿En qué ciudad se comerciaba el queso Gouda en la Edad Media?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "cheese/gouda-cheese.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/gouda-cheese.md",
+        "text": "Gouda acquired market rights on cheese, the sole right to have a market in which the county's farmers could sell their cheese."
+      }
+    ]
+  },
+  {
+    "query": "¿De qué palabra en inglés antigua se deriva la palabra 'rigging' según el Encyclopædia Britannica Eleventh Edition?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "sailing/rigging.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/rigging.md",
+        "text": "Anglo-Saxon *wrigan* or *wringing*,"
+      }
+    ]
+  },
+  {
+    "query": "Qual è la forma generale di una lira?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "string-instruments/harp.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/harp.md",
+        "text": "triangular in shape"
+      }
+    ]
+  },
+  {
+    "query": "Dove viene solitamente tostato il caffè?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "coffee/coffee-roasting.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/coffee-roasting.md",
+        "text": "Coffee tends to be roasted close to where it will be consumed"
+      }
+    ]
+  },
+  {
+    "query": "Che cos'è un deragliatore su una bicicletta?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "cycling/derailleur.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/derailleur.md",
+        "text": "device that moves a bicycle chain from one sprocket to another"
+      }
+    ]
+  },
+  {
+    "query": "Che tipo di strumento è la lira?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "string-instruments/lute.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/lute.md",
+        "text": "any plucked string instrument with a neck and a deep round back enclosing a hollow cavity, usually with a sound hole or opening in the body"
+      }
+    ]
+  },
+  {
+    "query": "Cosa significa la parola shogi in giapponese?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "board-games/shogi.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/shogi.md",
+        "text": "*Shōgi* means general's (*shō* 将) board game (*gi* 棋)"
+      }
+    ]
+  },
+  {
+    "query": "¿Qué porcentaje de queso en los Estados Unidos se produce utilizando rennet animal?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "cheese/rennet.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/rennet.md",
+        "text": "less than 5%"
+      }
+    ]
+  },
+  {
+    "query": "¿Cuáles son las dos velas que generalmente se colocan en un cutter?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "sailing/sailboat.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/sailboat.md",
+        "text": "a [[jib]] and staysail"
+      }
+    ]
+  },
+  {
+    "query": "Qual è la disposizione standard delle corde del mandolino?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "string-instruments/mandolin.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/mandolin.md",
+        "text": "four courses of doubled strings tuned in unison, thus giving a total of eight strings"
+      }
+    ]
+  },
+  {
+    "query": "¿Cuál es la composición principal de los carbohidratos en la clara de queso dulce?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "cheese/whey.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/whey.md",
+        "text": "The carbohydrates are mainly lactose"
+      }
+    ]
+  },
+  {
+    "query": "Che tipo di biciclette sono definite come 'road bicycle'?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "cycling/road-bicycle.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/road-bicycle.md",
+        "text": "bicycles built for traveling at speed on paved roads"
+      }
+    ]
+  },
+  {
+    "query": "Quali sono i quattro tipi di ukulele comuni?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "string-instruments/ukulele.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/ukulele.md",
+        "text": "soprano, concert, tenor, and baritone"
+      }
+    ]
+  },
+  {
+    "query": "Qual è la configurazione delle corde della viola, dal più basso al più alto?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "string-instruments/viola.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/viola.md",
+        "text": "C3, G3, D4, and A4"
+      }
+    ]
+  },
+  {
+    "query": "Quando è stato creato il Gorgonzola?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "cheese/blue-cheese.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/blue-cheese.md",
+        "text": "having been created around AD 879"
+      }
+    ]
+  },
+  {
+    "query": "¿Cómo se operaba el freno en las bicicletas de la época del boneshaker?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "cycling/bicycle-brake.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-brake.md",
+        "text": "by a lever or by a cord connecting to the handlebars"
+      }
+    ]
+  },
+  {
+    "query": "¿Cuántos jugadores participan en un juego de damas y qué hacen?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "board-games/checkers.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/checkers.md",
+        "text": "Checkers is played by two opponents on opposite sides of the gameboard."
+      }
+    ]
+  },
+  {
+    "query": "Qual è il nome dato al brie che viene lasciato maturare per mesi o anni?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "cheese/brie.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/brie.md",
+        "text": "Brie noir ('black brie')"
+      }
+    ]
+  },
+  {
+    "query": "Chi ha progettato la catena a rolleri per biciclette e quando è stato progettato?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "cycling/bicycle-chain.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-chain.md",
+        "text": "the Nevoigt brothers, of the German Diamant Bicycle Company, designed the roller chain in 1898"
+      }
+    ]
+  },
+  {
+    "query": "Quale partita è nota come 'Game of the Century'?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "board-games/checkmate.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/checkmate.md",
+        "text": "the 1956 game called the Game of the Century between Donald Byrne and Bobby Fischer"
+      }
+    ]
+  },
+  {
+    "query": "Quanti tasti sono liberi dal corpo di una chitarra classica tradizionale per un giocatore destro?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "string-instruments/classical-guitar.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/classical-guitar.md",
+        "text": "12 frets that are clear of the body"
+      }
+    ]
+  },
+  {
+    "query": "Quali teorie in scacchi riguardano le finezze del gioco e come cambiano rispetto alle teorie degli inizi?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "board-games/chess-endgame.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/chess-endgame.md",
+        "text": "endgame theory is less subject to change"
+      }
+    ]
+  },
+  {
+    "query": "¿Qué tipo de vela principal permite que la vela se proyecte más lejos del mástil?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "sailing/mainsail.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/mainsail.md",
+        "text": "Battens enable the mainsail to project farther away from the mast."
+      }
+    ]
+  },
+  {
+    "query": "In quale genere musicale viene utilizzato il contrabbasso oltre alla musica classica?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "string-instruments/double-bass.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/double-bass.md",
+        "text": "jazz, blues, rock and roll, rockabilly, country music, bluegrass, tango, folk music"
+      }
+    ]
+  },
+  {
+    "query": "Quanto tempo dedicano i giocatori professionisti allo studio delle aperture nel corso della loro carriera?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "board-games/chess-opening.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/chess-opening.md",
+        "text": "Professional chess players spend years studying openings, and they continue doing so throughout their careers as opening theory continues to evolve."
+      }
+    ]
+  },
+  {
+    "query": "Cosa significa la direzione musicale 'sul tasto' per strumenti a corda?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "string-instruments/fingerboard.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/fingerboard.md",
+        "text": "*sulla tastiera*, Fr. *sur la touche*, G. *am Griffbrett*) for bowed string instruments to play with the bow above the fingerboard"
+      }
+    ]
+  },
+  {
+    "query": "¿Qué plato popular en Canadá se compone de papas fritas, queso curado y salsa?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "cheese/curd.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/curd.md",
+        "text": "Throughout Canada cheese curds are served with french fries and gravy in a popular snack called *poutine*"
+      }
+    ]
+  },
+  {
+    "query": "Quali sono i componenti tipici di una ruota moderna di bicicletta?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "cycling/bicycle-wheel.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-wheel.md",
+        "text": "A typical modern wheel has a metal hub, wire tension spokes and a metal or carbon fiber rim which holds a pneumatic rubber tire"
+      }
+    ]
+  },
+  {
+    "query": "¿Qué es la brisa aparente en una embarcación de vela?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "sailing/point-of-sail.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/point-of-sail.md",
+        "text": "the wind relative to an observer on the sailing craft"
+      }
+    ]
+  },
+  {
+    "query": "Quanti agricoltori olandesi producono ancora il formaggio Gouda in modo tradizionale?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "cheese/gouda-cheese.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/gouda-cheese.md",
+        "text": "some 300 Dutch farmers"
+      }
+    ]
+  },
+  {
+    "query": "¿Cuál es el rango preferido de proporción de agua a café en la preparación del café?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "coffee/coffee-preparation.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/coffee-preparation.md",
+        "text": "Preferred brew ratios of water to coffee often fall into the range of 15–18:1 by mass"
+      }
+    ]
+  },
+  {
+    "query": "Quanti bicicletti esistono al principio del 21° secolo?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "cycling/bicycle.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle.md",
+        "text": "more than 1 billion bicycles"
+      }
+    ]
+  },
+  {
+    "query": "¿En qué continentes se han encontrado diseños de arpas distintos?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "string-instruments/harp.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/harp.md",
+        "text": "Distinct designs also emerged from the African continent"
+      }
+    ]
+  },
+  {
+    "query": "Qual è il suono distintivo che la mozzarella fresca produce quando viene masticata?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "cheese/mozzarella.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/mozzarella.md",
+        "text": "Fresh mozzarella makes a distinct squeaky sound when chewed or rubbed."
+      }
+    ]
+  },
+  {
+    "query": "¿Cómo se ajustan las cuerdas del laúd para afinarlas?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "string-instruments/lute.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/lute.md",
+        "text": "The strings are attached to pegs or posts at the end of the neck, which have some type of turning mechanism"
+      }
+    ]
+  },
+  {
+    "query": "Come viene determinato il vincitore in un gioco di Go?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "board-games/go-game.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/go-game.md",
+        "text": "winner is determined by counting each player's surrounded territory along with captured stones and komi (points added to the score of the player with the white stones as compensation for playing second)"
+      }
+    ]
+  },
+  {
+    "query": "Quali caratteristiche tipiche del terreno attraversano i mountain bike in montagna?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "cycling/mountain-bike.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/mountain-bike.md",
+        "text": "rocks, roots, loose dirt, and steep grades"
+      }
+    ]
+  },
+  {
+    "query": "¿Cuál es el término técnico para los fabricantes de arcos en la luthería?",
+    "query_lang": "es",
+    "type": "cross_lingual",
+    "scenario": "en→es",
+    "expected_notes": [
+      "string-instruments/luthier.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/luthier.md",
+        "text": "bow maker or archetier"
+      }
+    ]
+  },
+  {
+    "query": "Qual'è l'azione principale dell'enzyima chimosina nel processo di coagulazione del latte per la produzione del formaggio?",
+    "query_lang": "it",
+    "type": "cross_lingual",
+    "scenario": "en→it",
+    "expected_notes": [
+      "cheese/rennet.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/rennet.md",
+        "text": "cleaving the kappa casein chain"
+      }
+    ]
+  },
+  {
+    "query": "Who introduced the front brake on penny-farthings?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "cycling/bicycle-brake.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-brake.md",
+        "text": "John Kean in 1873"
+      }
+    ]
+  },
+  {
+    "query": "What part of the cappuccino preparation was improved by the introduction of espresso machines at the beginning of the 20th century?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "coffee/cappuccino-bevanda-it.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/cappuccino-bevanda-it.md",
+        "text": "la preparazione della schiuma da latte attraverso il beccuccio a vapore"
+      }
+    ]
+  },
+  {
+    "query": "What is the texture of rögös túró?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "cheese/curd.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/curd.md",
+        "text": "consisting of clumps of loose lumps reminiscent of cauliflower"
+      }
+    ]
+  },
+  {
+    "query": "What is the width of the rear wheel hub for mountain bikes?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "cycling/bicycle-wheel.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-wheel.md",
+        "text": "135 mm rear hub width"
+      }
+    ]
+  },
+  {
+    "query": "What are diamond stays and jumpers used for in relation to a mast?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "sailing/rigging.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/rigging.md",
+        "text": "to keep a thin mast in column especially under the load of a large down wind sail or in strong wind"
+      }
+    ]
+  },
+  {
+    "query": "What material are rarely permitted chessboards for games conducted by national or international chess federations made of?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "board-games/chessboard.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/chessboard.md",
+        "text": "Rarely, decorative glass and marble boards are permitted for games conducted by national or international chess federations."
+      }
+    ]
+  },
+  {
+    "query": "What are the three major manufacturers of complete groupsets for racing bicycles?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "cycling/racing-bicycle.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/racing-bicycle.md",
+        "text": "Shimano, SRAM, and Campagnolo"
+      }
+    ]
+  },
+  {
+    "query": "Chi ha iniziato a realizzare strumenti intarsiati e decorati con avorio e madreperla per il mandolino?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "string-instruments/mandolino-it.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/mandolino-it.md",
+        "text": "Casa Vinaccia di Napoli"
+      }
+    ]
+  },
+  {
+    "query": "What happens to a piece after it is jumped in international draughts?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "board-games/checkers.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/checkers.md",
+        "text": "jumped pieces remain on the board until the turn is completed"
+      }
+    ]
+  },
+  {
+    "query": "What status was granted to Brie de Meaux in 1980?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "cheese/brie.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/brie.md",
+        "text": "Appellation d'origine contrôlée"
+      }
+    ]
+  },
+  {
+    "query": "What other instrument is mentioned alongside laúd and vihuela in the context of European plucked string instruments?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "string-instruments/guitarra-clasica-es.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/guitarra-clasica-es.md",
+        "text": "laúd, la vihuela y la guiterna"
+      }
+    ]
+  },
+  {
+    "query": "What type of rigs have spars supporting both the upper and lower edges of the sails?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "sailing/sail.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/sail.md",
+        "text": "Austronesian rigs are distinctive in that they have spars supporting both the upper and lower edges of the sails"
+      }
+    ]
+  },
+  {
+    "query": "What do manufacturers gradually increase on racing bicycles to allow a greater range between the highest and lowest gears?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "cycling/racing-bicycle.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/racing-bicycle.md",
+        "text": "the number of gears"
+      }
+    ]
+  },
+  {
+    "query": "Which composer dedicated four sonatinas to the mandolino?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "string-instruments/mandolino-it.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/mandolino-it.md",
+        "text": "Beethoven gli dedicò quattro sonatine"
+      }
+    ]
+  },
+  {
+    "query": "What Portuguese instrument contributed to the development of the ukulele?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "string-instruments/ukulele.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/ukulele.md",
+        "text": "machete, cavaquinho and rajão"
+      }
+    ]
+  },
+  {
+    "query": "What is a characteristic of the Tertis model viola?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "string-instruments/viola.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/viola.md",
+        "text": "wider bouts and deeper ribs to promote a better tone"
+      }
+    ]
+  },
+  {
+    "query": "What component in a moka pot is responsible for increasing pressure to brew coffee?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "coffee/moka-pot.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/moka-pot.md",
+        "text": "The heating of the boiler (A) leads to a gradual increase of the pressure"
+      }
+    ]
+  },
+  {
+    "query": "What is a distinctive feature of the violin's shape?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "string-instruments/violin.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/violin.md",
+        "text": "hourglass-like shape and the arching of its top and back"
+      }
+    ]
+  },
+  {
+    "query": "What is the minimum foam depth required for a cappuccino in the World Barista Championships?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "coffee/cappuccino.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/cappuccino.md",
+        "text": "A minimum of 1 centimeter of foam depth"
+      }
+    ]
+  },
+  {
+    "query": "Who presented the Spanish guitar as a versatile model for all playing styles?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "string-instruments/classical-guitar.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/classical-guitar.md",
+        "text": "Andrés Segovia presented the Spanish guitar as a versatile model for all playing styles"
+      }
+    ]
+  },
+  {
+    "query": "What is a common move in chess openings that involves moving the bishop to g7 after playing g6?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "board-games/chess-opening.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/chess-opening.md",
+        "text": "fianchetto (...g6 and...Bg7)"
+      }
+    ]
+  },
+  {
+    "query": "What is the sticky pulp residue on coffee seeds that needs to be washed off after fermentation?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "coffee/coffee-bean.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/coffee-bean.md",
+        "text": "mucilage, a sticky pulp residue attached to the seeds"
+      }
+    ]
+  },
+  {
+    "query": "What does flange diameter affect in bicycle wheel construction?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "cycling/bicycle-wheel.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-wheel.md",
+        "text": "torsional stiffness of the wheel and the number of spoke holes that the hub can accept"
+      }
+    ]
+  },
+  {
+    "query": "What do sweeteners mask in brewed coffee?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "coffee/coffee-preparation.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/coffee-preparation.md",
+        "text": "astringency and bitterness"
+      }
+    ]
+  },
+  {
+    "query": "What is marked on the board to indicate where cannons start?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "board-games/xiangqi.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/xiangqi.md",
+        "text": "starting points of the soldiers and cannons are usually, but not always, marked with small crosses"
+      }
+    ]
+  },
+  {
+    "query": "Who was a composer and luthier among the notable mandolinists of the 20th century?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "string-instruments/mandolino-it.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/mandolino-it.md",
+        "text": "Raffaele Calace, compositore, esecutore e liutaio"
+      }
+    ]
+  },
+  {
+    "query": "What did King Kalākaua do to support the ukulele in Hawaiian culture?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "string-instruments/ukulele.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/ukulele.md",
+        "text": "One of the most important factors in establishing the ukulele in Hawaiian music and culture was the ardent support and promotion of the instrument by King Kalākaua"
+      }
+    ]
+  },
+  {
+    "query": "What part of Samuel Parker's invention was cylindrical and contained an inner boiler?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "coffee/moka-pot.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/moka-pot.md",
+        "text": "cylindrical body with two concentric vessels: an inner boiler"
+      }
+    ]
+  },
+  {
+    "query": "What is the term used for cursive writing in the context of violin construction?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "string-instruments/violino-it.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/violino-it.md",
+        "text": "scrittura corsiva"
+      }
+    ]
+  },
+  {
+    "query": "What is a potential hazard associated with the hardware of a sailboat's boom?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "sailing/boom-sailing.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/boom-sailing.md",
+        "text": "their associated hardware and lines represent tripping hazards"
+      }
+    ]
+  },
+  {
+    "query": "What material is used for the strings on the instrument described as 'banzas'?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "string-instruments/banjo.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/banjo.md",
+        "text": "strings made of pitre"
+      }
+    ]
+  },
+  {
+    "query": "What game, along with Nine Men's Morris and Zamma, has been attributed to the roof-slab etchings at the temple of Kurna?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "board-games/checkers.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/checkers.md",
+        "text": "Alquerque, Nine Men's Morris, and Zamma"
+      }
+    ]
+  },
+  {
+    "query": "What factor strongly affects chain wear in bicycles?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "cycling/bicycle-chain.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-chain.md",
+        "text": "Since chain wear is strongly aggravated by dirt getting into the links"
+      }
+    ]
+  },
+  {
+    "query": "What is Coffea arabica classified as in southeast Queensland due to its invasiveness?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "coffee/coffea-arabica.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/coffea-arabica.md",
+        "text": "an environmental weed"
+      }
+    ]
+  },
+  {
+    "query": "What is a characteristic of mountain bike cleats compared to road cycling shoes?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "cycling/bicycle-pedal.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-pedal.md",
+        "text": "do not protrude beyond the sole of the shoe"
+      }
+    ]
+  },
+  {
+    "query": "What material was commonly used for bicycle rims before the widespread adoption of aluminum?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "cycling/bicycle-wheel.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-wheel.md",
+        "text": "steel and thermoplastic"
+      }
+    ]
+  },
+  {
+    "query": "What method is used by organizers to decide colors in chess competitions?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "board-games/chess.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/chess.md",
+        "text": "organizers are free to use any method they wish to decide the colors, from a simple coin toss or card draw"
+      }
+    ]
+  },
+  {
+    "query": "What ancient instrument, depicted in Egyptian tomb paintings from the mid 3rd millennium BCE, lacked a forepillar?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "string-instruments/harp.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/harp.md",
+        "text": "The oldest depictions of harps without a forepillar"
+      }
+    ]
+  },
+  {
+    "query": "What is another name for bocconcini?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "cheese/mozzarella.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/mozzarella.md",
+        "text": "uova di bufala"
+      }
+    ]
+  },
+  {
+    "query": "What term describes the phase of coffee roasting where beans start giving off heat?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "coffee/coffee-roasting.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/coffee-roasting.md",
+        "text": "exothermic"
+      }
+    ]
+  },
+  {
+    "query": "What mechanism in indexed shifters stops the gear lever after moving a specific distance with each press or pull?",
+    "query_lang": "en",
+    "type": "exact_term",
+    "scenario": "exact_term",
+    "expected_notes": [
+      "cycling/derailleur.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/derailleur.md",
+        "text": "detent or ratchet mechanism"
+      }
+    ]
+  },
+  {
+    "query": "Are racing bikes permitted on public roads?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cycling/racing-bicycle.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/racing-bicycle.md",
+        "text": "Racing bicycles are generally legal for use on public roads"
+      }
+    ]
+  },
+  {
+    "query": "Who won the inaugural two-wheeled competition in Paris?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cycling/track-bicycle.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/track-bicycle.md",
+        "text": "James Moore who rode a wooden bicycle with iron tires"
+      }
+    ]
+  },
+  {
+    "query": "What is one possible source of the term spinnaker?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "sailing/spinnaker.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/spinnaker.md",
+        "text": "the first boat to commonly fly a spinnaker, a yacht called *Sphinx*, mispronounced as *Spinx*"
+      }
+    ]
+  },
+  {
+    "query": "What is a common sweetener added to lattes in America?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "coffee/latte.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/latte.md",
+        "text": "usually with 3% or more of refined white sugar, artificial sweeteners or agave syrup"
+      }
+    ]
+  },
+  {
+    "query": "What term did French musicians use for a small viola?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "string-instruments/viola.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/viola.md",
+        "text": "cinquiesme"
+      }
+    ]
+  },
+  {
+    "query": "what does cello mean in italian?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "string-instruments/cello.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/cello.md",
+        "text": "little violone"
+      }
+    ]
+  },
+  {
+    "query": "What is an objective in chess puzzle creation?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "board-games/chess-endgame.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/chess-endgame.md",
+        "text": "finding a win for White when there is no obvious way to win, or finding a draw when White appears to lose"
+      }
+    ]
+  },
+  {
+    "query": "who first officially named coffee arabica in scientific literature?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "coffee/coffea-arabica.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/coffea-arabica.md",
+        "text": "Carl Linnaeus"
+      }
+    ]
+  },
+  {
+    "query": "What limitation did traditional main sails face before Herreshoff's innovation?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "sailing/mainsail.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/mainsail.md",
+        "text": "mainsails were limited in height"
+      }
+    ]
+  },
+  {
+    "query": "What are two ways to secure feet to bicycle pedals?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cycling/bicycle-pedal.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-pedal.md",
+        "text": "toe clips – a basket-and-strap device which hold the foot in place – and so-called clipless pedals"
+      }
+    ]
+  },
+  {
+    "query": "How does a sail behave when wind hits it perpendicularly?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "sailing/point-of-sail.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/point-of-sail.md",
+        "text": "acts substantially like a parachute"
+      }
+    ]
+  },
+  {
+    "query": "What distinctive feature did ancient Indian game boards lack compared to their predecessors?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "board-games/chessboard.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/chessboard.md",
+        "text": "Unlike in Ashtāpada, castles serve no function in chaturanga."
+      }
+    ]
+  },
+  {
+    "query": "When did gear-changing bikes debut in a major cycling event?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cycling/derailleur.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/derailleur.md",
+        "text": "1937, the derailleur system was introduced to the Tour de France"
+      }
+    ]
+  },
+  {
+    "query": "What is a common gear setup in modern mountain bikes?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cycling/mountain-bike.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/mountain-bike.md",
+        "text": "1x gearing reduces overall bike weight, increases ground clearance, and greatly simplifies the process of gear selection"
+      }
+    ]
+  },
+  {
+    "query": "What device extends a sail's rear edge beyond its attachment points?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "sailing/sail.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/sail.md",
+        "text": "Battens may be used to extend the trailing edge of a sail beyond the line of its attachment points."
+      }
+    ]
+  },
+  {
+    "query": "What type of bikes are used in indoor cycling competitions?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cycling/racing-bicycle.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/racing-bicycle.md",
+        "text": "track bicycles"
+      }
+    ]
+  },
+  {
+    "query": "What maneuver did Peter Claydon pioneer in narrow waterways that later proved beneficial in open seas?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "sailing/tacking-sailing.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/tacking-sailing.md",
+        "text": "roll tacking technique he developed on the narrow river gave a distinct advantage in open water too"
+      }
+    ]
+  },
+  {
+    "query": "What safety issue did placing feet on bar supports cause?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cycling/bicycle-brake.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-brake.md",
+        "text": "serious accidents caused by the feet getting caught in the spokes"
+      }
+    ]
+  },
+  {
+    "query": "What factor enhances drive efficiency in bicycles?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cycling/bicycle-chain.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-chain.md",
+        "text": "Higher chain tension was found to be more efficient"
+      }
+    ]
+  },
+  {
+    "query": "What are three strings on a nylon-strung guitar typically wound with?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "string-instruments/classical-guitar.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/classical-guitar.md",
+        "text": "silver-plated copper fine wire"
+      }
+    ]
+  },
+  {
+    "query": "What is a key goal in chess openings according to Jeremy Silman?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "board-games/chess-opening.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/chess-opening.md",
+        "text": "the purpose of the opening is to create dynamic imbalances between the two sides, which will determine the character of the middlegame and the strategic plans chosen by both sides"
+      }
+    ]
+  },
+  {
+    "query": "When and where was cheese production first recorded?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cheese/cheese.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/cheese.md",
+        "text": "The earliest evidence of cheesemaking in the archaeological record dates back to 5500 BCE and is found in what is now Kuyavia, Poland"
+      }
+    ]
+  },
+  {
+    "query": "What material are most mountain bike pedals made of?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cycling/bicycle-pedal.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-pedal.md",
+        "text": "aluminum or magnesium"
+      }
+    ]
+  },
+  {
+    "query": "Why did some lugger boats remove their central mast?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "sailing/mast-sailing.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/mast-sailing.md",
+        "text": "it was found convenient to dispense with the main-mast and carry larger sails on the remaining masts"
+      }
+    ]
+  },
+  {
+    "query": "What are used to help players locate specific points on a guitar's neck?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "string-instruments/fingerboard.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/fingerboard.md",
+        "text": "Frets may be marked by inlays to make navigating the fingerboard easier"
+      }
+    ]
+  },
+  {
+    "query": "When did chessboards get their current design?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "board-games/chessboard.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/chessboard.md",
+        "text": "in the 10th century with the arrival of chess in Europe"
+      }
+    ]
+  },
+  {
+    "query": "Who designed the initial mountain bike model?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cycling/mountain-bike.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/mountain-bike.md",
+        "text": "Joe Breeze, a bicycle frame builder, used this idea and developed what is considered the first mountain bike."
+      }
+    ]
+  },
+  {
+    "query": "Which family of instruments did Lloyd Loar design while working at Gibson?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "string-instruments/luthier.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/luthier.md",
+        "text": "a family of arch top instruments (mandolin, mandola, guitar, et cetera)"
+      }
+    ]
+  },
+  {
+    "query": "What type of cycling event are time trial bikes specialized for?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cycling/racing-bicycle.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/racing-bicycle.md",
+        "text": "time trial events"
+      }
+    ]
+  },
+  {
+    "query": "What was a common beverage in historical taverns?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cheese/whey.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/whey.md",
+        "text": "whey was a popular drink"
+      }
+    ]
+  },
+  {
+    "query": "How did ancient Rome depend on maritime transport for food supply?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "sailing/sailing.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "sailing/sailing.md",
+        "text": "Cities such as Rome were totally reliant on sailing ships to deliver the large amounts of grain needed."
+      }
+    ]
+  },
+  {
+    "query": "What musical notation key is used for playing the mandolin?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "string-instruments/mandolino-it.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/mandolino-it.md",
+        "text": "la chiave di sol"
+      }
+    ]
+  },
+  {
+    "query": "When did steam-powered milk frothing in coffee drinks become feasible?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "coffee/latte.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "coffee/latte.md",
+        "text": "in 1903, which made it possible to add heat and texture to milk added to coffee"
+      }
+    ]
+  },
+  {
+    "query": "Which famous violin makers are renowned for their exceptional sound quality?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "string-instruments/violin.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "string-instruments/violin.md",
+        "text": "Stradivari, Guarneri, Guadagnini and Amati"
+      }
+    ]
+  },
+  {
+    "query": "How many cheese makers were left in Britain after WWII?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cheese/cheddar-cheese.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/cheddar-cheese.md",
+        "text": "fewer than 100 remained"
+      }
+    ]
+  },
+  {
+    "query": "What type of bike has pedals moved ahead of the rider?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cycling/bicycle-frame.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-frame.md",
+        "text": "The recumbent bicycle moves the cranks to a position forward of the rider instead of underneath"
+      }
+    ]
+  },
+  {
+    "query": "What is a key characteristic of chess endgames involving the king's role?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "board-games/chess-endgame.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "board-games/chess-endgame.md",
+        "text": "Endgames favor an aggressive king."
+      }
+    ]
+  },
+  {
+    "query": "What unique feature of track drop bars prevents certain grip positions?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cycling/bicycle-handlebar.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-handlebar.md",
+        "text": "large, sweeping ramps"
+      }
+    ]
+  },
+  {
+    "query": "What ancient civilization's burial sites contained cheese remnants from around 1200 BC?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cheese/cheese.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cheese/cheese.md",
+        "text": "ancient Egyptian tombs"
+      }
+    ]
+  },
+  {
+    "query": "What materials are used in low-cost bike pedals?",
+    "query_lang": "en",
+    "type": "paraphrase",
+    "scenario": "paraphrase",
+    "expected_notes": [
+      "cycling/bicycle-pedal.md"
+    ],
+    "answer_spans": [
+      {
+        "note": "cycling/bicycle-pedal.md",
+        "text": "Budget models may be made of steel or aluminum"
+      }
+    ]
+  }
+]
