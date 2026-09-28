@@ -57,7 +57,7 @@ def test_index_vault_indexes_each_note(tmp_path):
     embed, store = FakeEmbed(), FakeStore()
     indexer = IndexVault(
         parser=ObsidianMarkdownParser(),
-        chunker=HeadingAwareChunker(max_tokens=200),
+        chunker=HeadingAwareChunker(),
         embeddings=embed,
         store=store,
         contextualizer=NoopContextualizer(),
@@ -90,7 +90,7 @@ def test_index_removes_notes_deleted_from_disk(tmp_path):
     embed, store = FakeEmbed(), FakeStore()
     indexer = IndexVault(
         parser=ObsidianMarkdownParser(),
-        chunker=HeadingAwareChunker(max_tokens=200),
+        chunker=HeadingAwareChunker(),
         embeddings=embed,
         store=store,
         contextualizer=NoopContextualizer(),
@@ -111,7 +111,7 @@ def test_index_skips_unchanged_notes_on_reindex(tmp_path):
     embed, store = FakeEmbed(), FakeStore()
     indexer = IndexVault(
         ObsidianMarkdownParser(),
-        HeadingAwareChunker(max_tokens=200),
+        HeadingAwareChunker(),
         embed,
         store,
         NoopContextualizer(),
@@ -132,7 +132,7 @@ def test_index_reembeds_only_the_changed_note(tmp_path):
     embed, store = FakeEmbed(), FakeStore()
     indexer = IndexVault(
         ObsidianMarkdownParser(),
-        HeadingAwareChunker(max_tokens=200),
+        HeadingAwareChunker(),
         embed,
         store,
         NoopContextualizer(),
@@ -151,7 +151,7 @@ def test_index_reembeds_all_when_fingerprint_changes(tmp_path):
     embed, store = FakeEmbed(), FakeStore()
     IndexVault(
         ObsidianMarkdownParser(),
-        HeadingAwareChunker(max_tokens=200),
+        HeadingAwareChunker(),
         embed,
         store,
         NoopContextualizer(),
@@ -166,7 +166,7 @@ def test_index_reembeds_all_when_fingerprint_changes(tmp_path):
     embed2 = FakeEmbed2()
     IndexVault(
         ObsidianMarkdownParser(),
-        HeadingAwareChunker(max_tokens=200),
+        HeadingAwareChunker(),
         embed2,
         store,
         NoopContextualizer(),
@@ -223,7 +223,7 @@ def test_index_reembeds_when_contextualizer_changes(tmp_path):
     # First index with Noop (combined fingerprint "fake:v1|noop").
     IndexVault(
         ObsidianMarkdownParser(),
-        HeadingAwareChunker(max_tokens=200),
+        HeadingAwareChunker(),
         embed,
         store,
         NoopContextualizer(),
@@ -231,8 +231,41 @@ def test_index_reembeds_when_contextualizer_changes(tmp_path):
 
     # Same content, different contextualizer -> combined fingerprint changes -> re-embed.
     embed.seen.clear()
-    IndexVault(
-        ObsidianMarkdownParser(), HeadingAwareChunker(max_tokens=200), embed, store, StubCtx()
-    ).index(tmp_path, ignore=[])
+    IndexVault(ObsidianMarkdownParser(), HeadingAwareChunker(), embed, store, StubCtx()).index(
+        tmp_path, ignore=[]
+    )
     assert any("alpha" in t for t in embed.seen)  # re-embedded despite unchanged content
     assert store.fingerprint() == "fake:v1|stub"
+
+
+def _indexer(embed, store, chunker):
+    return IndexVault(
+        parser=ObsidianMarkdownParser(),
+        chunker=chunker,
+        embeddings=embed,
+        store=store,
+        contextualizer=NoopContextualizer(),
+    )
+
+
+def test_the_default_chunker_leaves_the_stored_fingerprint_as_it_was(tmp_path):
+    # An index built before chunking was configurable stored "emb|ctx". The
+    # default policy must reproduce that string exactly, or every existing
+    # vault is forced into a full reindex on upgrade for no reason.
+    (tmp_path / "a.md").write_text("# A\nalpha")
+    store = FakeStore()
+    _indexer(FakeEmbed(), store, HeadingAwareChunker()).index(tmp_path)
+    assert store.fingerprint() == "fake:v1|noop"
+
+
+def test_a_chunking_change_rechunks_unchanged_notes(tmp_path):
+    # Same content, new chunking policy: the stored chunks are stale and must
+    # be rebuilt, even though no note's hash changed.
+    (tmp_path / "a.md").write_text("# A\n" + " ".join(f"w{i}" for i in range(40)))
+    embed, store = FakeEmbed(), FakeStore()
+    _indexer(embed, store, HeadingAwareChunker()).index(tmp_path)
+    assert len(store.notes["a.md"][1]) == 1
+
+    _indexer(embed, store, HeadingAwareChunker(max_tokens=10)).index(tmp_path)
+    assert len(store.notes["a.md"][1]) > 1
+    assert "chunk:heading_aware:10" in store.fingerprint()

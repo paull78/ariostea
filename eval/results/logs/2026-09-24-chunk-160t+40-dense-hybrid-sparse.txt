@@ -1,0 +1,30 @@
+
+##### 160t+40  (160 tokens, overlap 40)  spans reachable 167/167
+  indexing ...
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.875     0.776     0.797      0.575     0.451     0.467
+cross_lingual   46      0.652     0.533     0.548      0.500     0.408     0.421
+exact_term      41      0.902     0.692     0.735      0.561     0.422     0.442
+paraphrase      40      0.900     0.676     0.726      0.550     0.439     0.444
+overall        167      0.826     0.664     0.696      0.545     0.429     0.443
+  discriminated-out cases (29): span recall 0.931
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.881     0.899      0.850     0.776     0.785
+cross_lingual   46      0.087     0.034     0.040      0.022     0.013     0.014
+exact_term      41      0.927     0.894     0.900      0.805     0.741     0.753
+paraphrase      40      0.825     0.554     0.614      0.525     0.307     0.350
+overall        167      0.677     0.573     0.594      0.533     0.445     0.461
+  discriminated-out cases (29): span recall 1.000
+  scoring HYBRID ...
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.983     0.988      1.000     0.904     0.927
+cross_lingual   46      0.783     0.711     0.727      0.696     0.657     0.664
+exact_term      41      1.000     0.963     0.973      0.951     0.864     0.886
+paraphrase      40      0.925     0.891     0.894      0.900     0.835     0.850
+overall        167      0.922     0.881     0.890      0.880     0.810     0.826
+  discriminated-out cases (29): span recall 1.000

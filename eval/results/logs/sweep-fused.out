@@ -1,0 +1,83 @@
+
+[1/1] 512w
+
+##### 512w  (512 words)  spans reachable 167/167
+  indexing ...
+/Users/paolo/code/personal/ariostea/src/ariostea/adapters/embedding/fastembed_local.py:13: UserWarning: The model sentence-transformers/paraphrase-multilingual-mpnet-base-v2 now uses mean pooling instead of CLS embedding. In order to preserve the previous behaviour, consider either pinning fastembed version to 0.5.1 or using `add_custom_model` functionality.
+  self._model = TextEmbedding(model_name=model_name)
+  scoring FUSED ...
+=== FUSED ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.975     0.846     0.877      0.800     0.548     0.600
+cross_lingual   46      0.413     0.243     0.255      0.152     0.101     0.093
+exact_term      41      0.976     0.709     0.776      0.610     0.439     0.465
+paraphrase      40      0.950     0.717     0.774      0.700     0.486     0.522
+overall        167      0.814     0.615     0.656      0.551     0.383     0.409
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-09-28-chunk-512w-fused
+
+rendered /Users/paolo/code/personal/ariostea/eval/results/experiment_log.html
+
+[1/4] 128t+32
+/Users/paolo/code/personal/ariostea/src/ariostea/adapters/embedding/fastembed_local.py:13: UserWarning: The model sentence-transformers/paraphrase-multilingual-mpnet-base-v2 now uses mean pooling instead of CLS embedding. In order to preserve the previous behaviour, consider either pinning fastembed version to 0.5.1 or using `add_custom_model` functionality.
+  self._model = TextEmbedding(model_name=model_name)
+
+##### 128t+32  (128 tokens, overlap 32)  spans reachable 167/167
+  indexing ...
+  scoring FUSED ...
+=== FUSED ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.900     0.926      0.875     0.708     0.744
+cross_lingual   46      0.609     0.428     0.464      0.283     0.188     0.191
+exact_term      41      0.976     0.907     0.921      0.732     0.581     0.603
+paraphrase      40      0.900     0.760     0.791      0.625     0.510     0.525
+overall        167      0.862     0.738     0.765      0.617     0.486     0.505
+  discriminated-out cases (29): span recall 0.966
+  logged 2026-09-28-chunk-128t+32-fused
+
+[2/4] 160t+40
+
+##### 160t+40  (160 tokens, overlap 40)  spans reachable 167/167
+  indexing ...
+  scoring FUSED ...
+=== FUSED ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.923     0.942      0.825     0.679     0.701
+cross_lingual   46      0.609     0.370     0.415      0.304     0.227     0.224
+exact_term      41      0.976     0.946     0.951      0.707     0.634     0.638
+paraphrase      40      0.950     0.784     0.825      0.725     0.500     0.547
+overall        167      0.874     0.743     0.771      0.629     0.501     0.517
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-09-28-chunk-160t+40-fused
+
+[3/4] 192t+48
+
+##### 192t+48  (192 tokens, overlap 48)  spans reachable 167/167
+  indexing ...
+  scoring FUSED ...
+=== FUSED ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.879     0.910      0.900     0.729     0.767
+cross_lingual   46      0.543     0.332     0.366      0.239     0.166     0.164
+exact_term      41      0.976     0.919     0.932      0.780     0.663     0.679
+paraphrase      40      0.925     0.768     0.803      0.700     0.521     0.553
+overall        167      0.850     0.712     0.740      0.641     0.508     0.528
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-09-28-chunk-192t+48-fused
+
+[4/4] 256t+64
+
+##### 256t+64  (256 tokens, overlap 64)  spans reachable 167/167
+  indexing ...
+  scoring FUSED ...
+=== FUSED ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.879     0.910      0.900     0.734     0.771
+cross_lingual   46      0.522     0.292     0.332      0.174     0.123     0.111
+exact_term      41      0.976     0.902     0.921      0.780     0.667     0.685
+paraphrase      40      0.875     0.760     0.779      0.650     0.524     0.536
+overall        167      0.832     0.695     0.722      0.611     0.499     0.512
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-09-28-chunk-256t+64-fused
+
+rendered /Users/paolo/code/personal/ariostea/eval/results/experiment_log.html

@@ -1,0 +1,21 @@
+
+##### 256t  (256 tokens)  spans reachable 163/167
+  indexing ...
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.850     0.674     0.702      0.475     0.385     0.371
+cross_lingual   46      0.609     0.447     0.476      0.391     0.277     0.292
+exact_term      41      0.878     0.718     0.747      0.512     0.452     0.455
+paraphrase      40      0.925     0.707     0.758      0.525     0.353     0.374
+overall        167      0.808     0.630     0.664      0.473     0.364     0.371
+  discriminated-out cases (29): span recall 0.966
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.894     0.908      0.875     0.768     0.793
+cross_lingual   46      0.087     0.033     0.041      0.022     0.014     0.014
+exact_term      41      0.951     0.900     0.912      0.829     0.780     0.787
+paraphrase      40      0.825     0.590     0.638      0.575     0.366     0.406
+overall        167      0.683     0.586     0.606      0.557     0.467     0.484
+  discriminated-out cases (29): span recall 1.000

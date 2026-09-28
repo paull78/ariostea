@@ -17,6 +17,12 @@ class MarkdownParser(Protocol):
 class Chunker(Protocol):
     def chunk(self, note: Note, body: str) -> list[Chunk]: ...
 
+    @property
+    def fingerprint(self) -> str:
+        """Identifies the chunking policy, so changing it re-chunks every note.
+        Empty for a policy whose output predates the fingerprint."""
+        ...
+
 
 @runtime_checkable
 class Contextualizer(Protocol):

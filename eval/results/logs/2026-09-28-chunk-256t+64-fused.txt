@@ -1,0 +1,12 @@
+
+##### 256t+64  (256 tokens, overlap 64)  spans reachable 167/167
+  indexing ...
+  scoring FUSED ...
+=== FUSED ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.879     0.910      0.900     0.734     0.771
+cross_lingual   46      0.522     0.292     0.332      0.174     0.123     0.111
+exact_term      41      0.976     0.902     0.921      0.780     0.667     0.685
+paraphrase      40      0.875     0.760     0.779      0.650     0.524     0.536
+overall        167      0.832     0.695     0.722      0.611     0.499     0.512
+  discriminated-out cases (29): span recall 1.000

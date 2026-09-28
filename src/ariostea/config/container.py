@@ -15,10 +15,10 @@ from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
 from ariostea.adapters.rerank.fastembed_rerank import FastEmbedReranker
 from ariostea.adapters.rerank.noop import NoopReranker
 from ariostea.adapters.store.sqlite_store import SqliteStore
-from ariostea.config.schema import Config, ContextualCfg, RerankCfg
+from ariostea.config.schema import ChunkingCfg, Config, ContextualCfg, RerankCfg
 from ariostea.indexing.index_vault import IndexVault
 from ariostea.ports.embedding import EmbeddingProvider
-from ariostea.ports.pipeline import Contextualizer
+from ariostea.ports.pipeline import Chunker, Contextualizer
 from ariostea.ports.rerank import Reranker
 from ariostea.ports.store import DocumentReader, IndexAdmin
 from ariostea.search.search_knowledge import SearchKnowledge
@@ -80,6 +80,36 @@ def _build_contextualizer(cfg: ContextualCfg) -> Contextualizer:
         return NoopContextualizer()
 
 
+# Start and end markers the embedding model adds to every input. Sizing in
+# model tokens reserves them, so max_tokens = 128 fits a 128-token window.
+_SPECIAL_TOKENS = 2
+
+
+def build_chunker(cfg: ChunkingCfg, embeddings: object) -> Chunker:
+    """Build the chunker `cfg` describes.
+
+    Counting in model tokens asks the embeddings adapter's own tokenizer, so
+    the cap means what the model will actually read in every language. An
+    adapter without one cannot support that unit, and saying so beats quietly
+    falling back to words -- the whole reason to ask for model tokens is that
+    words overrun the model's input window.
+    """
+    if cfg.unit == "words":
+        return HeadingAwareChunker(max_tokens=cfg.max_tokens, overlap=cfg.overlap)
+    count = getattr(embeddings, "count_tokens", None)
+    if count is None:
+        raise ValueError(
+            'chunking.unit = "model_tokens" needs a local embedding model with a tokenizer; '
+            'use unit = "words" with this provider'
+        )
+    return HeadingAwareChunker(
+        max_tokens=max(1, cfg.max_tokens - _SPECIAL_TOKENS),
+        overlap=cfg.overlap,
+        count=count,
+        unit="model_tokens",
+    )
+
+
 def build_container(config: Config) -> Container:
     # Embedding provider — local fastembed for the walking skeleton.
     embeddings: EmbeddingProvider = FastEmbedEmbeddings(model_name=config.embedding.local_model)
@@ -89,7 +119,7 @@ def build_container(config: Config) -> Container:
     store = SqliteStore(path=store_path, dim=embeddings.dimension)
 
     parser = ObsidianMarkdownParser()
-    chunker = HeadingAwareChunker()
+    chunker = build_chunker(config.chunking, embeddings)
 
     # The store is injected into each use case as its narrow role
     # (DocumentWriter for indexing, ChunkRetriever for search); only its
