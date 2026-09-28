@@ -240,12 +240,16 @@ The first experiment measured the chunking policy. Cutting at 512 words let one 
 overrun the embedding model's 512-token input, so the dense channel never saw the end of those
 chunks. Sizing chunks in model tokens, with overlap so no answer is cut in half, lifts dense
 span recall from 0.335 to between 0.515 and 0.563. Hybrid, the channel the server uses, moves
-far less: +0.006 to +0.048, most of it within noise for 167 queries. The default stays at 512
+far less: +0.006 to +0.048, most of it within noise for 167 queries, because the reranker was
+already recovering what the word cap cost. Without the reranker, which is what runs when it is
+disabled or fails to load, the same policies gain +0.06 to +0.09. The default stays at 512
 words for now; the new policies are opt-in through `[chunking]`.
 
 <img src="docs/images/chunking-sweep-dense-sparse.png" alt="Chunking sweep, dense and sparse span recall at k=5, shaded by change against the 512-word control" width="100%">
 
 <img src="docs/images/chunking-sweep-hybrid.png" alt="Chunking sweep, hybrid span recall at k=5, shaded by change against the 512-word control" width="720">
+
+<img src="docs/images/chunking-fused.png" alt="Chunking sweep without the reranker, fused span recall at k=5, shaded by change against the 512-word control" width="720">
 
 The full account, with the pilot, the decision rule and the confirmation run, is in
 [docs/retrieval-tuning.md](docs/retrieval-tuning.md).

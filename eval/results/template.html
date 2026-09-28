@@ -332,13 +332,14 @@
     channels: store.get("ariostea-log-channels", CHANNELS),
   };
   // URL parameters pin a view for sharing or for README figures, e.g.
-  // ?view=table&channels=HYBRID&experiments=Baseline,Chunk%20sweep:%20full
+  // ?view=table&channels=HYBRID&experiments=Baseline|Chunk%20sweep:%20full
+  // Experiments are separated by "|", since their names may contain commas.
   // They override the stored choices for this visit without replacing them.
   const params = new URLSearchParams(location.search);
-  const listParam = name => (params.get(name) || "").split(",").map(v => v.trim()).filter(Boolean);
+  const listParam = (name, sep = ",") => (params.get(name) || "").split(sep).map(v => v.trim()).filter(Boolean);
   if (params.get("metric")) state.metric = params.get("metric");
   if (listParam("channels").length) state.channels = listParam("channels").map(c => c.toUpperCase());
-  const onlyExperiments = listParam("experiments");
+  const onlyExperiments = listParam("experiments", "|");
   if (params.get("view") === "table") document.body.classList.add("export");
 
   if (!METRICS.some(([key]) => key === state.metric)) state.metric = "span_recall";
@@ -442,8 +443,10 @@
       for (const run of runs.filter(r => r.experiment === experiment)) {
         const control = byId[run.control];
         const isControl = run.id === run.control;
+        // Tagged when other runs compare against it, even if it has its own control.
+        const servesAsControl = isControl || runs.some(r => r !== run && r.control === run.id);
         const label = el("th", { class: "run-col", scope: "row" },
-          el("div", { class: "run-name" }, el("span", { text: run.label }), isControl ? el("span", { class: "tag", text: "control" }) : null),
+          el("div", { class: "run-name" }, el("span", { text: run.label }), servesAsControl ? el("span", { class: "tag", text: "control" }) : null),
           el("div", { class: "run-meta", text: [configLine(run), `${run.date} \u00b7 ${run.commit}`].filter(Boolean).join("\n") })
         );
         label.querySelector(".run-meta").style.whiteSpace = "pre-line";

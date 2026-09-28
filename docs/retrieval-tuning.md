@@ -175,12 +175,39 @@ any of the 29 easy cases on hybrid.
 Whether that justifies a new default, which reindexes every vault once, is an open decision.
 The default stays at 512 words until it is made; the new settings are available opt-in.
 
+## Without the reranker
+
+The server reranks by default, but it silently falls back to fused order when reranking is
+disabled in the config or its model fails to load. The hybrid runs could not show what the
+chunking change does in that case, so a FUSED channel measured it: the same dense and sparse
+retrieval and the same RRF fusion, with the reranker switched off.
+
+![Fused sweep](images/chunking-fused.png)
+
+| policy | fused span recall | change | worst type | span MRR change |
+|---|---|---|---|---|
+| 512 words (control) | 0.551 | | | |
+| 128 tokens, overlap 32 | 0.617 | +0.066 | paraphrase −0.075 | +0.103 |
+| 160 tokens, overlap 40 | 0.629 | +0.078 | buried +0.025 | +0.117 |
+| 192 tokens, overlap 48 | 0.641 | +0.090 | paraphrase 0.000 | +0.125 |
+| 256 tokens, overlap 64 | 0.611 | +0.060 | paraphrase −0.050 | +0.116 |
+
+Here the effect is large and steady. Every policy gains at least +0.06, 2 to 3 times the
+rule's threshold, and span MRR rises by more than 0.10 in all four. Cross-lingual gains most,
+from 0.152 to as much as 0.304. Under the decision rule 160 and 192 tokens pass cleanly, 256
+tokens passes with paraphrase exactly at the −0.05 limit, and 128 tokens fails on paraphrase.
+
+It also explains the hybrid result. Without the reranker the 512-word default scores 0.551;
+with it, 0.832. The reranker was absorbing most of the damage the word cap did, so fixing the
+cap showed up in hybrid as only a few cases.
+
 ## Reproducing
 
 ```bash
 uv run python eval/run_wiki_eval.py                        # the baseline tables
 uv run python eval/run_chunk_sweep.py 512w 160t+40 --channels DENSE,SPARSE
 uv run python eval/run_chunk_sweep.py 160t+40              # adds hybrid, about an hour
+uv run python eval/run_chunk_sweep.py 160t+40 --channels FUSED --control <512w fused run id>
 uv run python eval/render_results.py                       # rebuild the log page
 ```
 
@@ -188,8 +215,9 @@ The figures are the log page opened with URL parameters that pin a view, then ca
 For example:
 
 ```
-experiment_log.html?view=table&channels=HYBRID&experiments=Baseline,Chunk%20sweep:%20full
+experiment_log.html?view=table&channels=HYBRID&experiments=Baseline|Chunk%20sweep:%20full
 ```
 
-`view=table` hides everything but the scale and the table, `channels` and `experiments` filter
-the columns and row groups, and `caption` adds a heading.
+`view=table` hides everything but the scale and the table. `channels` (comma-separated) and
+`experiments` (separated by `|`, since names can contain commas) filter the columns and row
+groups, and `caption` adds a heading.

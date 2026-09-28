@@ -1,0 +1,12 @@
+
+##### 512w  (512 words)  spans reachable 167/167
+  indexing ...
+  scoring FUSED ...
+=== FUSED ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.975     0.846     0.877      0.800     0.548     0.600
+cross_lingual   46      0.413     0.243     0.255      0.152     0.101     0.093
+exact_term      41      0.976     0.709     0.776      0.610     0.439     0.465
+paraphrase      40      0.950     0.717     0.774      0.700     0.486     0.522
+overall        167      0.814     0.615     0.656      0.551     0.383     0.409
+  discriminated-out cases (29): span recall 1.000
