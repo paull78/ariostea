@@ -1,0 +1,37 @@
+
+[1/1] 192t+48
+/Users/paolo/code/personal/ariostea/src/ariostea/adapters/embedding/fastembed_local.py:13: UserWarning: The model sentence-transformers/paraphrase-multilingual-mpnet-base-v2 now uses mean pooling instead of CLS embedding. In order to preserve the previous behaviour, consider either pinning fastembed version to 0.5.1 or using `add_custom_model` functionality.
+  self._model = TextEmbedding(model_name=model_name)
+
+##### 192t+48  (192 tokens, overlap 48)  spans reachable 167/167
+  indexing ...
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.875     0.759     0.786      0.625     0.460     0.485
+cross_lingual   46      0.652     0.485     0.516      0.370     0.312     0.307
+exact_term      41      0.927     0.728     0.771      0.537     0.458     0.460
+paraphrase      40      0.950     0.669     0.736      0.600     0.439     0.458
+overall        167      0.844     0.655     0.696      0.527     0.414     0.423
+  discriminated-out cases (29): span recall 0.966
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.906     0.917      0.900     0.849     0.857
+cross_lingual   46      0.087     0.036     0.041      0.022     0.014     0.014
+exact_term      41      0.927     0.900     0.904      0.829     0.777     0.785
+paraphrase      40      0.800     0.537     0.592      0.525     0.335     0.371
+overall        167      0.671     0.577     0.595      0.551     0.478     0.491
+  discriminated-out cases (29): span recall 1.000
+  scoring HYBRID ...
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.981     0.986      0.975     0.944     0.952
+cross_lingual   46      0.739     0.671     0.685      0.630     0.625     0.622
+exact_term      41      1.000     0.972     0.979      0.927     0.848     0.865
+paraphrase      40      0.950     0.879     0.895      0.900     0.804     0.826
+overall        167      0.916     0.869     0.879      0.850     0.799     0.809
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-09-28-chunk-192t+48-dense-hybrid-sparse
+
+rendered /Users/paolo/code/personal/ariostea/eval/results/experiment_log.html

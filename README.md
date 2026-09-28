@@ -233,3 +233,19 @@ The sweep runner indexes the corpus once per chunking policy, logs each result,
 and re-renders the page. A spec is a size, a unit (`w` words, `t` model tokens)
 and an optional `+overlap`. Dense and sparse take a few minutes per policy; the
 hybrid channel reranks on CPU and takes about an hour.
+
+### Results: chunking
+
+The first experiment measured the chunking policy. Cutting at 512 words let one chunk in five
+overrun the embedding model's 512-token input, so the dense channel never saw the end of those
+chunks. Sizing chunks in model tokens, with overlap so no answer is cut in half, lifts dense
+span recall from 0.335 to between 0.515 and 0.563. Hybrid, the channel the server uses, moves
+far less: +0.006 to +0.048, most of it within noise for 167 queries. The default stays at 512
+words for now; the new policies are opt-in through `[chunking]`.
+
+<img src="docs/images/chunking-sweep-dense-sparse.png" alt="Chunking sweep, dense and sparse span recall at k=5, shaded by change against the 512-word control" width="100%">
+
+<img src="docs/images/chunking-sweep-hybrid.png" alt="Chunking sweep, hybrid span recall at k=5, shaded by change against the 512-word control" width="720">
+
+The full account, with the pilot, the decision rule and the confirmation run, is in
+[docs/retrieval-tuning.md](docs/retrieval-tuning.md).

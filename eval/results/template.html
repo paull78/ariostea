@@ -239,6 +239,16 @@
   footer { font-size: 13px; color: var(--muted); max-width: 70ch; }
   footer code { font: 12.5px var(--mono); color: var(--ink-2); }
 
+  /* Export view (?view=table): just the scale and the table, sized to content,
+     for README figures. */
+  body.export .page { max-width: none; width: max-content; padding: 28px 32px; gap: 16px; }
+  body.export header, body.export fieldset, body.export section.runs, body.export footer { display: none; }
+  body.export .controls { border: 0; padding: 0; }
+  body.export .scale { margin-left: 0; }
+  body.export .table-wrap { overflow: visible; }
+  body.export table { width: auto; }
+  .caption { font: 600 20px/1.2 var(--cond); margin: 0; }
+
   @media (max-width: 700px) {
     .scale { margin-left: 0; }
     .run-col { min-width: 150px; }
@@ -319,13 +329,25 @@
     metric: store.get("ariostea-log-metric", "span_recall"),
     channels: store.get("ariostea-log-channels", CHANNELS),
   };
+  // URL parameters pin a view for sharing or for README figures, e.g.
+  // ?view=table&channels=HYBRID&experiments=Baseline,Chunk%20sweep:%20full
+  // They override the stored choices for this visit without replacing them.
+  const params = new URLSearchParams(location.search);
+  const listParam = name => (params.get(name) || "").split(",").map(v => v.trim()).filter(Boolean);
+  if (params.get("metric")) state.metric = params.get("metric");
+  if (listParam("channels").length) state.channels = listParam("channels").map(c => c.toUpperCase());
+  const onlyExperiments = listParam("experiments");
+  if (params.get("view") === "table") document.body.classList.add("export");
+
   if (!METRICS.some(([key]) => key === state.metric)) state.metric = "span_recall";
   state.channels = CHANNELS.filter(c => state.channels.includes(c));
   if (!state.channels.length) state.channels = [...CHANNELS];
 
   const esc = text => String(text).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
   const fmt = v => v.toFixed(3);
-  const signed = d => (d >= 0 ? "+" : "\u2212") + Math.abs(d).toFixed(3);
+  // A change that rounds to zero prints unsigned, so float noise like -1e-16
+  // cannot show up as "-0.000".
+  const signed = d => Math.abs(d) < 0.0005 ? "0.000" : (d > 0 ? "+" : "\u2212") + Math.abs(d).toFixed(3);
   const bucket = d => {
     const step = EDGES.filter(e => Math.abs(d) >= e - 1e-9).length;
     return step === 0 ? "n" : (d > 0 ? "g" : "l") + step;
@@ -409,7 +431,8 @@
     ));
 
     const body = el("tbody");
-    const experiments = [...new Set(runs.map(r => r.experiment))];
+    const experiments = [...new Set(runs.map(r => r.experiment))]
+      .filter(e => !onlyExperiments.length || onlyExperiments.includes(e));
     const width = 2 + channels.length * TYPES.length;
     for (const experiment of experiments) {
       body.append(el("tr", { class: "exp" },
@@ -507,6 +530,9 @@
   document.querySelector(".table-wrap").addEventListener("scroll", hideTip, { passive: true });
   window.addEventListener("scroll", hideTip, { passive: true });
 
+  if (params.get("caption")) {
+    document.querySelector(".controls").before(el("h2", { class: "caption", text: params.get("caption") }));
+  }
   renderFacts();
   renderControls();
   renderTable();
