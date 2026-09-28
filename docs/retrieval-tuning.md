@@ -1,7 +1,7 @@
 # Tuning retrieval: chunking
 
-How Ariostea's chunking policy was measured, from building an evaluation set that could detect
-a difference to the sweeps that tested replacement policies. Every number here comes from
+How Ariostea's chunking policy was measured and replaced, from building an evaluation set that
+could detect a difference to the sweeps that picked the new default. Every number here comes from
 `eval/results/runs.jsonl`, and every figure is a view of the experiment log page rendered from
 it.
 
@@ -172,8 +172,8 @@ Some things hold regardless. None of the four overlapping policies lowered hybri
 of them lifted dense span recall by 0.18 to 0.23 and kept all 167 answers reachable. None lost
 any of the 29 easy cases on hybrid.
 
-Whether that justifies a new default, which reindexes every vault once, is an open decision.
-The default stays at 512 words until it is made; the new settings are available opt-in.
+That left the default undecided: a small, possibly lucky hybrid gain against a forced reindex
+of every vault. The next measurement settled it.
 
 ## Without the reranker
 
@@ -200,6 +200,18 @@ tokens passes with paraphrase exactly at the −0.05 limit, and 128 tokens fails
 It also explains the hybrid result. Without the reranker the 512-word default scores 0.551;
 with it, 0.832. The reranker was absorbing most of the damage the word cap did, so fixing the
 cap showed up in hybrid as only a few cases.
+
+## Decision
+
+The default is now 160 model tokens with 40 of overlap. It is the only policy that passed the
+decision rule both with the reranker (+0.048, every type up) and without it (+0.078, every type
+up). The hybrid gain is probably smaller than +0.048, as the confirmation run suggests, but no
+overlapping policy made hybrid worse, and the fallback path gains a lot.
+
+The change is framed as a fix: the 512-word cap handed the embedding model inputs it silently
+truncated. Upgrading re-chunks and re-embeds an existing vault once, because the chunking
+policy is now part of the index fingerprint. The original policy stays available as
+`max_tokens = 512`, `overlap = 0`, `unit = "words"`.
 
 ## Reproducing
 

@@ -242,8 +242,9 @@ chunks. Sizing chunks in model tokens, with overlap so no answer is cut in half,
 span recall from 0.335 to between 0.515 and 0.563. Hybrid, the channel the server uses, moves
 far less: +0.006 to +0.048, most of it within noise for 167 queries, because the reranker was
 already recovering what the word cap cost. Without the reranker, which is what runs when it is
-disabled or fails to load, the same policies gain +0.06 to +0.09. The default stays at 512
-words for now; the new policies are opt-in through `[chunking]`.
+disabled or fails to load, the same policies gain +0.06 to +0.09. The default is now 160
+model tokens with 40 of overlap, the only policy that passed the pre-set decision rule with
+and without the reranker. Upgrading re-chunks and re-embeds an existing vault once.
 
 <img src="docs/images/chunking-sweep-dense-sparse.png" alt="Chunking sweep, dense and sparse span recall at k=5, shaded by change against the 512-word control" width="100%">
 

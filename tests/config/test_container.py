@@ -32,8 +32,8 @@ def test_build_chunker_by_words_ignores_the_tokenizer():
     from ariostea.config.container import build_chunker
     from ariostea.config.schema import ChunkingCfg
 
-    chunker = build_chunker(ChunkingCfg(), _Tokenizing())
-    assert chunker.fingerprint == ""  # the default policy, unchanged
+    chunker = build_chunker(ChunkingCfg(max_tokens=512, overlap=0, unit="words"), _Tokenizing())
+    assert chunker.fingerprint == ""  # the original policy: existing indexes keep their fingerprint
 
 
 def test_build_chunker_by_model_tokens_counts_through_the_tokenizer():
@@ -41,7 +41,9 @@ def test_build_chunker_by_model_tokens_counts_through_the_tokenizer():
     from ariostea.config.schema import ChunkingCfg
     from ariostea.domain.models import Note
 
-    chunker = build_chunker(ChunkingCfg(max_tokens=12, unit="model_tokens"), _Tokenizing())
+    chunker = build_chunker(
+        ChunkingCfg(max_tokens=12, overlap=0, unit="model_tokens"), _Tokenizing()
+    )
     note = Note(
         path="n.md", title="N", frontmatter={}, tags=(), wikilinks=(), content_hash="h", mtime=0.0
     )
@@ -60,3 +62,13 @@ def test_build_chunker_by_model_tokens_needs_a_tokenizer():
 
     with pytest.raises(ValueError, match="model_tokens"):
         build_chunker(ChunkingCfg(unit="model_tokens"), _NoTokenizer())
+
+
+def test_the_default_policy_counts_model_tokens():
+    # A changed fingerprint is what makes every existing vault re-chunk once
+    # on upgrade instead of keeping 512-word chunks next to new ones.
+    from ariostea.config.container import build_chunker
+    from ariostea.config.schema import ChunkingCfg
+
+    chunker = build_chunker(ChunkingCfg(), _Tokenizing())
+    assert "model_tokens" in chunker.fingerprint

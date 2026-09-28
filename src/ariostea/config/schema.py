@@ -47,18 +47,20 @@ class ContextualCfg(BaseModel):
 
 
 class ChunkingCfg(BaseModel):
-    """How notes are cut into chunks. The defaults reproduce the original
-    chunker exactly, so a config without this section behaves as before.
+    """How notes are cut into chunks.
 
-    `unit = "model_tokens"` counts with the embedding model's own tokenizer, so
-    the cap means the same thing in every language; `"words"` counts
-    whitespace-separated words, which overruns a model's input window on text
-    that tokenizes to more than one token per word.
+    The defaults are the policy the chunking sweep adopted: 160 model tokens
+    with 40 of overlap (docs/retrieval-tuning.md). `unit = "model_tokens"`
+    counts with the embedding model's own tokenizer, so the cap means the same
+    thing in every language. `"words"` counts whitespace-separated words, which
+    overruns a model's input window on text that tokenizes to more than one
+    token per word; the original policy, 512 words with no overlap, is still
+    available that way.
     """
 
-    max_tokens: int = 512
-    overlap: int = 0  # units repeated from the end of the previous chunk
-    unit: Literal["words", "model_tokens"] = "words"
+    max_tokens: int = 160
+    overlap: int = 40  # units repeated from the end of the previous chunk
+    unit: Literal["words", "model_tokens"] = "model_tokens"
 
     @model_validator(mode="after")
     def _window_advances(self) -> ChunkingCfg:
@@ -66,7 +68,12 @@ class ChunkingCfg(BaseModel):
             raise ValueError("chunking.max_tokens must be positive")
         if not 0 <= self.overlap < self.max_tokens:
             # An overlap as large as the window would never move past a word.
-            raise ValueError("chunking.overlap must be at least 0 and below max_tokens")
+            # Name both values: with a default overlap of 40, lowering only
+            # max_tokens trips this through a setting the user never wrote.
+            raise ValueError(
+                f"chunking.overlap ({self.overlap}) must be at least 0 and below "
+                f"chunking.max_tokens ({self.max_tokens}); set overlap too when lowering max_tokens"
+            )
         return self
 
 

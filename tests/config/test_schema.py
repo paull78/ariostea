@@ -86,14 +86,25 @@ def test_server_section_parses(tmp_path):
     assert cfg.server.port == 9001
 
 
-def test_chunking_defaults_reproduce_the_original_chunker(tmp_path):
-    # Inert until opted into: an existing config must chunk exactly as before.
+def test_chunking_defaults_to_the_measured_policy(tmp_path):
+    # 160 model tokens with 40 of overlap: the policy the chunking sweep
+    # adopted (docs/retrieval-tuning.md). The old 512-word cap overran the
+    # multilingual embedding model's input window on one chunk in five.
     cfg_file = tmp_path / "ariostea.toml"
     cfg_file.write_text('[vault]\npath = "~/Vault"\n')
     cfg = load_config(cfg_file)
-    assert cfg.chunking.max_tokens == 512
-    assert cfg.chunking.overlap == 0
-    assert cfg.chunking.unit == "words"
+    assert cfg.chunking.max_tokens == 160
+    assert cfg.chunking.overlap == 40
+    assert cfg.chunking.unit == "model_tokens"
+
+
+def test_the_original_chunking_policy_is_still_selectable(tmp_path):
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text(
+        '[vault]\npath = "~/Vault"\n\n[chunking]\nmax_tokens = 512\noverlap = 0\nunit = "words"\n'
+    )
+    cfg = load_config(cfg_file)
+    assert (cfg.chunking.max_tokens, cfg.chunking.overlap, cfg.chunking.unit) == (512, 0, "words")
 
 
 def test_chunking_section_parses(tmp_path):
@@ -125,3 +136,14 @@ def test_chunking_rejects_impossible_settings(fields):
 
     with pytest.raises(ValidationError):
         ChunkingCfg(**fields)
+
+
+def test_lowering_max_tokens_below_the_default_overlap_says_what_to_do():
+    # The default overlap is 40, so a config that only sets max_tokens = 32
+    # is invalid through a setting the user never wrote. Say so plainly.
+    from pydantic import ValidationError
+
+    from ariostea.config.schema import ChunkingCfg
+
+    with pytest.raises(ValidationError, match="overlap .40. .*set overlap"):
+        ChunkingCfg(max_tokens=32)
