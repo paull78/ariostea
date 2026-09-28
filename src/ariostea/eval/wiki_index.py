@@ -32,6 +32,7 @@ from ariostea.config.schema import (
     Config,
     ContextualCfg,
     EmbeddingCfg,
+    RerankCfg,
     StoreCfg,
     VaultCfg,
 )
@@ -100,3 +101,23 @@ def wiki_channels(db: str, container: Container) -> dict[str, SpanSearchFn]:
         "SPARSE": make_sparse_chunk_fn(store, CHUNK_POOL),
         "HYBRID": make_hybrid_chunk_fn(container, CHUNK_POOL),
     }
+
+
+def fused_config(config: Config) -> Config:
+    """`config` with the reranker switched off and nothing else changed."""
+    return config.model_copy(update={"rerank": RerankCfg(enabled=False)})
+
+
+def fused_channel(container: Container) -> SpanSearchFn:
+    """Production search without the reranker, over `container`'s index.
+
+    The same dense and sparse retrieval and the same RRF fusion, returned in
+    fused order: what users get when reranking is disabled, or when its model
+    fails to load and the server falls back silently. Deliberately not part of
+    `wiki_channels`: gold generation's discrimination filter drops a case only
+    when every channel there answers it, so adding a channel would change what
+    the filter keeps.
+
+    Builds a second container over the same database without re-indexing it.
+    """
+    return make_hybrid_chunk_fn(build_container(fused_config(container.config)), CHUNK_POOL)

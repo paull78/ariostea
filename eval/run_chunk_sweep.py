@@ -41,6 +41,7 @@ from ariostea.eval.wiki_gold import WikiGoldCase, load_wiki_gold
 from ariostea.eval.wiki_index import (
     CHUNK_POOL,
     MULTILINGUAL_MODEL,
+    fused_channel,
     index_wiki_corpus,
     wiki_channels,
 )
@@ -51,7 +52,9 @@ RESULTS = EVAL / "results"
 RUNS = RESULTS / "runs.jsonl"
 LOGS = RESULTS / "logs"
 K = 5
-CHANNELS = ("DENSE", "SPARSE", "HYBRID")
+CHANNELS = ("DENSE", "SPARSE", "HYBRID", "FUSED")
+# FUSED (fusion without the reranker) is opt-in: ask for it by name.
+DEFAULT_CHANNELS = ("DENSE", "SPARSE", "HYBRID")
 BASELINE = "2026-09-06-baseline"
 
 
@@ -103,6 +106,8 @@ def _measure(
         say("  indexing ...")
         container = index_wiki_corpus(WIKI, db, chunking=cfg)
         available = wiki_channels(db, container)
+        if "FUSED" in channels:
+            available["FUSED"] = fused_channel(container)
         scores: dict[str, dict] = {}
         dropped: dict[str, dict] = {}
         for name in channels:
@@ -123,7 +128,11 @@ def _measure(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("specs", nargs="+", help="chunking specs, e.g. 512w 128t 128t+32")
-    parser.add_argument("--channels", default=",".join(CHANNELS), help="comma-separated")
+    parser.add_argument(
+        "--channels",
+        default=",".join(DEFAULT_CHANNELS),
+        help=f"comma-separated, from {', '.join(CHANNELS)}",
+    )
     parser.add_argument("--experiment", default="Chunk sweep", help="group name in the log")
     parser.add_argument("--control", default=BASELINE, help="run id to compare against")
     parser.add_argument("--no-log", action="store_true", help="print only, record nothing")

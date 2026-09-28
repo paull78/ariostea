@@ -62,3 +62,17 @@ def test_wiki_config_carries_a_chunking_policy(tmp_path):
     assert wiki_config(tmp_path, "db").chunking == ChunkingCfg()
     policy = ChunkingCfg(max_tokens=128, overlap=32, unit="model_tokens")
     assert wiki_config(tmp_path, "db", chunking=policy).chunking == policy
+
+
+def test_fused_config_turns_off_only_the_reranker(tmp_path):
+    # The FUSED channel is the production search with the reranker switched
+    # off: what users get when reranking is disabled or its model fails to
+    # load. Everything else, chunking included, must match the indexed config.
+    from ariostea.config.schema import ChunkingCfg
+    from ariostea.eval.wiki_index import fused_config, wiki_config
+
+    indexed = wiki_config(tmp_path, "db", chunking=ChunkingCfg(max_tokens=160, overlap=40))
+    fused = fused_config(indexed)
+    assert fused.rerank.enabled is False
+    assert indexed.rerank.enabled is True  # the original is untouched
+    assert fused.model_dump(exclude={"rerank"}) == indexed.model_dump(exclude={"rerank"})

@@ -308,7 +308,9 @@
     ["paraphrase", "Paraphrase"],
     ["overall", "Overall"],
   ];
-  const CHANNELS = ["HYBRID", "DENSE", "SPARSE"]; // hybrid first: it is what production serves
+  // Hybrid first: it is what production serves. Fused is the same search with
+  // the reranker off, the fallback when reranking is disabled or unavailable.
+  const CHANNELS = ["HYBRID", "FUSED", "DENSE", "SPARSE"];
   const k = runs.find(r => r.config && r.config.k)?.config.k ?? 5;
   const METRICS = [
     ["span_recall", `Span recall@${k}`],
