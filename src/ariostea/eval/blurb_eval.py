@@ -7,11 +7,14 @@ an LLM or a database. See docs/design/2026-09-29-blurb-aware-reranking.md.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable, Iterator
+import time
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import Protocol
 
 from ariostea.eval.contextual import find_uncontextualized_notes
+from ariostea.ports.chat import ChatProvider
 
 # Production hybrid search with the reranker scoring blurb plus chunk text.
 HYBRID_CONTEXT = "HYBRID+CONTEXT"
@@ -110,14 +113,29 @@ class BlurbCoverageError(RuntimeError):
     """The blurbed index is missing blurbs; scoring it would understate them."""
 
 
-def require_full_coverage(rows: list[tuple[str, str | None]]) -> int:
-    """Return the number of blurbed notes, or raise naming every note that
-    fell back to plain text. `rows` is (note_path, context_blurb) per chunk."""
+def require_full_coverage(rows: list[tuple[str, str | None]], granularity: str = "note") -> int:
+    """Return the number of contextualized notes, or raise naming every note
+    that fell back to plain text. `rows` is (note_path, context) per chunk.
+
+    In note mode every chunk of a note shares one blurb, so naming the notes
+    is the whole story. In chunk mode a note can have only some of its chunks
+    fail, so the message also counts chunks: "12 of 4246 chunks have no
+    context, in 3 note(s): a.md, b.md, c.md".
+    """
+    _check_granularity(granularity)
     if not rows:
         raise BlurbCoverageError("the index has no chunks")
-    missing = find_uncontextualized_notes(rows)
-    if missing:
-        raise BlurbCoverageError(f"{len(missing)} note(s) have no blurb: {', '.join(missing)}")
+    missing_notes = find_uncontextualized_notes(rows)
+    if missing_notes:
+        if granularity == "chunk":
+            missing_chunks = sum(1 for _, context in rows if not context)
+            raise BlurbCoverageError(
+                f"{missing_chunks} of {len(rows)} chunks have no context, in "
+                f"{len(missing_notes)} note(s): {', '.join(missing_notes)}"
+            )
+        raise BlurbCoverageError(
+            f"{len(missing_notes)} note(s) have no blurb: {', '.join(missing_notes)}"
+        )
     return len({path for path, _ in rows})
 
 
@@ -186,6 +204,42 @@ def contexts_by_chunk(rows: Iterable[tuple[str, int, str | None]]) -> dict[str, 
     return contexts
 
 
+@dataclass(frozen=True)
+class Preflight:
+    """Outcome of `lmstudio_preflight`.
+
+    `abort` names why the run must not start at all. `fallback_to_probe`
+    means the endpoint does not look like LM Studio, so the caller must fall
+    back to a plain chat probe (and warn loudly that the load state -- context
+    window, parallel slots -- could not be verified that way)."""
+
+    abort: str | None = None
+    fallback_to_probe: bool = False
+
+
+def lmstudio_preflight(
+    models_endpoint_responded: bool, info: dict | None, model: str, min_context: int
+) -> Preflight:
+    """Decide whether the run can proceed against LM Studio, given whether its
+    `/api/v0/models` endpoint answered and, when it did, what the per-model
+    lookup at `/api/v0/models/<model>` returned.
+
+    A server that answers `/api/v0/models` is LM Studio, so a failed or
+    missing per-model lookup means the named model is not loaded as this run
+    needs -- that aborts, naming the model, rather than falling back to the
+    plain chat probe, which only catches a fully dead endpoint and would
+    silently let a wrongly-loaded model (8k context, several parallel slots)
+    through. Only when the models endpoint itself does not answer, so the
+    server may not be LM Studio at all, does the chat probe take over.
+    """
+    if not models_endpoint_responded:
+        return Preflight(fallback_to_probe=True)
+    if info is None:
+        return Preflight(abort=f"{model} is not loaded in LM Studio (not listed by /api/v0/models)")
+    problem = lmstudio_load_problem(info, model, min_context)
+    return Preflight(abort=problem)
+
+
 def lmstudio_load_problem(info: dict, model: str, min_context: int) -> str | None:
     """Why the model LM Studio describes in `info` (its /api/v0/models/<id>
     entry) is not ready for a run, or None when it is.
@@ -230,3 +284,77 @@ def fail_on_warnings(logger_name: str) -> Iterator[None]:
     if records:
         messages = "; ".join(record.getMessage() for record in records)
         raise WarnedError(f"{logger_name} warned: {messages}")
+
+
+class _HitMissCounts(Protocol):
+    """What `NoteProgressChat` needs from the cache in front of it, so it is
+    not coupled to `CachingChat` itself."""
+
+    hits: int
+    misses: int
+
+
+def format_note_progress(
+    path: str, chunk_count: int, hits: int, misses: int, note_elapsed: float, run_elapsed: float
+) -> str:
+    """One progress line printed as chunk-mode contextualization starts a note:
+    which note and how many chunks it has, the cache's hit/miss tally so far,
+    and how long the previous note took plus the run's total elapsed time."""
+    return (
+        f"{path} ({chunk_count} chunks): {hits} hits, {misses} misses so far, "
+        f"{note_elapsed:.1f}s for the previous note, {run_elapsed:.1f}s run so far"
+    )
+
+
+class NoteProgressChat(ChatProvider):
+    """A pass-through `ChatProvider` that prints one line per note as chunk
+    mode reaches it.
+
+    A new note is detected by a change in `system`: `LLMChunkContextualizer`
+    puts the whole note's text there, identical for every chunk of that note
+    and different for the next one, so watching for the change costs no LLM
+    calls and never touches the prompt (the cache key depends on it). `notes`
+    supplies the path and chunk count for each note, in the order the indexer
+    will reach them (`scan_vault`'s sort order); once exhausted, further notes
+    print as "?" rather than raising, so a mismatch never aborts the run over
+    a progress cosmetic.
+
+    Place this outside the cache (wrapping it, not wrapped by it) so `hits`
+    and `misses` read from `cache` reflect every chunk seen so far, including
+    the one that triggered this note's line.
+    """
+
+    def __init__(
+        self,
+        inner: ChatProvider,
+        notes: Sequence[tuple[str, int]],
+        cache: _HitMissCounts,
+        clock: Callable[[], float] = time.monotonic,
+        out: Callable[[str], None] = print,
+    ) -> None:
+        self._inner = inner
+        self._notes = iter(notes)
+        self._cache = cache
+        self._clock = clock
+        self._out = out
+        self._last_system: str | None = None
+        self._run_start = clock()
+        self._note_start = self._run_start
+
+    def complete(self, system: str, user: str) -> str:
+        if system != self._last_system:
+            self._last_system = system
+            now = self._clock()
+            path, chunk_count = next(self._notes, ("?", 0))
+            self._out(
+                format_note_progress(
+                    path,
+                    chunk_count,
+                    self._cache.hits,
+                    self._cache.misses,
+                    now - self._note_start,
+                    now - self._run_start,
+                )
+            )
+            self._note_start = now
+        return self._inner.complete(system, user)

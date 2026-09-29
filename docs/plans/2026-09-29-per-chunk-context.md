@@ -100,7 +100,9 @@ class LLMChunkContextualizer(Contextualizer):
 
 ### Task 6: the measurement (manual, overnight)
 
-- [ ] `nohup uv run python eval/run_blurb_eval.py --granularity chunk > eval/results/logs/chunk-context-run.out 2>&1 & disown`; monitor with `kill -0` on the saved PID. Resume after a crash with the same command (cache) or `--reuse-index --arms ...`.
+- [ ] Check `lms ps` shows PARALLEL 1 and CONTEXT 32768 before starting.
+- [ ] `nohup caffeinate -i uv run python eval/run_blurb_eval.py --granularity chunk > eval/results/logs/chunk-context-run.out 2>&1 & disown`; monitor with `kill -0` on the saved PID. Resume after a crash with the same command (cache) or `--reuse-index --arms ...`.
+- [ ] Resuming on a later day must pass `--arms` naming only the arms not yet logged today, to avoid re-logging finished arms (a repeat run id aborts, but only after selecting the arms).
 - [ ] Unload the model, commit `runs.jsonl`, the rendered page, the logs and the contexts dump; republish the log artifact.
 
 ### Task 7: write-up

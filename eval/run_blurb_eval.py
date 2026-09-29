@@ -45,13 +45,23 @@ Blurbing takes 20 to 40 minutes and each HYBRID pass about an hour, so the
 blurbed index is kept under eval/results/indexes/ for --reuse-index. The
 blurbs themselves are written to eval/results/logs/<date>-blurbs.json.
 
-Per-chunk contexts take about 15 hours. Load the model in LM Studio with
+Per-chunk contexts take about 15 hours, unattended. Load the model in LM
+Studio with
     lms load qwen2.5-14b-instruct-mlx --context-length 32768 --parallel 1
 (with more than one parallel slot the server stops reusing the note's
-prompt prefix across its chunks, and every call pays for the whole note).
+prompt prefix across its chunks, and every call pays for the whole note),
+then check `lms ps` shows PARALLEL 1 and CONTEXT 32768 before starting. Then:
+    nohup caffeinate -i uv run python eval/run_blurb_eval.py \
+        --granularity chunk > eval/results/logs/chunk-context-run.out 2>&1 & disown
+`caffeinate -i` keeps the Mac from sleeping mid-run; `nohup ... & disown`
+keeps the run alive after the terminal closes. Each chunk call retries
+transient failures on its own (`RetryingChat`), and a progress line prints
+per note as chunk mode reaches it.
 Every answer is cached in eval/results/indexes/chunk-context-cache.jsonl, so
 after a crash rerun the same command: regenerated contexts come from the
 cache for free, and a rerun without --reuse-index rebuilds the index from it.
+Resuming on a later day must pass --arms naming only the arms not yet logged
+today, or the run aborts on an arm already in runs.jsonl.
 The contexts are written to eval/results/logs/<date>-chunk-contexts.json.
 """
 
@@ -81,6 +91,7 @@ from ariostea.eval.blurb_eval import (
     ARMS,
     HYBRID_CONTEXT,
     BlurbCoverageError,
+    NoteProgressChat,
     WarnedError,
     arm_label,
     blurb_run_id,
@@ -90,7 +101,7 @@ from ariostea.eval.blurb_eval import (
     experiment_name,
     fail_on_warnings,
     index_marker,
-    lmstudio_load_problem,
+    lmstudio_preflight,
     needed_channels,
     require_full_coverage,
     select_arms,
@@ -107,6 +118,7 @@ from ariostea.eval.results_log import (
     render_html,
     report_to_dict,
 )
+from ariostea.eval.retrying_chat import RetryingChat
 from ariostea.eval.spaneval import evaluate_spans, format_span_report
 from ariostea.eval.wiki_gold import load_wiki_gold
 from ariostea.eval.wiki_index import (
@@ -158,19 +170,46 @@ def _contextual(granularity: str) -> ContextualCfg:
     return ContextualCfg(**common, timeout=float(os.environ.get("ARIOSTEA_CTX_TIMEOUT", "300")))
 
 
+def _note_queue() -> list[tuple[str, int]]:
+    """(note_path, chunk_count) for every note under WIKI, in `scan_vault`'s
+    sort order -- the order `IndexVault.index` reaches them once the whole
+    corpus is freshly indexed, which is what happens after `_move_aside`
+    empties the store. Used only to label `NoteProgressChat`'s lines; a
+    mismatch against the real run (e.g. a note with no chunks) only makes a
+    progress line wrong, never the run."""
+    parser = ObsidianMarkdownParser()
+    chunker = build_chunker(ChunkingCfg(), FastEmbedEmbeddings(model_name=MULTILINGUAL_MODEL))
+    queue: list[tuple[str, int]] = []
+    for path in sorted(p.relative_to(WIKI).as_posix() for p in WIKI.rglob("*.md")):
+        note, body = parser.parse(path, (WIKI / path).read_text(encoding="utf-8"), 0.0)
+        chunks = chunker.chunk(note, body)
+        if chunks:
+            queue.append((path, len(chunks)))
+    return queue
+
+
 def _chat_cache(
     ctx: ContextualCfg,
 ) -> tuple[Callable[[ChatProvider], ChatProvider] | None, list[CachingChat]]:
-    """A `wrap_chat` that caches every per-chunk answer, and the list it adds
-    each cache to (for hit and miss counts). Note mode is not cached."""
+    """A `wrap_chat` that retries transient failures, caches every per-chunk
+    answer, and prints one progress line per note; and the list of caches it
+    builds (for hit and miss counts). Note mode is neither cached nor
+    progress-printed.
+
+    The cache key is `label` (the model name) plus the exact `system`/`user`
+    text; it does not include `max_tokens`, `temperature` or `base_url`, so a
+    change to any of those over the model's answers is invisible to the
+    cache -- change the model name (or clear the cache file) to force a
+    re-blurb after such a change.
+    """
     caches: list[CachingChat] = []
     if ctx.granularity != "chunk":
         return None, caches
 
     def wrap(chat: ChatProvider) -> ChatProvider:
-        cache = CachingChat(chat, CHUNK_CACHE, label=ctx.model)
+        cache = CachingChat(RetryingChat(chat), CHUNK_CACHE, label=ctx.model)
         caches.append(cache)
-        return cache
+        return NoteProgressChat(cache, _note_queue(), cache)
 
     return wrap, caches
 
@@ -182,17 +221,31 @@ def _report_cache(caches: list[CachingChat]) -> None:
 
 
 def _preflight(ctx: ContextualCfg) -> str | None:
-    """Why the blurb LLM cannot be used, or None when one short probe gets an
-    answer. Run before the index is touched: a dead endpoint would otherwise
-    only show up as a failed coverage gate after the whole corpus."""
-    info = _lmstudio_model(ctx)
-    if info is not None:
-        problem = lmstudio_load_problem(info, ctx.model, MIN_CONTEXT)
-        if problem:
-            return (
-                f"{problem}; load it first: lms load {ctx.model} "
-                f"--context-length {MIN_CONTEXT} --parallel 1"
-            )
+    """Why the blurb LLM cannot be used, or None when it is ready. Run before
+    the index is touched: a dead or wrongly-loaded endpoint would otherwise
+    only show up as a failed coverage gate after the whole corpus.
+
+    Prefers LM Studio's native API, which reports the loaded context window
+    and parallel-slot count the plain chat probe below cannot see: a model
+    LM Studio auto-loads on first request gets its own defaults (8k context,
+    several parallel slots), which a probe alone would not catch."""
+    responded, info = _lmstudio_models(ctx)
+    outcome = lmstudio_preflight(responded, info, ctx.model, MIN_CONTEXT)
+    if outcome.abort:
+        return (
+            f"{outcome.abort}; load it first: lms load {ctx.model} "
+            f"--context-length {MIN_CONTEXT} --parallel 1"
+        )
+    if outcome.fallback_to_probe:
+        print(
+            f"WARNING: could not verify the model's load state "
+            f"({ctx.base_url} does not answer LM Studio's /api/v0/models); "
+            "falling back to a plain chat probe",
+            file=sys.stderr,
+            flush=True,
+        )
+    else:
+        return None
     chat = OpenAICompatChat(
         base_url=ctx.base_url,
         model=ctx.model,
@@ -209,18 +262,26 @@ def _preflight(ctx: ContextualCfg) -> str | None:
     return None
 
 
-def _lmstudio_model(ctx: ContextualCfg) -> dict | None:
-    """LM Studio's description of `ctx.model`, or None when the endpoint is not
-    an LM Studio server answering its native API (the probe then decides)."""
+def _lmstudio_models(ctx: ContextualCfg) -> tuple[bool, dict | None]:
+    """Whether LM Studio's `/api/v0/models` endpoint answered, and, when it
+    did, its description of `ctx.model` from `/api/v0/models/<model>` (or None
+    when the lookup failed or the model is not listed)."""
     if not ctx.base_url.rstrip("/").endswith("/v1"):
-        return None
-    url = f"{ctx.base_url.rstrip('/').removesuffix('/v1')}/api/v0/models/{ctx.model}"
+        return False, None
+    root = ctx.base_url.rstrip("/").removesuffix("/v1")
     try:
-        with urllib.request.urlopen(url, timeout=PROBE_TIMEOUT) as response:
+        with urllib.request.urlopen(f"{root}/api/v0/models", timeout=PROBE_TIMEOUT):
+            pass
+    except OSError:  # not LM Studio, or down
+        return False, None
+    try:
+        with urllib.request.urlopen(
+            f"{root}/api/v0/models/{ctx.model}", timeout=PROBE_TIMEOUT
+        ) as response:
             info = json.loads(response.read())
-    except (OSError, ValueError):  # not LM Studio, unknown model, or down
-        return None
-    return info if isinstance(info, dict) else None
+    except (OSError, ValueError):  # unknown model, or a bad response
+        return True, None
+    return True, (info if isinstance(info, dict) else None)
 
 
 def _move_aside(index: Path) -> None:
@@ -406,7 +467,7 @@ def main(argv: list[str] | None = None) -> int:
         chunk_rows = read_chunk_context_rows(str(index))
         rows = [(path, context) for path, _, context in chunk_rows]
         try:
-            blurbed = require_full_coverage(rows)
+            blurbed = require_full_coverage(rows, granularity)
         except BlurbCoverageError as exc:
             print(f"ABORT: {exc}", file=sys.stderr)
             return 1

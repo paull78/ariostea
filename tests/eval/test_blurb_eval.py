@@ -6,6 +6,7 @@ from ariostea.eval.blurb_eval import (
     ARMS,
     HYBRID_CONTEXT,
     BlurbCoverageError,
+    NoteProgressChat,
     arm_label,
     blurb_run_id,
     blurbs_by_note,
@@ -13,8 +14,10 @@ from ariostea.eval.blurb_eval import (
     control_mismatch,
     experiment_name,
     fail_on_warnings,
+    format_note_progress,
     index_marker,
     lmstudio_load_problem,
+    lmstudio_preflight,
     needed_channels,
     require_full_coverage,
     select_arms,
@@ -51,6 +54,19 @@ def test_a_note_without_a_blurb_aborts_and_is_named():
 def test_an_empty_index_aborts():
     with pytest.raises(BlurbCoverageError):
         require_full_coverage([])
+
+
+def test_chunk_mode_names_missing_chunks_and_notes():
+    rows = [("a.md", "ctx")] * 4234 + [("b.md", None)] * 8 + [("c.md", "")] * 4
+    with pytest.raises(
+        BlurbCoverageError, match=r"12 of 4246 chunks have no context, in 2 note\(s\): b.md, c.md"
+    ):
+        require_full_coverage(rows, "chunk")
+
+
+def test_chunk_mode_passes_with_full_coverage():
+    rows = [("a.md", "ctx"), ("a.md", "ctx2"), ("b.md", "ctx3")]
+    assert require_full_coverage(rows, "chunk") == 2
 
 
 def test_only_the_context_arm_scores_hybrid_with_the_blurb_aware_channel():
@@ -208,3 +224,85 @@ def test_a_model_loaded_with_enough_context_passes():
         is None
     )
     assert lmstudio_load_problem({"state": "loaded"}, "q", 32768) is None
+
+
+def test_preflight_passes_when_lm_studio_confirms_the_model_is_ready():
+    info = {"state": "loaded", "loaded_context_length": 32768}
+    outcome = lmstudio_preflight(True, info, "qwen", 32768)
+    assert outcome.abort is None
+    assert outcome.fallback_to_probe is False
+
+
+def test_preflight_aborts_naming_the_model_when_lm_studio_does_not_list_it():
+    outcome = lmstudio_preflight(True, None, "qwen", 32768)
+    assert outcome.abort is not None and "qwen" in outcome.abort
+    assert outcome.fallback_to_probe is False
+
+
+def test_preflight_aborts_when_lm_studio_lists_the_model_but_it_is_not_ready():
+    info = {"state": "not-loaded"}
+    outcome = lmstudio_preflight(True, info, "qwen", 32768)
+    assert outcome.abort is not None and "qwen" in outcome.abort
+    assert outcome.fallback_to_probe is False
+
+
+def test_preflight_falls_back_to_the_chat_probe_when_not_lm_studio():
+    outcome = lmstudio_preflight(False, None, "qwen", 32768)
+    assert outcome.abort is None
+    assert outcome.fallback_to_probe is True
+
+
+def test_format_note_progress_names_the_note_and_the_tallies():
+    line = format_note_progress("a.md", 12, 3, 1, 5.0, 20.0)
+    assert "a.md" in line and "12" in line
+    assert "3 hits" in line and "1 misses" in line
+    assert "5.0s" in line and "20.0s" in line
+
+
+class _FakeCache:
+    def __init__(self):
+        self.hits = 0
+        self.misses = 0
+
+
+class _FakeChat:
+    def __init__(self):
+        self.calls: list[tuple[str, str]] = []
+
+    def complete(self, system, user):
+        self.calls.append((system, user))
+        return "ok"
+
+
+def test_note_progress_chat_prints_once_per_note_change():
+    inner, cache = _FakeChat(), _FakeCache()
+    lines = []
+    clock = iter([0.0, 1.0, 1.0, 4.0, 4.0]).__next__
+    chat = NoteProgressChat(inner, [("a.md", 2), ("b.md", 1)], cache, clock=clock, out=lines.append)
+    chat.complete("sys-a", "u1")
+    cache.hits = 1
+    chat.complete("sys-a", "u2")  # same note, no new line
+    chat.complete("sys-b", "u3")  # new note
+    assert len(lines) == 2
+    assert lines[0].startswith("a.md (2 chunks)")
+    assert lines[1].startswith("b.md (1 chunks)")
+
+
+def test_note_progress_chat_passes_calls_through_unchanged():
+    inner, cache = _FakeChat(), _FakeCache()
+    chat = NoteProgressChat(
+        inner, [("a.md", 1)], cache, clock=iter([0.0, 0.0]).__next__, out=lambda _: None
+    )
+    assert chat.complete("sys", "user") == "ok"
+    assert inner.calls == [("sys", "user")]
+
+
+def test_note_progress_chat_survives_running_past_the_queue():
+    inner, cache = _FakeChat(), _FakeCache()
+    lines = []
+    clock = iter([0.0, 0.0, 1.0]).__next__
+    chat = NoteProgressChat(inner, [], cache, clock=clock, out=lines.append)
+    chat.complete("sys-a", "u")
+    chat.complete("sys-b", "u")
+    assert len(lines) == 2
+    assert lines[0].startswith("? (0 chunks)")
