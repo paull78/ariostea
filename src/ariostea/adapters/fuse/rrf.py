@@ -1,16 +1,15 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
-from ariostea.domain.models import Chunk, RetrievedChunk
+from ariostea.domain.models import RetrievedChunk
 from ariostea.ports.fusion import Fuser
 
 
 @dataclass
 class _Entry:
-    chunk: Chunk
+    first: RetrievedChunk
     score: float
     dense_rank: int | None
     sparse_rank: int | None
-    context_blurb: str | None
 
 
 class RRFFuser(Fuser):
@@ -28,13 +27,9 @@ class RRFFuser(Fuser):
                 key = (rc.chunk.note_path, rc.chunk.ordinal)
                 entry = table.get(key)
                 if entry is None:
-                    entry = _Entry(
-                        chunk=rc.chunk,
-                        score=0.0,
-                        dense_rank=None,
-                        sparse_rank=None,
-                        context_blurb=rc.context_blurb,
-                    )
+                    # Keep the first-seen candidate whole so any future
+                    # RetrievedChunk field passes through fusion unchanged.
+                    entry = _Entry(first=rc, score=0.0, dense_rank=None, sparse_rank=None)
                     table[key] = entry
                 entry.score += 1.0 / (self.rrf_k + rank + 1)
                 if which == "dense":
@@ -47,12 +42,6 @@ class RRFFuser(Fuser):
 
         ranked = sorted(table.values(), key=lambda e: e.score, reverse=True)
         return [
-            RetrievedChunk(
-                chunk=e.chunk,
-                score=e.score,
-                dense_rank=e.dense_rank,
-                sparse_rank=e.sparse_rank,
-                context_blurb=e.context_blurb,
-            )
+            replace(e.first, score=e.score, dense_rank=e.dense_rank, sparse_rank=e.sparse_rank)
             for e in ranked[:k]
         ]

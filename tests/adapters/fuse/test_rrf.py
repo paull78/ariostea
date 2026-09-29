@@ -2,11 +2,17 @@ from ariostea.adapters.fuse.rrf import RRFFuser
 from ariostea.domain.models import Chunk, RetrievedChunk
 
 
-def _rc(ordinal, score, dense_rank=None, sparse_rank=None, path="a.md"):
+def _rc(ordinal, score, dense_rank=None, sparse_rank=None, path="a.md", blurb=None):
     chunk = Chunk(
         note_path=path, ordinal=ordinal, heading_path=("H",), text=f"c{ordinal}", token_count=1
     )
-    return RetrievedChunk(chunk=chunk, score=score, dense_rank=dense_rank, sparse_rank=sparse_rank)
+    return RetrievedChunk(
+        chunk=chunk,
+        score=score,
+        dense_rank=dense_rank,
+        sparse_rank=sparse_rank,
+        context_blurb=blurb,
+    )
 
 
 def test_chunk_in_both_lists_outranks_chunk_in_one():
@@ -38,22 +44,24 @@ def test_truncates_to_k():
 
 
 def test_fused_chunks_keep_their_blurb_from_either_channel():
-    def with_blurb(rc, blurb):
-        return RetrievedChunk(
-            chunk=rc.chunk,
-            score=rc.score,
-            dense_rank=rc.dense_rank,
-            sparse_rank=rc.sparse_rank,
-            context_blurb=blurb,
-        )
-
-    dense = [with_blurb(_rc(0, 0.9, dense_rank=0), "note A")]  # A, dense only
-    sparse = [with_blurb(_rc(1, 5.0, sparse_rank=0), "note B")]  # B, sparse only
+    dense = [_rc(0, 0.9, dense_rank=0, blurb="note A")]  # A, dense only
+    sparse = [_rc(1, 5.0, sparse_rank=0, blurb="note B")]  # B, sparse only
 
     fused = {rc.chunk.ordinal: rc for rc in RRFFuser().fuse(dense, sparse, k=10)}
 
     assert fused[0].context_blurb == "note A"
     assert fused[1].context_blurb == "note B"
+
+
+def test_chunk_in_both_lists_keeps_its_blurb_and_both_ranks():
+    dense = [_rc(0, 0.9, dense_rank=0, blurb="note A")]
+    sparse = [_rc(0, 5.0, sparse_rank=0, blurb="note A")]
+
+    fused = RRFFuser().fuse(dense, sparse, k=10)
+
+    assert len(fused) == 1
+    assert fused[0].context_blurb == "note A"
+    assert fused[0].dense_rank == 0 and fused[0].sparse_rank == 0
 
 
 def test_rrf_constant_changes_weighting_but_not_presence():
