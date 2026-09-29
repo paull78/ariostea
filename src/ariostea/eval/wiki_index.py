@@ -121,3 +121,18 @@ def fused_channel(container: Container) -> SpanSearchFn:
     Builds a second container over the same database without re-indexing it.
     """
     return make_hybrid_chunk_fn(build_container(fused_config(container.config)), CHUNK_POOL)
+
+
+def context_rerank_config(config: Config) -> Config:
+    """`config` with the reranker scoring blurb plus chunk, nothing else changed."""
+    rerank = config.rerank.model_copy(update={"use_context": True})
+    return config.model_copy(update={"rerank": rerank})
+
+
+def context_rerank_channel(container: Container) -> SpanSearchFn:
+    """Production search over `container`'s index with the blurb-aware
+    reranker. Like `fused_channel`, a second container over the same database,
+    not re-indexed, and not part of `wiki_channels` for the same reason."""
+    return make_hybrid_chunk_fn(
+        build_container(context_rerank_config(container.config)), CHUNK_POOL
+    )

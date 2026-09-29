@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,21 @@ PLACEHOLDER = "__RUNS_JSON__"
 # recorded one describe the same numbers in the same order.
 _METRICS = ("note_recall", "note_mrr", "note_ndcg", "span_recall", "span_mrr", "span_ndcg")
 _ROW = re.compile(r"^(\w+)\s+(\d+)" + r"\s+(\d+\.\d+)" * len(_METRICS) + r"\s*$")
+
+
+def code_commit() -> str:
+    """Short HEAD, marked dirty when retrieval or eval code has uncommitted
+    edits -- a logged number must be traceable to the code that produced it."""
+    head = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    dirty = subprocess.run(
+        ["git", "status", "--porcelain", "--", "src", "eval/*.py"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    return f"{head}+dirty" if dirty else head
 
 
 def report_to_dict(report: SpanEvalReport) -> dict[str, dict[str, float]]:

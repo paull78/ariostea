@@ -76,3 +76,20 @@ def test_fused_config_turns_off_only_the_reranker(tmp_path):
     assert fused.rerank.enabled is False
     assert indexed.rerank.enabled is True  # the original is untouched
     assert fused.model_dump(exclude={"rerank"}) == indexed.model_dump(exclude={"rerank"})
+
+
+def test_context_rerank_config_changes_only_use_context(tmp_path):
+    # Arm 3 is arm 2's index searched with the blurb-aware reranker: same
+    # reranker model, same pool, same contextual config, nothing reindexed.
+    from ariostea.config.schema import ContextualCfg
+    from ariostea.eval.wiki_index import context_rerank_config, wiki_config
+
+    indexed = wiki_config(tmp_path, "db", contextual=ContextualCfg(enabled=True, model="m"))
+    arm3 = context_rerank_config(indexed)
+
+    assert arm3.rerank.use_context is True
+    assert indexed.rerank.use_context is False  # the original is untouched
+    assert arm3.rerank.model_dump(exclude={"use_context"}) == indexed.rerank.model_dump(
+        exclude={"use_context"}
+    )
+    assert arm3.model_dump(exclude={"rerank"}) == indexed.model_dump(exclude={"rerank"})
