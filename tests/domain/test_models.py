@@ -29,6 +29,13 @@ def test_chunk_and_retrieved_chunk_compose():
     assert rc.score == 0.9
 
 
+def test_retrieved_chunk_blurb_defaults_to_none():
+    chunk = Chunk(note_path="a.md", ordinal=0, heading_path=(), text="t", token_count=1)
+    rc = RetrievedChunk(chunk=chunk, score=1.0)
+    assert rc.context_blurb is None
+    assert RetrievedChunk(chunk=chunk, score=1.0, context_blurb="b").context_blurb == "b"
+
+
 def test_query_defaults():
     q = Query(text="what is rag")
     assert q.k == 10 and q.filters is None

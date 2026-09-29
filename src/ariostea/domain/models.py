@@ -50,6 +50,9 @@ class RetrievedChunk:
     score: float
     dense_rank: int | None = None
     sparse_rank: int | None = None
+    # The note-level blurb from contextual indexing, for a reranker that
+    # should judge the chunk with the context the first stages saw.
+    context_blurb: str | None = None
 
 
 @dataclass(frozen=True)
