@@ -1,0 +1,11 @@
+
+##### Blurbs, reranker scores blurb and text
+  scoring HYBRID (HYBRID+CONTEXT) ...
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.975     0.950     0.957      0.925     0.809     0.837
+cross_lingual   46      0.739     0.663     0.682      0.609     0.533     0.552
+exact_term      41      1.000     0.923     0.943      0.878     0.777     0.798
+paraphrase      40      0.900     0.882     0.882      0.875     0.802     0.821
+overall        167      0.898     0.848     0.860      0.814     0.724     0.745
+  discriminated-out cases (29): span recall 1.000
