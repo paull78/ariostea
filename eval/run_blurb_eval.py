@@ -235,6 +235,18 @@ def main(argv: list[str] | None = None) -> int:
             print(f"indexing with blurbs from {ctx.model} ...", flush=True)
         # Only the plain HYBRID channel ranks with this container's reranker.
         container = _open_index(ctx, reranks="HYBRID" in needed)
+        if args.reuse_index:
+            # Reuse skips the LLM probe, so it must not trigger a rebuild that
+            # needs the LLM: a kept index blurbed by another model would be
+            # re-blurbed in place, or flattened to plain chunks if the LLM is down.
+            stored = container.admin.stats().config_fingerprint
+            if f"llm:{ctx.model}" not in stored.split("|"):
+                print(
+                    f"ABORT: the kept index was not blurbed by {ctx.model} "
+                    f"(fingerprint {stored!r}); rebuild without --reuse-index",
+                    file=sys.stderr,
+                )
+                return 1
         fingerprint = _index_up_to_date(container)
 
         try:
