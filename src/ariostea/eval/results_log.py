@@ -29,14 +29,21 @@ _METRICS = ("note_recall", "note_mrr", "note_ndcg", "span_recall", "span_mrr", "
 _ROW = re.compile(r"^(\w+)\s+(\d+)" + r"\s+(\d+\.\d+)" * len(_METRICS) + r"\s*$")
 
 
+# What a logged number depends on: retrieval code, the eval runners, and the
+# wiki corpus with its gold set. Anchored at the repo root so the check means
+# the same thing from any working directory.
+_TRACKED = (":(top)src", ":(top,glob)eval/*.py", ":(top)eval/wiki")
+
+
 def code_commit() -> str:
-    """Short HEAD, marked dirty when retrieval or eval code has uncommitted
-    edits -- a logged number must be traceable to the code that produced it."""
+    """Short HEAD, marked dirty when retrieval code, eval code or the wiki
+    corpus and gold set have uncommitted edits -- a logged number must be
+    traceable to the code and data that produced it."""
     head = subprocess.run(
         ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True
     ).stdout.strip()
     dirty = subprocess.run(
-        ["git", "status", "--porcelain", "--", "src", "eval/*.py"],
+        ["git", "status", "--porcelain", "--", *_TRACKED],
         capture_output=True,
         text=True,
         check=True,
