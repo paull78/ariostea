@@ -37,6 +37,25 @@ def test_truncates_to_k():
     assert len(fused) == 2
 
 
+def test_fused_chunks_keep_their_blurb_from_either_channel():
+    def with_blurb(rc, blurb):
+        return RetrievedChunk(
+            chunk=rc.chunk,
+            score=rc.score,
+            dense_rank=rc.dense_rank,
+            sparse_rank=rc.sparse_rank,
+            context_blurb=blurb,
+        )
+
+    dense = [with_blurb(_rc(0, 0.9, dense_rank=0), "note A")]  # A, dense only
+    sparse = [with_blurb(_rc(1, 5.0, sparse_rank=0), "note B")]  # B, sparse only
+
+    fused = {rc.chunk.ordinal: rc for rc in RRFFuser().fuse(dense, sparse, k=10)}
+
+    assert fused[0].context_blurb == "note A"
+    assert fused[1].context_blurb == "note B"
+
+
 def test_rrf_constant_changes_weighting_but_not_presence():
     dense = [_rc(0, 0.9, dense_rank=0), _rc(1, 0.8, dense_rank=1)]
     sparse = [_rc(1, 5.0, sparse_rank=0), _rc(0, 4.0, sparse_rank=1)]

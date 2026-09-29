@@ -10,6 +10,7 @@ class _Entry:
     score: float
     dense_rank: int | None
     sparse_rank: int | None
+    context_blurb: str | None
 
 
 class RRFFuser(Fuser):
@@ -27,7 +28,13 @@ class RRFFuser(Fuser):
                 key = (rc.chunk.note_path, rc.chunk.ordinal)
                 entry = table.get(key)
                 if entry is None:
-                    entry = _Entry(chunk=rc.chunk, score=0.0, dense_rank=None, sparse_rank=None)
+                    entry = _Entry(
+                        chunk=rc.chunk,
+                        score=0.0,
+                        dense_rank=None,
+                        sparse_rank=None,
+                        context_blurb=rc.context_blurb,
+                    )
                     table[key] = entry
                 entry.score += 1.0 / (self.rrf_k + rank + 1)
                 if which == "dense":
@@ -45,6 +52,7 @@ class RRFFuser(Fuser):
                 score=e.score,
                 dense_rank=e.dense_rank,
                 sparse_rank=e.sparse_rank,
+                context_blurb=e.context_blurb,
             )
             for e in ranked[:k]
         ]
