@@ -35,6 +35,9 @@ class RerankCfg(BaseModel):
     enabled: bool = True
     model: str = "jinaai/jina-reranker-v2-base-multilingual"
     pool: int = 100  # candidates fused before reranking selects the final top_k
+    # Score the context blurb with the chunk. Only matters when contextual
+    # indexing is on; off until the wiki measurement says otherwise.
+    use_context: bool = False
 
 
 class ContextualCfg(BaseModel):

@@ -50,6 +50,14 @@ def test_rerank_defaults(tmp_path):
     assert cfg.rerank.enabled is True
     assert cfg.rerank.model == "jinaai/jina-reranker-v2-base-multilingual"
     assert cfg.rerank.pool == 100
+    assert cfg.rerank.use_context is False
+
+
+def test_rerank_use_context_loads_from_toml(tmp_path):
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text('[vault]\npath = "~/Vault"\n\n[rerank]\nuse_context = true\n')
+    cfg = load_config(cfg_file)
+    assert cfg.rerank.use_context is True
 
 
 def test_rerank_can_be_disabled(tmp_path):

@@ -52,7 +52,7 @@ def _build_reranker(cfg: RerankCfg) -> Reranker:
     if not cfg.enabled:
         return NoopReranker()
     try:
-        return FastEmbedReranker(model_name=cfg.model)
+        return FastEmbedReranker(model_name=cfg.model, use_context=cfg.use_context)
     except Exception as exc:  # model missing/offline/unsupported
         logger.warning("reranker unavailable (%s); falling back to fused order", exc)
         return NoopReranker()

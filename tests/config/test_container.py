@@ -72,3 +72,19 @@ def test_the_default_policy_counts_model_tokens():
 
     chunker = build_chunker(ChunkingCfg(), _Tokenizing())
     assert "model_tokens" in chunker.fingerprint
+
+
+def test_build_reranker_passes_use_context(monkeypatch):
+    from ariostea.config import container
+    from ariostea.config.schema import RerankCfg
+
+    built = {}
+
+    class _Fake:
+        def __init__(self, model_name, use_context=False):
+            built.update(model_name=model_name, use_context=use_context)
+
+    monkeypatch.setattr(container, "FastEmbedReranker", _Fake)
+    container._build_reranker(RerankCfg(use_context=True))
+
+    assert built["use_context"] is True
