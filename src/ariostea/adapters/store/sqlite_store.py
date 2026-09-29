@@ -161,7 +161,7 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
                 WHERE embedding MATCH ? AND k = ?
             )
             SELECT c.note_id, n.path AS note_path, c.ordinal, c.heading_path,
-                   c.text, c.token_count, knn.distance
+                   c.text, c.token_count, c.context_blurb, knn.distance
             FROM knn
             JOIN chunks c ON c.id = knn.chunk_id
             JOIN notes n ON n.id = c.note_id
@@ -185,6 +185,7 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
                     score=1.0 / (1.0 + r["distance"]),
                     dense_rank=rank,
                     sparse_rank=None,
+                    context_blurb=r["context_blurb"],
                 )
             )
         return results
@@ -204,7 +205,8 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
             ORDER BY bm
             LIMIT ?
         )
-        SELECT n.path as note_path, c.ordinal, c.heading_path, c.text, c.token_count, bm.bm
+        SELECT n.path as note_path, c.ordinal, c.heading_path, c.text, c.token_count,
+               c.context_blurb, bm.bm
         FROM bm
         JOIN chunks c ON c.id = bm.chunk_id
         JOIN notes n ON n.id = c.note_id
@@ -228,6 +230,7 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
                     score=-r["bm"],
                     dense_rank=None,
                     sparse_rank=rank,
+                    context_blurb=r["context_blurb"],
                 )
             )
         return results
