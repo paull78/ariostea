@@ -1,6 +1,6 @@
 # Design: Blurb-aware reranking, measured
 
-**Status:** draft, awaiting owner review
+**Status:** approved 2026-09-29, ready for implementation planning
 **Date:** 2026-09-29
 
 ## Problem
@@ -57,6 +57,22 @@ Two questions, answered separately:
 No port changes and no reindex: the column already exists and the fingerprint
 does not cover reranking. With contextual indexing off every blurb is `None`,
 so the flag has no effect.
+
+**Storage and memory.** The blurb is text, written once per note and copied
+into every chunk row of that note at index time. This design only reads that
+copy; it adds no storage. The duplication is real, though, and worth sizing.
+On the wiki corpus at the current default there are 4,246 chunks from 79 notes
+(up to 224 per note). At about 350 bytes per blurb, the `context_blurb` column
+holds about 1.5 MB where one copy per note would take 28 KB. The FTS index
+holds the blurb a second time inside each chunk's indexed text. For scale,
+each chunk also stores a 3 KB vector (768 floats) and about 540 bytes of text,
+so the blurb copies are roughly 10 to 15% of the database. Moving the column
+to `notes` would save the 1.5 MB, but it needs a schema migration and a join
+in every search, and it cannot remove the FTS copy: BM25 has to see the
+blurb's words in each chunk's document. Not worth it at this scale; revisit
+if vaults grow by orders of magnitude. At query time the cost is nothing
+measurable: the store reads one string per candidate (100 at most), and
+fusion and the reranker pass references to it, never copies.
 
 The passage stays well inside the reranker's 1024-token input: chunks are
 capped at 160 embedding-model tokens and the blurb adds about 70.
