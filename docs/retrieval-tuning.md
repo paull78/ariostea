@@ -1,9 +1,9 @@
-# Tuning retrieval: chunking
+# Tuning retrieval
 
 How Ariostea's chunking policy was measured and replaced, from building an evaluation set that
-could detect a difference to the sweeps that picked the new default. Every number here comes from
-`eval/results/runs.jsonl`, and every figure is a view of the experiment log page rendered from
-it.
+could detect a difference to the sweeps that picked the new default, and how contextual blurbs
+were measured and kept off. Every number here comes from `eval/results/runs.jsonl`, and every
+figure is a view of the experiment log page rendered from it.
 
 ## The instrument
 
@@ -213,6 +213,67 @@ truncated. Upgrading re-chunks and re-embeds an existing vault once, because the
 policy is now part of the index fingerprint. The original policy stays available as
 `max_tokens = 512`, `overlap = 0`, `unit = "words"`.
 
+## Contextual blurbs
+
+Contextual indexing asks an LLM for one short blurb per note (its topic and key entities) and
+prepends it to every chunk of that note before embedding and full-text indexing. On a small
+corpus of short English notes in 2026-07 it lifted dense and sparse retrieval, but hybrid stayed
+flat, because the reranker scored the raw chunk and never saw the blurb. Two questions followed:
+do blurbs help on the wiki gold set, and does letting the reranker see them help hybrid? Design:
+`docs/design/2026-09-29-blurb-aware-reranking.md`.
+
+Three arms, all at the default chunking of 160 tokens with 40 of overlap:
+
+1. No blurbs: the logged chunking runs, reproduced exactly before the new runs.
+2. Blurbs, with the reranker scoring the raw chunk.
+3. Blurbs, with the reranker scoring blurb and chunk (`rerank.use_context = true`).
+
+The blurbs came from `qwen2.5-14b-instruct-mlx` over LM Studio with a 32k context window, from
+the whole article, as production does. All 79 notes got one; the run aborts otherwise. Arms 2
+and 3 share one index. The blurbs themselves are kept in `eval/results/logs/2026-09-29-blurbs.json`.
+
+Span recall at k=5:
+
+| channel | type | no blurbs | blurbs | blurbs, reranker sees them |
+|---|---|---|---|---|
+| dense | overall | 0.545 | 0.503 (−0.042) | |
+| dense | buried | 0.575 | 0.650 (+0.075) | |
+| dense | cross_lingual | 0.500 | 0.370 (−0.130) | |
+| dense | exact_term | 0.561 | 0.488 (−0.073) | |
+| sparse | overall | 0.533 | 0.539 (+0.006) | |
+| fused | overall | 0.629 | 0.617 (−0.012) | |
+| fused | cross_lingual | 0.304 | 0.217 (−0.087) | |
+| fused | paraphrase | 0.725 | 0.650 (−0.075) | |
+| **hybrid** | **overall** | **0.880** | 0.844 (−0.036) | 0.814 (−0.066) |
+| hybrid | buried | 1.000 | 0.975 | 0.925 |
+| hybrid | cross_lingual | 0.696 | 0.609 | 0.609 |
+| hybrid | exact_term | 0.951 | 0.951 | 0.878 |
+| hybrid | paraphrase | 0.900 | 0.875 | 0.875 |
+
+Under the decision rule, both comparisons fail. Blurbs cost hybrid 0.036 with the reranker on
+raw text, and cross-lingual falls by 0.087, past the −0.05 limit. Letting the reranker see the
+blurbs makes it worse again: −0.030 against arm 2, with exact_term down 0.073.
+
+The dense channel shows the mechanism. Its note recall rises (0.826 to 0.850): the blurb helps
+find the right article. Its span recall falls, and on the 29 cases the discrimination gate
+dropped as too easy it falls from 0.931 to 0.759. A wiki article here is dozens of chunks that
+all carry the same blurb, so their vectors move toward each other and the right chunk is harder
+to pick out of its article. The earlier corpus had short notes, one or two chunks each, where
+this cannot happen. The reranker behaves the same way: 50 words of shared topic in front of
+every chunk of an article leave less to tell them apart, and the exact-term and buried cases,
+which hinge on a detail inside one chunk, lose most.
+
+Cross-lingual losses may also come from the blurbs' language, which the prompt leaves open: the
+model wrote Italian blurbs for some Italian articles and English ones for the Spanish article.
+This run cannot separate that from the effect above.
+
+## Decision on blurbs
+
+Nothing changes. Contextual indexing stays off by default and `rerank.use_context` stays off.
+The code that carries the blurb to the reranker stays: it is off by default, costs nothing, and
+a blurb per chunk rather than per note, the obvious next experiment, would need it. For long
+notes, a note-level blurb is the wrong granularity.
+
 ## Reproducing
 
 ```bash
@@ -221,6 +282,11 @@ uv run python eval/run_chunk_sweep.py 512w 160t+40 --channels DENSE,SPARSE
 uv run python eval/run_chunk_sweep.py 160t+40              # adds hybrid, about an hour
 uv run python eval/run_chunk_sweep.py 160t+40 --channels FUSED --control <512w fused run id>
 uv run python eval/render_results.py                       # rebuild the log page
+
+# contextual blurbs: load the blurb model first, about 3 hours in all
+lms load qwen2.5-14b-instruct-mlx --context-length 32768
+uv run python eval/run_blurb_eval.py
+uv run python eval/run_blurb_eval.py --reuse-index --arms context-rerank   # resume one arm
 ```
 
 The figures are the log page opened with URL parameters that pin a view, then captured at 2x.
