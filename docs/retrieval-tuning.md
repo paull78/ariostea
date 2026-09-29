@@ -263,6 +263,18 @@ this cannot happen. The reranker behaves the same way: 50 words of shared topic 
 every chunk of an article leave less to tell them apart, and the exact-term and buried cases,
 which hinge on a detail inside one chunk, lose most.
 
+In short:
+
+| finding | evidence | reason |
+|---|---|---|
+| Blurbs help find the right article | dense note recall 0.826 to 0.850 | the blurb names the article's topic and key entities, which the chunk alone often doesn't |
+| Blurbs hurt finding the right chunk | dense span recall 0.545 to 0.503; easy cases 0.931 to 0.759 | one blurb is prepended to every chunk of a long article (up to 224), so their vectors converge and within-article discrimination drops |
+| Sparse is flat | 0.533 to 0.539 | the blurb adds topic words to every chunk of the article alike, so BM25 gains matches but no discrimination |
+| Hybrid loses, reranker on raw text | 0.880 to 0.844 | the candidate pool fed to the reranker is worse: fused recall falls (0.629 to 0.617), most on cross_lingual and paraphrase |
+| Hybrid loses more when the reranker sees blurbs | 0.844 to 0.814 | the same 50 words lead every candidate from an article, so the cross-encoder scores them alike; detail-bound types fall most (exact_term −0.073, buried −0.050) |
+| Cross-lingual hurt most | hybrid 0.696 to 0.609, dense 0.500 to 0.370 | likely the same convergence, possibly worsened by blurb language, which the prompt leaves open (not isolated) |
+| The 2026-07 lift didn't transfer | short-note corpus: sparse buried recall 0.2 to 0.8 | notes of one or two chunks have no siblings to blur together, so only the article-finding gain shows |
+
 Cross-lingual losses may also come from the blurbs' language, which the prompt leaves open: the
 model wrote Italian blurbs for some Italian articles and English ones for the Spanish article.
 This run cannot separate that from the effect above.
