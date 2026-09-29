@@ -4,6 +4,7 @@ from ariostea.eval.contextual import (
     find_uncontextualized_notes,
     format_delta,
     read_blurb_rows,
+    read_chunk_context_rows,
 )
 from ariostea.eval.harness import EvalReport, ScenarioScore
 
@@ -86,3 +87,28 @@ def test_read_blurb_rows_joins_notes_and_chunks(tmp_path):
 
     assert ("a.md", "blurb") in rows
     assert ("a.md", None) in rows
+
+
+def test_read_chunk_context_rows_keeps_the_ordinal(tmp_path):
+    db = tmp_path / "t.db"
+    con = sqlite3.connect(db)
+    con.executescript(
+        """
+        CREATE TABLE notes (id INTEGER PRIMARY KEY, path TEXT, title TEXT,
+                            content_hash TEXT, mtime REAL);
+        CREATE TABLE chunks (id INTEGER PRIMARY KEY, note_id INTEGER, ordinal INTEGER,
+                             heading_path TEXT, text TEXT, token_count INTEGER,
+                             context_blurb TEXT);
+        """
+    )
+    con.execute(
+        "INSERT INTO notes(id, path, title, content_hash, mtime) VALUES (1,'a.md','A','h',0.0)"
+    )
+    con.execute(
+        "INSERT INTO chunks(note_id, ordinal, heading_path, text, token_count, context_blurb) "
+        "VALUES (1,1,'B','t2',1,NULL), (1,0,'A','t',1,'ctx')"
+    )
+    con.commit()
+    con.close()
+
+    assert read_chunk_context_rows(str(db)) == [("a.md", 0, "ctx"), ("a.md", 1, None)]

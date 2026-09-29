@@ -6,10 +6,15 @@ from ariostea.eval.blurb_eval import (
     ARMS,
     HYBRID_CONTEXT,
     BlurbCoverageError,
+    arm_label,
     blurb_run_id,
     blurbs_by_note,
+    contexts_by_chunk,
     control_mismatch,
+    experiment_name,
     fail_on_warnings,
+    index_marker,
+    lmstudio_load_problem,
     needed_channels,
     require_full_coverage,
     select_arms,
@@ -130,3 +135,76 @@ def test_fail_on_warnings_lets_the_blocks_own_error_through():
         with fail_on_warnings("test.blurb.error"):
             logging.getLogger("test.blurb.error").warning("also warned")
             raise KeyError("boom")
+
+
+def test_note_level_run_ids_keep_their_logged_form():
+    # runs.jsonl already holds 2026-09-29-blurbs-* entries.
+    arm = select_arms("fused")[0]
+    assert blurb_run_id("2026-09-29", arm) == "2026-09-29-blurbs-fused"
+    assert blurb_run_id("2026-09-29", arm, "note") == "2026-09-29-blurbs-fused"
+
+
+def test_per_chunk_run_ids_cannot_collide_with_note_level_ones_on_the_same_day():
+    note = {blurb_run_id("2026-09-30", arm, "note") for arm in ARMS}
+    chunk = {blurb_run_id("2026-09-30", arm, "chunk") for arm in ARMS}
+    assert len(chunk) == len(ARMS)
+    assert not note & chunk
+    assert blurb_run_id("2026-09-30", ARMS[0], "chunk") == "2026-09-30-chunkctx-raw-rerank"
+
+
+def test_experiment_names_per_granularity():
+    assert experiment_name("note") == "Contextual blurbs"
+    assert experiment_name("chunk") == "Per-chunk context"
+
+
+def test_unknown_granularity_is_rejected():
+    with pytest.raises(ValueError, match="paragraph"):
+        experiment_name("paragraph")
+    with pytest.raises(ValueError):
+        blurb_run_id("2026-09-30", ARMS[0], "paragraph")
+    with pytest.raises(ValueError):
+        index_marker("paragraph", "m")
+
+
+def test_arm_labels_name_per_chunk_contexts_in_chunk_mode():
+    arm = select_arms("raw-rerank")[0]
+    assert arm_label(arm, "note") == arm.label
+    assert arm_label(arm, "chunk") == "Per-chunk context, reranker scores raw text"
+
+
+def test_index_marker_matches_the_contextualizer_fingerprints():
+    from ariostea.adapters.contextualize.llm_chunk import LLMChunkContextualizer
+
+    assert index_marker("note", "qwen") == "llm:qwen"
+    assert index_marker("chunk", "qwen") == "llm-chunk:qwen"
+    assert LLMChunkContextualizer(chat=None, model_name="qwen").fingerprint == "llm-chunk:qwen"
+
+
+def test_contexts_by_chunk_groups_by_note_and_ordinal_skipping_empty():
+    rows = [
+        ("a.md", 0, "ctx a0"),
+        ("a.md", 1, None),
+        ("a.md", 2, "ctx a2"),
+        ("b.md", 0, ""),
+        ("c.md", 0, "ctx c0"),
+    ]
+    assert contexts_by_chunk(rows) == {"a.md": {0: "ctx a0", 2: "ctx a2"}, "c.md": {0: "ctx c0"}}
+
+
+def test_a_model_lm_studio_has_not_loaded_is_refused():
+    # LM Studio would load it on the first request with its own 8k default.
+    problem = lmstudio_load_problem({"state": "not-loaded"}, "qwen", 32768)
+    assert problem and "not loaded" in problem and "qwen" in problem
+
+
+def test_a_model_loaded_with_too_small_a_context_is_refused():
+    info = {"state": "loaded", "loaded_context_length": 8192}
+    assert "8192" in lmstudio_load_problem(info, "qwen", 32768)
+
+
+def test_a_model_loaded_with_enough_context_passes():
+    assert (
+        lmstudio_load_problem({"state": "loaded", "loaded_context_length": 32768}, "q", 32768)
+        is None
+    )
+    assert lmstudio_load_problem({"state": "loaded"}, "q", 32768) is None

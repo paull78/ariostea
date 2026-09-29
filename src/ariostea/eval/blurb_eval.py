@@ -66,8 +66,44 @@ ARMS = (
 )
 
 
-def blurb_run_id(date: str, arm: Arm) -> str:
-    return f"{date}-blurbs-{arm.key}"
+# Per granularity: the log's experiment name and the tag in its run ids. The
+# tags differ so a per-chunk run cannot collide with a note-level run of the
+# same day; "blurbs" is what the note-level runs were logged under.
+_EXPERIMENTS = {"note": "Contextual blurbs", "chunk": "Per-chunk context"}
+_RUN_TAGS = {"note": "blurbs", "chunk": "chunkctx"}
+# The contextualizer's part of the index fingerprint, per granularity.
+_MARKERS = {"note": "llm", "chunk": "llm-chunk"}
+
+
+def _check_granularity(granularity: str) -> None:
+    if granularity not in _EXPERIMENTS:
+        raise ValueError(f"unknown granularity {granularity!r}; choose note or chunk")
+
+
+def blurb_run_id(date: str, arm: Arm, granularity: str = "note") -> str:
+    _check_granularity(granularity)
+    return f"{date}-{_RUN_TAGS[granularity]}-{arm.key}"
+
+
+def experiment_name(granularity: str) -> str:
+    """The experiment the runs of this granularity are grouped under in the log."""
+    _check_granularity(granularity)
+    return _EXPERIMENTS[granularity]
+
+
+def arm_label(arm: Arm, granularity: str) -> str:
+    """`arm.label`, naming per-chunk contexts rather than blurbs in chunk mode."""
+    _check_granularity(granularity)
+    if granularity == "note":
+        return arm.label
+    return arm.label.replace("Blurbs", "Per-chunk context", 1)
+
+
+def index_marker(granularity: str, model: str) -> str:
+    """The fingerprint component an index contextualized by `model` at this
+    granularity carries (see the contextualize adapters' `fingerprint`)."""
+    _check_granularity(granularity)
+    return f"{_MARKERS[granularity]}:{model}"
 
 
 class BlurbCoverageError(RuntimeError):
@@ -137,6 +173,35 @@ def blurbs_by_note(rows: list[tuple[str, str | None]]) -> dict[str, str]:
         if seen != blurb:
             raise ValueError(f"{path} has more than one blurb")
     return blurbs
+
+
+def contexts_by_chunk(rows: Iterable[tuple[str, int, str | None]]) -> dict[str, dict[int, str]]:
+    """{note_path: {ordinal: context}} from (note_path, ordinal, context) chunk
+    rows. Rows without a context are skipped; `require_full_coverage` is what
+    rejects them."""
+    contexts: dict[str, dict[int, str]] = {}
+    for path, ordinal, context in rows:
+        if context:
+            contexts.setdefault(path, {})[ordinal] = context
+    return contexts
+
+
+def lmstudio_load_problem(info: dict, model: str, min_context: int) -> str | None:
+    """Why the model LM Studio describes in `info` (its /api/v0/models/<id>
+    entry) is not ready for a run, or None when it is.
+
+    LM Studio loads a model that is not loaded on the first request, with its
+    own defaults (an 8k context, several parallel slots) rather than the ones
+    the run needs, so a plain probe would pass and the run would then truncate
+    long articles. A missing `loaded_context_length` is not held against it.
+    """
+    state = info.get("state")
+    if state != "loaded":
+        return f"{model} is not loaded in LM Studio (state {state!r})"
+    loaded = info.get("loaded_context_length")
+    if isinstance(loaded, int) and loaded < min_context:
+        return f"{model} is loaded with a {loaded}-token context, below {min_context}"
+    return None
 
 
 class WarnedError(RuntimeError):

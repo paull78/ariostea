@@ -1,12 +1,20 @@
-"""Measure note-level context blurbs, and blurb-aware reranking, on the wiki gold set.
+"""Measure contextual indexing, and blurb-aware reranking, on the wiki gold set.
 
 Usage:
     uv run python eval/run_blurb_eval.py                      # build the blurbed index, score, log
     uv run python eval/run_blurb_eval.py --reuse-index        # score the index built last time
     uv run python eval/run_blurb_eval.py --reuse-index --arms context-rerank   # resume one arm
+    uv run python eval/run_blurb_eval.py --granularity chunk  # per-chunk contexts instead
+    uv run python eval/run_blurb_eval.py --granularity chunk \
+        --preview coffee/caffe-espresso-it.md                 # print one note's contexts only
+
+`--granularity note` (the default) writes one blurb per note and prepends it
+to every chunk; `--granularity chunk` asks the LLM once per chunk, each call
+seeing the whole note (docs/design/2026-09-29-per-chunk-context.md). The two
+keep separate indexes and log under different experiments and run ids.
 
 Indexes the corpus once at the production chunking default with contextual
-indexing on, aborts unless every note got a blurb, then scores:
+indexing on, aborts unless every chunk got a context, then scores:
   raw-rerank      arm 2  DENSE, SPARSE, HYBRID with the reranker on raw text
   fused           arm 2  FUSED (no reranker)
   context-rerank  arm 3  HYBRID with the reranker scoring blurb plus text
@@ -18,7 +26,7 @@ are built. See docs/design/2026-09-29-blurb-aware-reranking.md.
 Safety:
   - Before building, one short probe checks the blurb LLM answers; a dead
     endpoint aborts before the index is touched. The previous index is moved
-    to blurbs-160t+40.prev.db, never deleted.
+    to <index>.prev.db, never deleted.
   - --reuse-index opens the kept index with the current config and brings it
     up to date (a no-op when nothing changed). The stored fingerprint is
     printed before and after, so an unexpected rebuild is visible, and logged.
@@ -29,12 +37,22 @@ The blurb LLM comes from:
     ARIOSTEA_CTX_BASE_URL  (default http://localhost:1234/v1, LM Studio)
     ARIOSTEA_CTX_MODEL     (default qwen2.5-14b-instruct-mlx)
     ARIOSTEA_CTX_API_KEY   (default empty)
-    ARIOSTEA_CTX_TIMEOUT   (seconds, default 300: whole articles, local model)
+    ARIOSTEA_CTX_TIMEOUT   (seconds, default 300 for note, 900 for chunk:
+                            whole articles, local model)
 Load the model with a context window of at least 32k tokens first.
 
 Blurbing takes 20 to 40 minutes and each HYBRID pass about an hour, so the
 blurbed index is kept under eval/results/indexes/ for --reuse-index. The
 blurbs themselves are written to eval/results/logs/<date>-blurbs.json.
+
+Per-chunk contexts take about 15 hours. Load the model in LM Studio with
+    lms load qwen2.5-14b-instruct-mlx --context-length 32768 --parallel 1
+(with more than one parallel slot the server stops reusing the note's
+prompt prefix across its chunks, and every call pays for the whole note).
+Every answer is cached in eval/results/indexes/chunk-context-cache.jsonl, so
+after a crash rerun the same command: regenerated contexts come from the
+cache for free, and a rerun without --reuse-index rebuilds the index from it.
+The contexts are written to eval/results/logs/<date>-chunk-contexts.json.
 """
 
 from __future__ import annotations
@@ -45,27 +63,41 @@ import datetime as dt
 import json
 import os
 import sys
+import urllib.request
 from collections.abc import Callable
 from pathlib import Path
 
 from ariostea.adapters.chat.openai_compat import OpenAICompatChat
-from ariostea.config.container import Container, build_container
+from ariostea.adapters.embedding.fastembed_local import FastEmbedEmbeddings
+from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
+from ariostea.config.container import (
+    Container,
+    _build_contextualizer,
+    build_chunker,
+    build_container,
+)
 from ariostea.config.schema import ChunkingCfg, ContextualCfg
 from ariostea.eval.blurb_eval import (
     ARMS,
     HYBRID_CONTEXT,
     BlurbCoverageError,
     WarnedError,
+    arm_label,
     blurb_run_id,
     blurbs_by_note,
+    contexts_by_chunk,
     control_mismatch,
+    experiment_name,
     fail_on_warnings,
+    index_marker,
+    lmstudio_load_problem,
     needed_channels,
     require_full_coverage,
     select_arms,
 )
+from ariostea.eval.chat_cache import CachingChat
 from ariostea.eval.chunk_sweep import load_discriminated
-from ariostea.eval.contextual import read_blurb_rows
+from ariostea.eval.contextual import read_chunk_context_rows
 from ariostea.eval.harness import SpanSearchFn
 from ariostea.eval.results_log import (
     append_run,
@@ -86,33 +118,81 @@ from ariostea.eval.wiki_index import (
     wiki_config,
 )
 from ariostea.mcp.handlers import reindex_payload
+from ariostea.ports.chat import ChatProvider
 
 EVAL = Path(__file__).resolve().parent
 WIKI = EVAL / "wiki"
 RESULTS = EVAL / "results"
 RUNS = RESULTS / "runs.jsonl"
 LOGS = RESULTS / "logs"
-INDEX = RESULTS / "indexes" / "blurbs-160t+40.db"
+INDEXES = RESULTS / "indexes"
+INDEX = {
+    "note": INDEXES / "blurbs-160t+40.db",
+    "chunk": INDEXES / "chunk-context-160t+40.db",
+}
+CHUNK_CACHE = INDEXES / "chunk-context-cache.jsonl"
 K = 5
 # `_build_reranker` warns here when it falls back to fused order.
 CONTAINER_LOGGER = "ariostea.config.container"
 PROBE_TIMEOUT = 30.0
+# Whole articles go into every prompt.
+MIN_CONTEXT = 32768
 
 
-def _contextual() -> ContextualCfg:
-    return ContextualCfg(
-        enabled=True,
-        base_url=os.environ.get("ARIOSTEA_CTX_BASE_URL", "http://localhost:1234/v1"),
-        model=os.environ.get("ARIOSTEA_CTX_MODEL", "qwen2.5-14b-instruct-mlx"),
-        api_key=os.environ.get("ARIOSTEA_CTX_API_KEY", ""),
-        timeout=float(os.environ.get("ARIOSTEA_CTX_TIMEOUT", "300")),
-    )
+def _contextual(granularity: str) -> ContextualCfg:
+    common = {
+        "enabled": True,
+        "base_url": os.environ.get("ARIOSTEA_CTX_BASE_URL", "http://localhost:1234/v1"),
+        "model": os.environ.get("ARIOSTEA_CTX_MODEL", "qwen2.5-14b-instruct-mlx"),
+        "api_key": os.environ.get("ARIOSTEA_CTX_API_KEY", ""),
+    }
+    if granularity == "chunk":
+        # The first long-article call took 570 s; the pilot's contexts reached
+        # 135 tokens.
+        return ContextualCfg(
+            **common,
+            granularity="chunk",
+            timeout=float(os.environ.get("ARIOSTEA_CTX_TIMEOUT", "900")),
+            max_tokens=200,
+        )
+    return ContextualCfg(**common, timeout=float(os.environ.get("ARIOSTEA_CTX_TIMEOUT", "300")))
+
+
+def _chat_cache(
+    ctx: ContextualCfg,
+) -> tuple[Callable[[ChatProvider], ChatProvider] | None, list[CachingChat]]:
+    """A `wrap_chat` that caches every per-chunk answer, and the list it adds
+    each cache to (for hit and miss counts). Note mode is not cached."""
+    caches: list[CachingChat] = []
+    if ctx.granularity != "chunk":
+        return None, caches
+
+    def wrap(chat: ChatProvider) -> ChatProvider:
+        cache = CachingChat(chat, CHUNK_CACHE, label=ctx.model)
+        caches.append(cache)
+        return cache
+
+    return wrap, caches
+
+
+def _report_cache(caches: list[CachingChat]) -> None:
+    if caches:
+        hits, misses = sum(c.hits for c in caches), sum(c.misses for c in caches)
+        print(f"context cache: {hits} hits, {misses} misses ({CHUNK_CACHE})", flush=True)
 
 
 def _preflight(ctx: ContextualCfg) -> str | None:
     """Why the blurb LLM cannot be used, or None when one short probe gets an
     answer. Run before the index is touched: a dead endpoint would otherwise
     only show up as a failed coverage gate after the whole corpus."""
+    info = _lmstudio_model(ctx)
+    if info is not None:
+        problem = lmstudio_load_problem(info, ctx.model, MIN_CONTEXT)
+        if problem:
+            return (
+                f"{problem}; load it first: lms load {ctx.model} "
+                f"--context-length {MIN_CONTEXT} --parallel 1"
+            )
     chat = OpenAICompatChat(
         base_url=ctx.base_url,
         model=ctx.model,
@@ -127,6 +207,20 @@ def _preflight(ctx: ContextualCfg) -> str | None:
     if not (reply or "").strip():
         return f"blurb LLM {ctx.model} at {ctx.base_url} returned empty text"
     return None
+
+
+def _lmstudio_model(ctx: ContextualCfg) -> dict | None:
+    """LM Studio's description of `ctx.model`, or None when the endpoint is not
+    an LM Studio server answering its native API (the probe then decides)."""
+    if not ctx.base_url.rstrip("/").endswith("/v1"):
+        return None
+    url = f"{ctx.base_url.rstrip('/').removesuffix('/v1')}/api/v0/models/{ctx.model}"
+    try:
+        with urllib.request.urlopen(url, timeout=PROBE_TIMEOUT) as response:
+            info = json.loads(response.read())
+    except (OSError, ValueError):  # not LM Studio, unknown model, or down
+        return None
+    return info if isinstance(info, dict) else None
 
 
 def _move_aside(index: Path) -> None:
@@ -150,9 +244,14 @@ def _guard(reranks: bool) -> contextlib.AbstractContextManager[None]:
     return fail_on_warnings(CONTAINER_LOGGER) if reranks else contextlib.nullcontext()
 
 
-def _open_index(ctx: ContextualCfg, reranks: bool) -> Container:
+def _open_index(
+    ctx: ContextualCfg,
+    index: Path,
+    reranks: bool,
+    wrap_chat: Callable[[ChatProvider], ChatProvider] | None,
+) -> Container:
     with _guard(reranks):
-        return build_container(wiki_config(WIKI, str(INDEX), contextual=ctx))
+        return build_container(wiki_config(WIKI, str(index), contextual=ctx), wrap_chat=wrap_chat)
 
 
 def _index_up_to_date(container: Container) -> str:
@@ -169,7 +268,7 @@ def _index_up_to_date(container: Container) -> str:
     return after
 
 
-def _build_channels(container: Container, needed: set[str]) -> dict[str, SpanSearchFn]:
+def _build_channels(container: Container, index: Path, needed: set[str]) -> dict[str, SpanSearchFn]:
     """Only the channels in `needed`, built up front so a failure shows before
     hours of scoring rather than between arms."""
     builders: dict[str, Callable[[], SpanSearchFn]] = {
@@ -180,12 +279,38 @@ def _build_channels(container: Container, needed: set[str]) -> dict[str, SpanSea
     if needed & {"DENSE", "SPARSE", "HYBRID"}:
         # One call builds all three; HYBRID reuses `container`'s reranker,
         # which was checked when the container was built.
-        base = wiki_channels(str(INDEX), container)
+        base = wiki_channels(str(index), container)
         channels.update({name: fn for name, fn in base.items() if name in needed})
     for name in sorted(needed - channels.keys()):
         with _guard(name == HYBRID_CONTEXT):
             channels[name] = builders[name]()
     return channels
+
+
+def _preview(ctx: ContextualCfg, notes: list[str]) -> int:
+    """Contextualize only `notes` (through the cache in chunk mode) and print
+    each chunk's context, without indexing or logging."""
+    problem = _preflight(ctx)
+    if problem:
+        print(f"ABORT: {problem}", file=sys.stderr)
+        return 1
+    wrap, caches = _chat_cache(ctx)
+    try:
+        with fail_on_warnings(CONTAINER_LOGGER):  # a fallback to plain chunks
+            contextualizer = _build_contextualizer(ctx, wrap_chat=wrap)
+    except WarnedError as exc:
+        print(f"ABORT: {exc}", file=sys.stderr)
+        return 1
+    parser = ObsidianMarkdownParser()
+    chunker = build_chunker(ChunkingCfg(), FastEmbedEmbeddings(model_name=MULTILINGUAL_MODEL))
+    for rel in notes:
+        note, body = parser.parse(rel, (WIKI / rel).read_text(encoding="utf-8"), 0.0)
+        chunks = chunker.chunk(note, body)
+        print(f"\n##### {rel} ({len(chunks)} chunks)", flush=True)
+        for cchunk in contextualizer.contextualize(note, body, chunks):
+            print(f"{cchunk.chunk.ordinal}: {cchunk.context_blurb or '(no context)'}", flush=True)
+    _report_cache(caches)
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -196,13 +321,39 @@ def main(argv: list[str] | None = None) -> int:
         default=",".join(arm.key for arm in ARMS),
         help=f"comma-separated subset of {', '.join(arm.key for arm in ARMS)} (default all)",
     )
-    parser.add_argument("--experiment", default="Contextual blurbs", help="group name in the log")
+    parser.add_argument(
+        "--granularity",
+        choices=("note", "chunk"),
+        default="note",
+        help="one blurb per note, or one context per chunk (default note)",
+    )
+    parser.add_argument(
+        "--experiment",
+        help="group name in the log (default: Contextual blurbs, or Per-chunk context)",
+    )
     parser.add_argument("--no-log", action="store_true", help="print only, record nothing")
+    parser.add_argument(
+        "--preview",
+        metavar="NOTE[,NOTE]",
+        help="only print the contexts of these notes (paths under eval/wiki); no index, no log",
+    )
     args = parser.parse_args(argv)
     try:
         arms = select_arms(args.arms)
     except ValueError as exc:
         parser.error(str(exc))
+    granularity = args.granularity
+    ctx = _contextual(granularity)
+    if args.preview is not None:
+        notes = [n.strip() for n in args.preview.split(",") if n.strip()]
+        if not notes:
+            parser.error("--preview names no note")
+        unknown = [n for n in notes if not (WIKI / n).is_file()]
+        if unknown:
+            parser.error(f"not a note under {WIKI}: {', '.join(unknown)}")
+        return _preview(ctx, notes)
+    experiment = args.experiment or experiment_name(granularity)
+    index = INDEX[granularity]
 
     today = dt.date.today().isoformat()
     commit = code_commit()
@@ -215,58 +366,65 @@ def main(argv: list[str] | None = None) -> int:
             mismatch = control_mismatch(runs[arm.control], chunking, MULTILINGUAL_MODEL)
             if mismatch:
                 parser.error(mismatch)
-            if blurb_run_id(today, arm) in runs:
-                parser.error(f"already logged today: {blurb_run_id(today, arm)}")
+            run_id = blurb_run_id(today, arm, granularity)
+            if run_id in runs:
+                parser.error(f"already logged today: {run_id}")
 
-    ctx = _contextual()
     needed = needed_channels(arms)
+    wrap, caches = _chat_cache(ctx)
     try:
         if args.reuse_index:
-            if not INDEX.exists():
-                parser.error(f"no kept index at {INDEX}; run without --reuse-index first")
-            print(f"reusing {INDEX}", flush=True)
+            if not index.exists():
+                parser.error(f"no kept index at {index}; run without --reuse-index first")
+            print(f"reusing {index}", flush=True)
         else:
             problem = _preflight(ctx)
             if problem:
                 print(f"ABORT: {problem}; the index was not touched", file=sys.stderr)
                 return 1
-            INDEX.parent.mkdir(parents=True, exist_ok=True)
-            _move_aside(INDEX)
-            print(f"indexing with blurbs from {ctx.model} ...", flush=True)
+            index.parent.mkdir(parents=True, exist_ok=True)
+            _move_aside(index)
+            print(f"indexing with {granularity} contexts from {ctx.model} ...", flush=True)
         # Only the plain HYBRID channel ranks with this container's reranker.
-        container = _open_index(ctx, reranks="HYBRID" in needed)
+        container = _open_index(ctx, index, reranks="HYBRID" in needed, wrap_chat=wrap)
         if args.reuse_index:
             # Reuse skips the LLM probe, so it must not trigger a rebuild that
             # needs the LLM: a kept index blurbed by another model would be
             # re-blurbed in place, or flattened to plain chunks if the LLM is down.
             stored = container.admin.stats().config_fingerprint
-            if f"llm:{ctx.model}" not in stored.split("|"):
+            marker = index_marker(granularity, ctx.model)
+            if marker not in stored.split("|"):
                 print(
-                    f"ABORT: the kept index was not blurbed by {ctx.model} "
+                    f"ABORT: the kept index was not contextualized as {marker} "
                     f"(fingerprint {stored!r}); rebuild without --reuse-index",
                     file=sys.stderr,
                 )
                 return 1
         fingerprint = _index_up_to_date(container)
+        _report_cache(caches)
 
+        chunk_rows = read_chunk_context_rows(str(index))
+        rows = [(path, context) for path, _, context in chunk_rows]
         try:
-            rows = read_blurb_rows(str(INDEX))
             blurbed = require_full_coverage(rows)
         except BlurbCoverageError as exc:
             print(f"ABORT: {exc}", file=sys.stderr)
             return 1
-        print(f"blurb coverage {blurbed}/{blurbed} notes", flush=True)
-        blurbs = blurbs_by_note(rows)
+        print(f"context coverage {blurbed}/{blurbed} notes, {len(rows)} chunks", flush=True)
+        if granularity == "chunk":
+            dump_name, contexts = "chunk-contexts", contexts_by_chunk(chunk_rows)
+        else:
+            dump_name, contexts = "blurbs", blurbs_by_note(rows)
         if not args.no_log:
             LOGS.mkdir(parents=True, exist_ok=True)
-            dump = LOGS / f"{today}-blurbs.json"
+            dump = LOGS / f"{today}-{dump_name}.json"
             dump.write_text(
-                json.dumps(blurbs, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+                json.dumps(contexts, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
                 encoding="utf-8",
             )
             print(f"wrote {dump}", flush=True)
 
-        channels = _build_channels(container, needed)
+        channels = _build_channels(container, index, needed)
     except WarnedError as exc:  # e.g. the reranker fell back to fused order
         print(f"ABORT: {exc}", file=sys.stderr)
         return 1
@@ -281,7 +439,8 @@ def main(argv: list[str] | None = None) -> int:
             print(text, flush=True)
             lines.append(text)
 
-        say(f"\n##### {arm.label}")
+        label = arm_label(arm, granularity)
+        say(f"\n##### {label}")
         scores: dict[str, dict] = {}
         dropped: dict[str, dict] = {}
         for name in arm.channels:
@@ -300,13 +459,13 @@ def main(argv: list[str] | None = None) -> int:
         if args.no_log:
             continue
 
-        run_id = blurb_run_id(today, arm)
+        run_id = blurb_run_id(today, arm, granularity)
         LOGS.mkdir(parents=True, exist_ok=True)
         (LOGS / f"{run_id}.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
         run = make_run(
             run_id=run_id,
-            experiment=args.experiment,
-            label=arm.label,
+            experiment=experiment,
+            label=label,
             date=today,
             commit=commit,
             control=arm.control,
@@ -315,11 +474,13 @@ def main(argv: list[str] | None = None) -> int:
                 "embedding": MULTILINGUAL_MODEL,
                 "chunking": chunking,
                 "contextual": {
+                    "granularity": granularity,
                     "model": ctx.model,
                     "base_url": ctx.base_url,
                     "timeout": ctx.timeout,
                     "max_tokens": ctx.max_tokens,
                     "blurbed_notes": blurbed,
+                    "contextualized_chunks": len(rows),
                 },
                 "index_fingerprint": fingerprint,
                 "rerank_model": rerank.model,
