@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 from ariostea.adapters.chat.openai_compat import OpenAICompatChat
 from ariostea.adapters.chunk.heading_aware import HeadingAwareChunker
 from ariostea.adapters.contextualize.llm import LLMContextualizer
+from ariostea.adapters.contextualize.llm_chunk import LLMChunkContextualizer
 from ariostea.adapters.contextualize.noop import NoopContextualizer
 from ariostea.adapters.embedding.fastembed_local import FastEmbedEmbeddings
 from ariostea.adapters.fuse.rrf import RRFFuser
@@ -17,6 +19,7 @@ from ariostea.adapters.rerank.noop import NoopReranker
 from ariostea.adapters.store.sqlite_store import SqliteStore
 from ariostea.config.schema import ChunkingCfg, Config, ContextualCfg, RerankCfg
 from ariostea.indexing.index_vault import IndexVault
+from ariostea.ports.chat import ChatProvider
 from ariostea.ports.embedding import EmbeddingProvider
 from ariostea.ports.pipeline import Chunker, Contextualizer
 from ariostea.ports.rerank import Reranker
@@ -58,22 +61,30 @@ def _build_reranker(cfg: RerankCfg) -> Reranker:
         return NoopReranker()
 
 
-def _build_contextualizer(cfg: ContextualCfg) -> Contextualizer:
+def _build_contextualizer(
+    cfg: ContextualCfg, wrap_chat: Callable[[ChatProvider], ChatProvider] | None = None
+) -> Contextualizer:
     """Build the configured contextualizer. When disabled, returns a
-    NoopContextualizer (plain chunks) silently. When enabled, builds the LLM
-    contextualizer; the try/except is defensive — today's constructors do no I/O
-    and won't raise, but a future eager-connecting client would degrade to
-    NoopContextualizer with a warning rather than break startup."""
+    NoopContextualizer (plain chunks) silently. When enabled, builds the chat
+    provider (optionally wrapped, e.g. with a caching layer for the eval), then
+    picks the note-level or per-chunk adapter by `cfg.granularity`; the
+    try/except is defensive — today's constructors do no I/O and won't raise,
+    but a future eager-connecting client would degrade to NoopContextualizer
+    with a warning rather than break startup."""
     if not cfg.enabled:
         return NoopContextualizer()
     try:
-        chat = OpenAICompatChat(
+        chat: ChatProvider = OpenAICompatChat(
             base_url=cfg.base_url,
             model=cfg.model,
             api_key=cfg.api_key,
             timeout=cfg.timeout,
             max_tokens=cfg.max_tokens,
         )
+        if wrap_chat is not None:
+            chat = wrap_chat(chat)
+        if cfg.granularity == "chunk":
+            return LLMChunkContextualizer(chat, model_name=cfg.model)
         return LLMContextualizer(chat, model_name=cfg.model)
     except Exception as exc:  # misconfiguration
         logger.warning("contextualizer unavailable (%s); indexing plain chunks", exc)
@@ -110,7 +121,9 @@ def build_chunker(cfg: ChunkingCfg, embeddings: object) -> Chunker:
     )
 
 
-def build_container(config: Config) -> Container:
+def build_container(
+    config: Config, *, wrap_chat: Callable[[ChatProvider], ChatProvider] | None = None
+) -> Container:
     # Embedding provider — local fastembed for the walking skeleton.
     embeddings: EmbeddingProvider = FastEmbedEmbeddings(model_name=config.embedding.local_model)
 
@@ -129,7 +142,7 @@ def build_container(config: Config) -> Container:
         chunker=chunker,
         embeddings=embeddings,
         store=store,
-        contextualizer=_build_contextualizer(config.contextual),
+        contextualizer=_build_contextualizer(config.contextual, wrap_chat=wrap_chat),
     )
     searcher = SearchKnowledge(
         embeddings=embeddings,

@@ -48,6 +48,7 @@ api_key = ""                              # leave empty for local/keyless server
 model = "llama3.1"
 timeout = 30.0
 max_tokens = 128
+granularity = "note"  # "note": one blurb per note; "chunk": Anthropic's per-chunk method
 
 [server]
 # HTTP transport bind address for `ariostea serve --transport http`.

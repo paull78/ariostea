@@ -47,6 +47,10 @@ class ContextualCfg(BaseModel):
     model: str = "llama3.1"
     timeout: float = 30.0
     max_tokens: int = 128
+    # "note": one blurb per note, prepended to every chunk (today's behaviour).
+    # "chunk": one LLM call per chunk, each seeing the whole document
+    # (Anthropic's Contextual Retrieval; docs/design/2026-09-29-per-chunk-context.md).
+    granularity: Literal["note", "chunk"] = "note"
 
 
 class ChunkingCfg(BaseModel):

@@ -78,6 +78,29 @@ def test_contextual_defaults_off():
     assert cfg.contextual.max_tokens == 128
 
 
+def test_contextual_granularity_defaults_to_note():
+    from ariostea.config.schema import Config, VaultCfg
+
+    cfg = Config(vault=VaultCfg(path="/v"))
+    assert cfg.contextual.granularity == "note"
+
+
+def test_contextual_granularity_chunk_loads_from_toml(tmp_path):
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text('[vault]\npath = "~/Vault"\n\n[contextual]\ngranularity = "chunk"\n')
+    cfg = load_config(cfg_file)
+    assert cfg.contextual.granularity == "chunk"
+
+
+def test_contextual_granularity_rejects_unknown_value():
+    from pydantic import ValidationError
+
+    from ariostea.config.schema import ContextualCfg
+
+    with pytest.raises(ValidationError):
+        ContextualCfg(granularity="paragraph")
+
+
 def test_server_defaults_are_localhost_8000(tmp_path):
     cfg_file = tmp_path / "ariostea.toml"
     cfg_file.write_text('[vault]\npath = "~/Vault"\n')
