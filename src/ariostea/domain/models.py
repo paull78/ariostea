@@ -31,6 +31,13 @@ class ContextualizedChunk:
     embedding_text: str
 
 
+def contextual_text(blurb: str | None, text: str) -> str:
+    """A chunk as contextual indexing embeds it: the note's blurb, a blank
+    line, then the chunk. Without a blurb, the chunk alone. Indexing and the
+    blurb-aware reranker both call this so they judge the same text."""
+    return f"{blurb}\n\n{text}" if blurb else text
+
+
 @dataclass(frozen=True)
 class QueryFilters:
     tags: tuple[str, ...] = ()

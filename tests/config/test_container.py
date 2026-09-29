@@ -88,3 +88,4 @@ def test_build_reranker_passes_use_context(monkeypatch):
     container._build_reranker(RerankCfg(use_context=True))
 
     assert built["use_context"] is True
+    assert built["model_name"] == RerankCfg().model

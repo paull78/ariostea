@@ -61,9 +61,11 @@ def test_use_context_scores_blurb_then_text(fake_encoder):
     from ariostea.adapters.rerank.fastembed_rerank import FastEmbedReranker
 
     reranker = FastEmbedReranker(use_context=True)
-    reranker.rerank("q", [_blurbed(0, "It has four strings.", "The double bass.")], top_n=1)
+    out = reranker.rerank("q", [_blurbed(0, "It has four strings.", "The double bass.")], top_n=1)
 
     assert reranker._model.seen == ["The double bass.\n\nIt has four strings."]
+    assert out[0].chunk.text == "It has four strings."
+    assert out[0].context_blurb == "The double bass."
 
 
 def test_use_context_falls_back_to_text_without_a_blurb(fake_encoder):

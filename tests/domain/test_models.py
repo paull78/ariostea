@@ -2,7 +2,7 @@ import dataclasses
 
 import pytest
 
-from ariostea.domain.models import Chunk, IndexStats, Note, Query, RetrievedChunk
+from ariostea.domain.models import Chunk, IndexStats, Note, Query, RetrievedChunk, contextual_text
 
 
 def test_note_holds_metadata_and_is_frozen():
@@ -18,6 +18,20 @@ def test_note_holds_metadata_and_is_frozen():
     assert note.tags == ("ml", "search")
     with pytest.raises(dataclasses.FrozenInstanceError):
         note.path = "other.md"
+
+
+def test_contextual_text_prepends_blurb():
+    assert contextual_text("The double bass.", "It has four strings.") == (
+        "The double bass.\n\nIt has four strings."
+    )
+
+
+def test_contextual_text_without_blurb_returns_text_alone():
+    assert contextual_text(None, "It has four strings.") == "It has four strings."
+
+
+def test_contextual_text_with_empty_blurb_returns_text_alone():
+    assert contextual_text("", "It has four strings.") == "It has four strings."
 
 
 def test_chunk_and_retrieved_chunk_compose():

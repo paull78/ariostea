@@ -4,7 +4,7 @@ from dataclasses import replace
 
 from fastembed.rerank.cross_encoder import TextCrossEncoder
 
-from ariostea.domain.models import RetrievedChunk
+from ariostea.domain.models import RetrievedChunk, contextual_text
 from ariostea.ports.rerank import Reranker
 
 
@@ -30,9 +30,9 @@ class FastEmbedReranker(Reranker):
         self._model = TextCrossEncoder(model_name=model_name)
 
     def _passage(self, rc: RetrievedChunk) -> str:
-        if self._use_context and rc.context_blurb:
-            return f"{rc.context_blurb}\n\n{rc.chunk.text}"
-        return rc.chunk.text
+        return (
+            contextual_text(rc.context_blurb, rc.chunk.text) if self._use_context else rc.chunk.text
+        )
 
     def rerank(
         self, query: str, candidates: list[RetrievedChunk], top_n: int
