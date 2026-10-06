@@ -13,7 +13,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 AT="${1:-20:00}"
-MODEL="${ARIOSTEA_CTX_MODEL:-qwen2.5-14b-instruct-mlx}"
+# The 14B model at a 32k context ran this 48 GB Mac out of GPU memory and
+# panicked it twice (2026-10-01, 2026-10-02); the 7B needs about a quarter.
+MODEL="${ARIOSTEA_CTX_MODEL:-qwen2.5-7b-instruct}"
+# The runner reads the model from the same variable; keep the two in step.
+export ARIOSTEA_CTX_MODEL="$MODEL"
 RUN_LOG=eval/results/logs/chunk-context-run.out
 
 # Fail now, not at launch time.
@@ -40,7 +44,9 @@ fi
 
 echo "$(date '+%F %T') starting the run, output in $RUN_LOG"
 status=0
-uv run python eval/run_blurb_eval.py --granularity chunk > "$RUN_LOG" 2>&1 || status=$?
+# -u: unbuffered, so progress lines reach the log as they happen rather than
+# sitting in a buffer that a crash throws away.
+uv run python -u eval/run_blurb_eval.py --granularity chunk > "$RUN_LOG" 2>&1 || status=$?
 echo "$(date '+%F %T') run exited with status $status"
 lms unload --all >/dev/null 2>&1 || true
 exit "$status"
