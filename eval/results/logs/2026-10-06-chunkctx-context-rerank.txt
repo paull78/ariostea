@@ -1,0 +1,11 @@
+
+##### Per-chunk context, reranker scores blurb and text
+  scoring HYBRID (HYBRID+CONTEXT) ...
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.988     0.991      0.975     0.858     0.886
+cross_lingual   46      0.696     0.657     0.666      0.652     0.602     0.615
+exact_term      41      1.000     0.947     0.961      0.951     0.849     0.874
+paraphrase      40      0.950     0.903     0.913      0.875     0.747     0.778
+overall        167      0.904     0.866     0.875      0.856     0.759     0.782
+  discriminated-out cases (29): span recall 1.000

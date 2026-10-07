@@ -286,6 +286,82 @@ The code that carries the blurb to the reranker stays: it is off by default, cos
 a blurb per chunk rather than per note, the obvious next experiment, would need it. For long
 notes, a note-level blurb is the wrong granularity.
 
+## Per-chunk context
+
+Anthropic's Contextual Retrieval writes the context per chunk: the prompt holds the whole
+document and one chunk, and asks for a short text that situates that chunk in the document.
+Every chunk gets a different context, which targets the convergence above. Design:
+`docs/design/2026-09-29-per-chunk-context.md`.
+
+Same three arms and controls as the note-level run, with `contextual.granularity = "chunk"`.
+The prompt asks for the context in the chunk's language. All 4,246 chunks got one.
+
+The contexts came from `qwen2.5-7b-instruct` (MLX, 4-bit), not the 14B model of the note-level
+run. Two overnight attempts with the 14B at a 32k context ran the 48 GB Mac out of GPU memory and
+ended in a kernel panic in the GPU driver (2026-10-01 and 2026-10-02). The 7B needs about a
+quarter of the memory and took 3.5 hours for all chunks, about 3 s per chunk on average. Its
+contexts read much like the 14B's in a preview (right language, some just restating the chunk),
+but this run can't rule out that a stronger model would do better. The contexts are kept in
+`eval/results/logs/2026-10-06-chunk-contexts.json`.
+
+Span recall at k=5, against the same no-blurb controls, with the note-level arm alongside:
+
+| channel | type | no context | note blurbs | chunk context | chunk context, reranker sees it |
+|---|---|---|---|---|---|
+| dense | overall | 0.545 | 0.503 | 0.581 (+0.036) | |
+| dense | buried | 0.575 | 0.650 | 0.650 (+0.075) | |
+| dense | cross_lingual | 0.500 | 0.370 | 0.413 (−0.087) | |
+| dense | exact_term | 0.561 | 0.488 | 0.659 (+0.098) | |
+| dense | paraphrase | 0.550 | 0.525 | 0.625 (+0.075) | |
+| sparse | overall | 0.533 | 0.539 | 0.545 (+0.012) | |
+| fused | overall | 0.629 | 0.617 | 0.665 (+0.036) | |
+| fused | buried | 0.825 | 0.875 | 0.950 (+0.125) | |
+| fused | cross_lingual | 0.304 | 0.217 | 0.326 (+0.022) | |
+| fused | exact_term | 0.707 | 0.780 | 0.756 (+0.049) | |
+| fused | paraphrase | 0.725 | 0.650 | 0.675 (−0.050) | |
+| **hybrid** | **overall** | **0.880** | 0.844 | 0.850 (−0.030) | 0.856 (−0.024) |
+| hybrid | buried | 1.000 | 0.975 | 0.975 | 0.975 |
+| hybrid | cross_lingual | 0.696 | 0.609 | 0.630 (−0.065) | 0.652 (−0.043) |
+| hybrid | exact_term | 0.951 | 0.951 | 0.951 | 0.951 |
+| hybrid | paraphrase | 0.900 | 0.875 | 0.875 | 0.875 |
+
+Hybrid span MRR falls from 0.810 to 0.790 with the reranker on raw text and to 0.759 when it sees
+the context; hybrid note recall falls from 0.922 to 0.904 in both.
+
+Under the decision rule, hybrid fails both comparisons: overall goes down, not up by 0.03, and
+cross-lingual falls by 0.065 with the reranker on raw text. Fused would pass on its own
+(+0.036, paraphrase at exactly −0.050), and dense gains as much overall but loses 0.087 on
+cross-lingual; neither is what the product ships.
+
+Per-chunk context fixes what note blurbs broke. Dense span recall goes up instead of down
+(0.581 against 0.503), and on the 29 easy cases it stays at 0.931 instead of falling to 0.759:
+chunks of one article no longer converge. Every channel and query type does at least as well as
+with note blurbs, except fused exact_term (0.756 against 0.780). The first-stage gain doesn't survive
+the reranker, though. The cross-encoder already reads the chunk with the query and recovers most
+of what the context adds, and the context reshuffles the candidate pool in ways that cost a
+handful of cases: hybrid loses 5 of 167, 3 of them cross-lingual.
+
+In short:
+
+| finding | evidence | reason |
+|---|---|---|
+| Per-chunk context lifts the first stage | dense 0.545 to 0.581, fused 0.629 to 0.665, fused buried +0.125 | each chunk gets its own situating text (the article's subject, the section), which the chunk alone often lacks |
+| It removes the note-level convergence | dense easy cases 0.931, against 0.759 with note blurbs | contexts differ chunk to chunk, so an article's vectors don't move toward each other |
+| Hybrid still loses a little | 0.880 to 0.850 (raw) and 0.856 (sees context) | the reranker already reads chunk and query together, so the context adds little it lacks; the changed candidate pool costs a few cases |
+| Cross-lingual is still the weak spot | hybrid 0.696 to 0.630, dense 0.500 to 0.413 | contexts are written in the chunk's language, which pulls chunk vectors further into that language and away from a query in another one (likely, not isolated) |
+| Letting the reranker see the context is a wash | overall +0.006 against raw, span MRR 0.790 to 0.759 | the context sometimes helps the right chunk into the top 5 but also lifts its neighbours, so the top rank is less often right |
+| Sparse is flat | 0.533 to 0.545 | the context adds a few topic words; BM25 gains matches on buried cases only |
+
+## Decision on per-chunk context
+
+Nothing changes. Contextual indexing stays off and `rerank.use_context` stays off. With the
+reranker in front, per-chunk context doesn't pay on the wiki set, and it would cost an LLM call
+per chunk at indexing time (about 3 s each on this Mac with the 7B, against a few milliseconds to
+embed). `contextual.granularity = "chunk"` stays in the code, off by default. It would be worth
+another look for a configuration without the reranker, where it gains +0.036, or with a stronger
+model and a cross-lingual-aware prompt (for example, context in the language of the corpus's
+queries).
+
 ## Reproducing
 
 ```bash
@@ -299,6 +375,13 @@ uv run python eval/render_results.py                       # rebuild the log pag
 lms load qwen2.5-14b-instruct-mlx --context-length 32768
 uv run python eval/run_blurb_eval.py
 uv run python eval/run_blurb_eval.py --reuse-index --arms context-rerank   # resume one arm
+
+# per-chunk context: about 3.5 hours with the 7B; the launcher loads the model
+# (32k context, one parallel slot, needed for prefix reuse) at the given time
+nohup caffeinate -is eval/run_chunk_context_overnight.sh 20:00 \
+  > eval/results/logs/chunk-context-launch.out 2>&1 & disown
+ARIOSTEA_CTX_MODEL=qwen2.5-7b-instruct uv run python eval/run_blurb_eval.py \
+  --granularity chunk --preview coffee/caffe-espresso-it.md   # check a few contexts first
 ```
 
 The figures are the log page opened with URL parameters that pin a view, then captured at 2x.

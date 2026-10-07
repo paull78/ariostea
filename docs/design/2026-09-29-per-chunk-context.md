@@ -1,6 +1,7 @@
 # Design: Per-chunk context, measured
 
-**Status:** approved 2026-09-29, ready for implementation planning
+**Status:** implemented and measured 2026-10-06 with `qwen2.5-7b-instruct` instead of the 14B
+(the 14B run panicked the Mac twice); results in `docs/retrieval-tuning.md`, "Per-chunk context"
 **Date:** 2026-09-29
 
 ## Problem
