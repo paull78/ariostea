@@ -50,6 +50,14 @@ def test_rerank_defaults(tmp_path):
     assert cfg.rerank.enabled is True
     assert cfg.rerank.model == "jinaai/jina-reranker-v2-base-multilingual"
     assert cfg.rerank.pool == 100
+    assert cfg.rerank.use_context is False
+
+
+def test_rerank_use_context_loads_from_toml(tmp_path):
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text('[vault]\npath = "~/Vault"\n\n[rerank]\nuse_context = true\n')
+    cfg = load_config(cfg_file)
+    assert cfg.rerank.use_context is True
 
 
 def test_rerank_can_be_disabled(tmp_path):
@@ -68,6 +76,29 @@ def test_contextual_defaults_off():
     assert cfg.contextual.base_url == "http://localhost:11434/v1"
     assert cfg.contextual.model == "llama3.1"
     assert cfg.contextual.max_tokens == 128
+
+
+def test_contextual_granularity_defaults_to_note():
+    from ariostea.config.schema import Config, VaultCfg
+
+    cfg = Config(vault=VaultCfg(path="/v"))
+    assert cfg.contextual.granularity == "note"
+
+
+def test_contextual_granularity_chunk_loads_from_toml(tmp_path):
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text('[vault]\npath = "~/Vault"\n\n[contextual]\ngranularity = "chunk"\n')
+    cfg = load_config(cfg_file)
+    assert cfg.contextual.granularity == "chunk"
+
+
+def test_contextual_granularity_rejects_unknown_value():
+    from pydantic import ValidationError
+
+    from ariostea.config.schema import ContextualCfg
+
+    with pytest.raises(ValidationError):
+        ContextualCfg(granularity="paragraph")
 
 
 def test_server_defaults_are_localhost_8000(tmp_path):

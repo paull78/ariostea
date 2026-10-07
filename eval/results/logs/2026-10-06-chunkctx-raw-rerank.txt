@@ -1,0 +1,29 @@
+
+##### Per-chunk context, reranker scores raw text
+  scoring DENSE (DENSE) ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.925     0.857     0.872      0.650     0.521     0.536
+cross_lingual   46      0.587     0.477     0.496      0.413     0.340     0.343
+exact_term      41      0.927     0.777     0.807      0.659     0.495     0.528
+paraphrase      40      0.900     0.644     0.703      0.625     0.448     0.480
+overall        167      0.826     0.682     0.712      0.581     0.447     0.468
+  discriminated-out cases (29): span recall 0.931
+  scoring SPARSE (SPARSE) ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.900     0.913      0.875     0.809     0.820
+cross_lingual   46      0.065     0.030     0.031      0.022     0.014     0.014
+exact_term      41      0.927     0.869     0.882      0.805     0.758     0.764
+paraphrase      40      0.825     0.572     0.627      0.550     0.365     0.400
+overall        167      0.671     0.574     0.594      0.545     0.471     0.484
+  discriminated-out cases (29): span recall 1.000
+  scoring HYBRID (HYBRID) ...
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.983     0.988      0.975     0.903     0.918
+cross_lingual   46      0.696     0.637     0.651      0.630     0.601     0.606
+exact_term      41      1.000     0.963     0.973      0.951     0.867     0.886
+paraphrase      40      0.950     0.915     0.922      0.875     0.815     0.828
+overall        167      0.904     0.867     0.876      0.850     0.790     0.803
+  discriminated-out cases (29): span recall 1.000

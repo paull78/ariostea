@@ -1,0 +1,5 @@
+moved the previous index to /Users/paolo/code/personal/ariostea/eval/results/indexes/chunk-context-160t+40.prev.db
+indexing with chunk contexts from qwen2.5-14b-instruct-mlx ...
+/Users/paolo/code/personal/ariostea/src/ariostea/adapters/embedding/fastembed_local.py:13: UserWarning: The model sentence-transformers/paraphrase-multilingual-mpnet-base-v2 now uses mean pooling instead of CLS embedding. In order to preserve the previous behaviour, consider either pinning fastembed version to 0.5.1 or using `add_custom_model` functionality.
+  self._model = TextEmbedding(model_name=model_name)
+  fingerprint before: (none)

@@ -11,3 +11,6 @@ try_search.py
 
 # Local scratch: raw LLM responses for resumable gold generation.
 eval/wiki/.gold_cache.jsonl
+
+# Resumable per-chunk contexts for eval/run_blurb_eval.py --granularity chunk.
+eval/results/indexes/chunk-context-cache.jsonl

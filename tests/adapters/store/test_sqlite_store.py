@@ -8,7 +8,7 @@ def _note(path="a.md"):
     )
 
 
-def _cchunk(note, ordinal, text):
+def _cchunk(note, ordinal, text, blurb=None):
     chunk = Chunk(
         note_path=note.path,
         ordinal=ordinal,
@@ -16,7 +16,8 @@ def _cchunk(note, ordinal, text):
         text=text,
         token_count=len(text.split()),
     )
-    return ContextualizedChunk(chunk=chunk, context_blurb=None, embedding_text=text)
+    embedding_text = f"{blurb}\n\n{text}" if blurb else text
+    return ContextualizedChunk(chunk=chunk, context_blurb=blurb, embedding_text=embedding_text)
 
 
 def test_upsert_then_dense_retrieves_nearest(tmp_path):
@@ -171,3 +172,27 @@ def test_upsert_persists_context_blurb(tmp_path):
 
     rows = store.db.execute("SELECT context_blurb FROM chunks").fetchall()
     assert rows[0]["context_blurb"] == "the blurb"
+
+
+def test_dense_and_sparse_return_the_stored_blurb(tmp_path):
+    store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
+    note = _note()
+    store.upsert_note(
+        note, [_cchunk(note, 0, "alpha", blurb="About Greek letters.")], [[1.0, 0.0, 0.0]]
+    )
+
+    dense = store.dense([1.0, 0.0, 0.0], k=1)
+    sparse = store.sparse("alpha", k=1)
+
+    assert dense[0].context_blurb == "About Greek letters."
+    assert sparse[0].context_blurb == "About Greek letters."
+    assert dense[0].chunk.text == "alpha"  # the raw text stays raw
+
+
+def test_plain_index_returns_no_blurb(tmp_path):
+    store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
+    note = _note()
+    store.upsert_note(note, [_cchunk(note, 0, "alpha")], [[1.0, 0.0, 0.0]])
+
+    assert store.dense([1.0, 0.0, 0.0], k=1)[0].context_blurb is None
+    assert store.sparse("alpha", k=1)[0].context_blurb is None

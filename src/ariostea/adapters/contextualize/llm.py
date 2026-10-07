@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 
-from ariostea.domain.models import Chunk, ContextualizedChunk, Note
+from ariostea.domain.models import Chunk, ContextualizedChunk, Note, contextual_text
 from ariostea.ports.chat import ChatProvider
 from ariostea.ports.pipeline import Contextualizer
 
@@ -41,7 +41,9 @@ class LLMContextualizer(Contextualizer):
                 for c in chunks
             ]
         return [
-            ContextualizedChunk(chunk=c, context_blurb=blurb, embedding_text=f"{blurb}\n\n{c.text}")
+            ContextualizedChunk(
+                chunk=c, context_blurb=blurb, embedding_text=contextual_text(blurb, c.text)
+            )
             for c in chunks
         ]
 

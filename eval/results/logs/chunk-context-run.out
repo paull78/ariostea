@@ -1,0 +1,145 @@
+moved the previous index to /Users/paolo/code/personal/ariostea/eval/results/indexes/chunk-context-160t+40.prev.db
+indexing with chunk contexts from qwen2.5-7b-instruct ...
+/Users/paolo/code/personal/ariostea/src/ariostea/adapters/embedding/fastembed_local.py:13: UserWarning: The model sentence-transformers/paraphrase-multilingual-mpnet-base-v2 now uses mean pooling instead of CLS embedding. In order to preserve the previous behaviour, consider either pinning fastembed version to 0.5.1 or using `add_custom_model` functionality.
+  self._model = TextEmbedding(model_name=model_name)
+  fingerprint before: (none)
+board-games/backgammon.md (105 chunks): 0 hits, 0 misses so far, 0.5s for the previous note, 0.5s run so far
+board-games/checkers.md (58 chunks): 0 hits, 105 misses so far, 245.8s for the previous note, 246.3s run so far
+board-games/checkmate.md (49 chunks): 0 hits, 163 misses so far, 108.9s for the previous note, 355.1s run so far
+board-games/chess-endgame.md (87 chunks): 0 hits, 212 misses so far, 100.4s for the previous note, 455.5s run so far
+board-games/chess-opening.md (57 chunks): 0 hits, 299 misses so far, 206.4s for the previous note, 662.0s run so far
+board-games/chess-piece.md (20 chunks): 0 hits, 356 misses so far, 132.7s for the previous note, 794.7s run so far
+board-games/chess.md (184 chunks): 0 hits, 376 misses so far, 31.3s for the previous note, 826.0s run so far
+board-games/chessboard.md (24 chunks): 0 hits, 560 misses so far, 534.1s for the previous note, 1360.1s run so far
+board-games/go-game.md (154 chunks): 0 hits, 584 misses so far, 43.6s for the previous note, 1403.7s run so far
+board-games/shogi.md (144 chunks): 0 hits, 738 misses so far, 447.6s for the previous note, 1851.3s run so far
+board-games/xiangqi.md (132 chunks): 0 hits, 882 misses so far, 440.9s for the previous note, 2292.2s run so far
+cheese/blue-cheese.md (34 chunks): 0 hits, 1014 misses so far, 345.9s for the previous note, 2638.1s run so far
+cheese/brie.md (18 chunks): 0 hits, 1048 misses so far, 64.8s for the previous note, 2702.9s run so far
+cheese/cheddar-cheese.md (30 chunks): 0 hits, 1066 misses so far, 30.5s for the previous note, 2733.4s run so far
+cheese/cheese-ripening.md (13 chunks): 0 hits, 1096 misses so far, 55.5s for the previous note, 2788.9s run so far
+cheese/cheese.md (55 chunks): 0 hits, 1109 misses so far, 28.4s for the previous note, 2817.3s run so far
+cheese/curd.md (8 chunks): 0 hits, 1164 misses so far, 124.5s for the previous note, 2941.8s run so far
+cheese/gouda-cheese.md (13 chunks): 0 hits, 1172 misses so far, 15.9s for the previous note, 2957.7s run so far
+cheese/mozzarella.md (19 chunks): 0 hits, 1185 misses so far, 20.7s for the previous note, 2978.4s run so far
+cheese/parmesan.md (33 chunks): 0 hits, 1204 misses so far, 34.5s for the previous note, 3012.9s run so far
+cheese/rennet.md (19 chunks): 0 hits, 1237 misses so far, 63.4s for the previous note, 3076.3s run so far
+cheese/whey.md (27 chunks): 0 hits, 1256 misses so far, 35.6s for the previous note, 3112.0s run so far
+coffee/caffe-espresso-it.md (29 chunks): 0 hits, 1283 misses so far, 53.6s for the previous note, 3165.5s run so far
+coffee/cappuccino-bevanda-it.md (9 chunks): 29 hits, 1283 misses so far, 2.4s for the previous note, 3167.9s run so far
+coffee/cappuccino.md (24 chunks): 29 hits, 1292 misses so far, 27.5s for the previous note, 3195.4s run so far
+coffee/coffea-arabica.md (26 chunks): 29 hits, 1316 misses so far, 49.0s for the previous note, 3244.4s run so far
+coffee/coffea-canephora.md (10 chunks): 29 hits, 1342 misses so far, 54.2s for the previous note, 3298.6s run so far
+coffee/coffee-bean.md (33 chunks): 29 hits, 1352 misses so far, 23.1s for the previous note, 3321.7s run so far
+coffee/coffee-preparation.md (88 chunks): 29 hits, 1385 misses so far, 61.3s for the previous note, 3383.1s run so far
+coffee/coffee-roasting.md (34 chunks): 29 hits, 1473 misses so far, 196.9s for the previous note, 3580.0s run so far
+coffee/cold-brew-coffee.md (9 chunks): 29 hits, 1507 misses so far, 72.3s for the previous note, 3652.2s run so far
+coffee/espresso.md (41 chunks): 29 hits, 1516 misses so far, 16.5s for the previous note, 3668.8s run so far
+coffee/flat-white.md (13 chunks): 29 hits, 1557 misses so far, 94.4s for the previous note, 3763.1s run so far
+coffee/french-press.md (14 chunks): 29 hits, 1570 misses so far, 25.9s for the previous note, 3789.0s run so far
+coffee/latte.md (6 chunks): 29 hits, 1584 misses so far, 26.5s for the previous note, 3815.5s run so far
+coffee/moka-pot.md (19 chunks): 29 hits, 1590 misses so far, 9.4s for the previous note, 3824.9s run so far
+cycling/bicycle-brake.md (126 chunks): 29 hits, 1609 misses so far, 40.2s for the previous note, 3865.1s run so far
+cycling/bicycle-chain.md (34 chunks): 29 hits, 1735 misses so far, 317.9s for the previous note, 4183.0s run so far
+cycling/bicycle-frame.md (91 chunks): 29 hits, 1769 misses so far, 62.6s for the previous note, 4245.6s run so far
+cycling/bicycle-handlebar.md (59 chunks): 29 hits, 1860 misses so far, 192.2s for the previous note, 4437.8s run so far
+cycling/bicycle-pedal.md (35 chunks): 29 hits, 1919 misses so far, 129.7s for the previous note, 4567.5s run so far
+cycling/bicycle-wheel.md (103 chunks): 29 hits, 1954 misses so far, 74.5s for the previous note, 4642.0s run so far
+cycling/bicycle.md (82 chunks): 29 hits, 2057 misses so far, 249.8s for the previous note, 4891.9s run so far
+cycling/derailleur.md (39 chunks): 29 hits, 2139 misses so far, 169.8s for the previous note, 5061.6s run so far
+cycling/mountain-bike.md (40 chunks): 29 hits, 2178 misses so far, 88.1s for the previous note, 5149.7s run so far
+cycling/racing-bicycle.md (33 chunks): 29 hits, 2218 misses so far, 81.4s for the previous note, 5231.1s run so far
+cycling/road-bicycle.md (8 chunks): 29 hits, 2251 misses so far, 72.7s for the previous note, 5303.9s run so far
+cycling/track-bicycle.md (12 chunks): 29 hits, 2259 misses so far, 17.9s for the previous note, 5321.8s run so far
+sailing/boom-sailing.md (24 chunks): 29 hits, 2271 misses so far, 22.5s for the previous note, 5344.3s run so far
+sailing/jib.md (11 chunks): 29 hits, 2295 misses so far, 48.6s for the previous note, 5392.9s run so far
+sailing/keel.md (16 chunks): 29 hits, 2306 misses so far, 18.6s for the previous note, 5411.6s run so far
+sailing/mainsail.md (5 chunks): 29 hits, 2322 misses so far, 28.4s for the previous note, 5440.0s run so far
+sailing/mast-sailing.md (26 chunks): 29 hits, 2327 misses so far, 10.8s for the previous note, 5450.8s run so far
+sailing/point-of-sail.md (26 chunks): 29 hits, 2353 misses so far, 57.1s for the previous note, 5507.9s run so far
+sailing/rigging.md (11 chunks): 29 hits, 2379 misses so far, 52.9s for the previous note, 5560.8s run so far
+sailing/rudder.md (35 chunks): 29 hits, 2390 misses so far, 19.4s for the previous note, 5580.2s run so far
+sailing/sail.md (56 chunks): 29 hits, 2425 misses so far, 72.2s for the previous note, 5652.5s run so far
+sailing/sailboat.md (24 chunks): 29 hits, 2481 misses so far, 113.6s for the previous note, 5766.0s run so far
+sailing/sailing.md (95 chunks): 29 hits, 2505 misses so far, 36.9s for the previous note, 5803.0s run so far
+sailing/spinnaker.md (44 chunks): 29 hits, 2600 misses so far, 225.0s for the previous note, 6027.9s run so far
+sailing/tacking-sailing.md (19 chunks): 29 hits, 2644 misses so far, 89.7s for the previous note, 6117.6s run so far
+string-instruments/banjo.md (97 chunks): 29 hits, 2663 misses so far, 39.1s for the previous note, 6156.8s run so far
+string-instruments/cello.md (111 chunks): 29 hits, 2760 misses so far, 262.4s for the previous note, 6419.2s run so far
+string-instruments/classical-guitar.md (97 chunks): 29 hits, 2871 misses so far, 296.4s for the previous note, 6715.5s run so far
+string-instruments/double-bass.md (224 chunks): 29 hits, 2968 misses so far, 265.7s for the previous note, 6981.3s run so far
+string-instruments/fingerboard.md (30 chunks): 29 hits, 3192 misses so far, 752.3s for the previous note, 7733.6s run so far
+string-instruments/guitarra-clasica-es.md (64 chunks): 29 hits, 3222 misses so far, 69.0s for the previous note, 7802.6s run so far
+string-instruments/harp.md (64 chunks): 29 hits, 3286 misses so far, 215.1s for the previous note, 8017.7s run so far
+string-instruments/lute.md (80 chunks): 29 hits, 3350 misses so far, 141.4s for the previous note, 8159.1s run so far
+string-instruments/luthier.md (18 chunks): 29 hits, 3430 misses so far, 206.3s for the previous note, 8365.4s run so far
+string-instruments/mandolin.md (103 chunks): 29 hits, 3448 misses so far, 35.3s for the previous note, 8400.7s run so far
+string-instruments/mandolino-it.md (62 chunks): 29 hits, 3551 misses so far, 288.3s for the previous note, 8689.0s run so far
+string-instruments/ukulele.md (36 chunks): 29 hits, 3613 misses so far, 218.4s for the previous note, 8907.4s run so far
+string-instruments/viola.md (51 chunks): 29 hits, 3649 misses so far, 87.5s for the previous note, 8994.9s run so far
+string-instruments/violin-es.md (50 chunks): 29 hits, 3700 misses so far, 126.8s for the previous note, 9121.8s run so far
+string-instruments/violin.md (143 chunks): 79 hits, 3700 misses so far, 3.1s for the previous note, 9124.9s run so far
+string-instruments/violino-it.md (118 chunks): 79 hits, 3843 misses so far, 430.3s for the previous note, 9555.2s run so far
+string-instruments/violoncello-it.md (96 chunks): 79 hits, 3961 misses so far, 546.7s for the previous note, 10101.9s run so far
+string-instruments/violonchelo-es.md (110 chunks): 79 hits, 4057 misses so far, 387.3s for the previous note, 10489.2s run so far
+  fingerprint after:  fastembed:sentence-transformers/paraphrase-multilingual-mpnet-base-v2|llm-chunk:qwen2.5-7b-instruct|chunk:heading_aware:158:40:model_tokens
+  79 notes, 4246 chunks
+context cache: 79 hits, 4167 misses (/Users/paolo/code/personal/ariostea/eval/results/indexes/chunk-context-cache.jsonl)
+context coverage 79/79 notes, 4246 chunks
+wrote /Users/paolo/code/personal/ariostea/eval/results/logs/2026-10-06-chunk-contexts.json
+
+##### Per-chunk context, reranker scores raw text
+  scoring DENSE (DENSE) ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.925     0.857     0.872      0.650     0.521     0.536
+cross_lingual   46      0.587     0.477     0.496      0.413     0.340     0.343
+exact_term      41      0.927     0.777     0.807      0.659     0.495     0.528
+paraphrase      40      0.900     0.644     0.703      0.625     0.448     0.480
+overall        167      0.826     0.682     0.712      0.581     0.447     0.468
+  discriminated-out cases (29): span recall 0.931
+  scoring SPARSE (SPARSE) ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.900     0.913      0.875     0.809     0.820
+cross_lingual   46      0.065     0.030     0.031      0.022     0.014     0.014
+exact_term      41      0.927     0.869     0.882      0.805     0.758     0.764
+paraphrase      40      0.825     0.572     0.627      0.550     0.365     0.400
+overall        167      0.671     0.574     0.594      0.545     0.471     0.484
+  discriminated-out cases (29): span recall 1.000
+  scoring HYBRID (HYBRID) ...
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.983     0.988      0.975     0.903     0.918
+cross_lingual   46      0.696     0.637     0.651      0.630     0.601     0.606
+exact_term      41      1.000     0.963     0.973      0.951     0.867     0.886
+paraphrase      40      0.950     0.915     0.922      0.875     0.815     0.828
+overall        167      0.904     0.867     0.876      0.850     0.790     0.803
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-10-06-chunkctx-raw-rerank
+
+##### Per-chunk context, no reranker
+  scoring FUSED (FUSED) ...
+=== FUSED ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.931     0.949      0.950     0.750     0.794
+cross_lingual   46      0.543     0.352     0.392      0.326     0.169     0.193
+exact_term      41      0.976     0.901     0.918      0.756     0.619     0.640
+paraphrase      40      0.925     0.761     0.801      0.675     0.504     0.537
+overall        167      0.850     0.724     0.752      0.665     0.499     0.529
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-10-06-chunkctx-fused
+
+##### Per-chunk context, reranker scores blurb and text
+  scoring HYBRID (HYBRID+CONTEXT) ...
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.988     0.991      0.975     0.858     0.886
+cross_lingual   46      0.696     0.657     0.666      0.652     0.602     0.615
+exact_term      41      1.000     0.947     0.961      0.951     0.849     0.874
+paraphrase      40      0.950     0.903     0.913      0.875     0.747     0.778
+overall        167      0.904     0.866     0.875      0.856     0.759     0.782
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-10-06-chunkctx-context-rerank
+
+rendered /Users/paolo/code/personal/ariostea/eval/results/experiment_log.html

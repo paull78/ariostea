@@ -35,6 +35,9 @@ class RerankCfg(BaseModel):
     enabled: bool = True
     model: str = "jinaai/jina-reranker-v2-base-multilingual"
     pool: int = 100  # candidates fused before reranking selects the final top_k
+    # Score the context blurb with the chunk. Only matters when contextual
+    # indexing is on; off until the wiki measurement says otherwise.
+    use_context: bool = False
 
 
 class ContextualCfg(BaseModel):
@@ -44,6 +47,10 @@ class ContextualCfg(BaseModel):
     model: str = "llama3.1"
     timeout: float = 30.0
     max_tokens: int = 128
+    # "note": one blurb per note, prepended to every chunk (today's behaviour).
+    # "chunk": one LLM call per chunk, each seeing the whole document
+    # (Anthropic's Contextual Retrieval; docs/design/2026-09-29-per-chunk-context.md).
+    granularity: Literal["note", "chunk"] = "note"
 
 
 class ChunkingCfg(BaseModel):

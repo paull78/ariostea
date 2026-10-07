@@ -1,0 +1,11 @@
+
+##### Per-chunk context, no reranker
+  scoring FUSED (FUSED) ...
+=== FUSED ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.931     0.949      0.950     0.750     0.794
+cross_lingual   46      0.543     0.352     0.392      0.326     0.169     0.193
+exact_term      41      0.976     0.901     0.918      0.756     0.619     0.640
+paraphrase      40      0.925     0.761     0.801      0.675     0.504     0.537
+overall        167      0.850     0.724     0.752      0.665     0.499     0.529
+  discriminated-out cases (29): span recall 1.000

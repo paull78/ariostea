@@ -57,3 +57,17 @@ def read_blurb_rows(db_path: str) -> list[tuple[str, str | None]]:
         return list(cur.fetchall())
     finally:
         con.close()
+
+
+def read_chunk_context_rows(db_path: str) -> list[tuple[str, int, str | None]]:
+    """Read (note_path, ordinal, context_blurb) for every chunk in the index at
+    db_path, like `read_blurb_rows` but keeping which chunk each context is for."""
+    con = sqlite3.connect(db_path)
+    try:
+        cur = con.execute(
+            "SELECT n.path, c.ordinal, c.context_blurb "
+            "FROM chunks c JOIN notes n ON c.note_id = n.id ORDER BY n.path, c.ordinal"
+        )
+        return list(cur.fetchall())
+    finally:
+        con.close()

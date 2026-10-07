@@ -11,6 +11,7 @@ drop cases as "too easy" for a pipeline the evaluation never actually runs.
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from pathlib import Path
 
 # fastembed defaults its model cache to `tempfile.gettempdir()/fastembed_cache`,
@@ -43,6 +44,7 @@ from ariostea.eval.channels import (
 )
 from ariostea.eval.harness import SpanSearchFn
 from ariostea.mcp.handlers import reindex_payload
+from ariostea.ports.chat import ChatProvider
 
 # The corpus is deliberately multilingual; an English-only embedding model
 # would make the cross_lingual track measure the model rather than the
@@ -78,9 +80,11 @@ def index_wiki_corpus(
     db: str,
     contextual: ContextualCfg | None = None,
     chunking: ChunkingCfg | None = None,
+    wrap_chat: Callable[[ChatProvider], ChatProvider] | None = None,
 ) -> Container:
-    """Build the index and return the container that owns it."""
-    container = build_container(wiki_config(corpus, db, contextual, chunking))
+    """Build the index and return the container that owns it. `wrap_chat`
+    wraps the contextualizer's chat provider, e.g. in a response cache."""
+    container = build_container(wiki_config(corpus, db, contextual, chunking), wrap_chat=wrap_chat)
     reindex_payload(container)
     return container
 
@@ -121,3 +125,18 @@ def fused_channel(container: Container) -> SpanSearchFn:
     Builds a second container over the same database without re-indexing it.
     """
     return make_hybrid_chunk_fn(build_container(fused_config(container.config)), CHUNK_POOL)
+
+
+def context_rerank_config(config: Config) -> Config:
+    """`config` with the reranker scoring blurb plus chunk, nothing else changed."""
+    rerank = config.rerank.model_copy(update={"use_context": True})
+    return config.model_copy(update={"rerank": rerank})
+
+
+def context_rerank_channel(container: Container) -> SpanSearchFn:
+    """Production search over `container`'s index with the blurb-aware
+    reranker. Like `fused_channel`, a second container over the same database,
+    not re-indexed, and not part of `wiki_channels` for the same reason."""
+    return make_hybrid_chunk_fn(
+        build_container(context_rerank_config(container.config)), CHUNK_POOL
+    )

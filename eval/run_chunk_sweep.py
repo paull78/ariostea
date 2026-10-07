@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -35,7 +34,14 @@ from ariostea.eval.chunk_sweep import (
     reachable_spans,
     sweep_run_id,
 )
-from ariostea.eval.results_log import append_run, load_runs, make_run, render_html, report_to_dict
+from ariostea.eval.results_log import (
+    append_run,
+    code_commit,
+    load_runs,
+    make_run,
+    render_html,
+    report_to_dict,
+)
 from ariostea.eval.spaneval import evaluate_spans, format_span_report
 from ariostea.eval.wiki_gold import WikiGoldCase, load_wiki_gold
 from ariostea.eval.wiki_index import (
@@ -56,21 +62,6 @@ CHANNELS = ("DENSE", "SPARSE", "HYBRID", "FUSED")
 # FUSED (fusion without the reranker) is opt-in: ask for it by name.
 DEFAULT_CHANNELS = ("DENSE", "SPARSE", "HYBRID")
 BASELINE = "2026-09-06-baseline"
-
-
-def _commit() -> str:
-    """Short HEAD, marked dirty when retrieval or eval code has uncommitted
-    edits -- a logged number must be traceable to the code that produced it."""
-    head = subprocess.run(
-        ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True
-    ).stdout.strip()
-    dirty = subprocess.run(
-        ["git", "status", "--porcelain", "--", "src", "eval/*.py"],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip()
-    return f"{head}+dirty" if dirty else head
 
 
 def _bodies() -> dict[str, str]:
@@ -148,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(str(exc).splitlines()[0])
 
     today = dt.date.today().isoformat()
-    commit = _commit()
+    commit = code_commit()
     if not args.no_log:
         logged = {run["id"] for run in load_runs(RUNS)}
         if args.control not in logged:
