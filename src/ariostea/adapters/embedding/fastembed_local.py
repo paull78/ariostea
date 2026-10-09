@@ -8,7 +8,10 @@ from ariostea.ports.embedding import EmbeddingProvider
 
 
 class FastEmbedEmbeddings(EmbeddingProvider):
-    def __init__(self, model_name: str = "BAAI/bge-small-en-v1.5") -> None:
+    # Kept in step with EmbeddingCfg.local_model, the configured default.
+    def __init__(
+        self, model_name: str = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+    ) -> None:
         self._model_name = model_name
         self._model = TextEmbedding(model_name=model_name)
         self._dim: int | None = None

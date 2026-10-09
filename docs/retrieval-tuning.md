@@ -362,6 +362,15 @@ another look for a configuration without the reranker, where it gains +0.036, or
 model and a cross-lingual-aware prompt (for example, context in the language of the corpus's
 queries).
 
+## Default embedding model
+
+Every measurement above ran with `sentence-transformers/paraphrase-multilingual-mpnet-base-v2`,
+and the chunking default was sized with its tokenizer, but the shipped default was still the
+English-only `BAAI/bge-small-en-v1.5`, which no run had measured. On 2026-10-09 the default
+became the measured model, so a fresh install runs the configuration these numbers describe.
+Existing vaults re-embed once on the next index; the English-only model stays selectable, at
+half the vector size, for a vault that needs no cross-lingual search.
+
 ## Reproducing
 
 ```bash

@@ -48,7 +48,8 @@ from ariostea.ports.chat import ChatProvider
 
 # The corpus is deliberately multilingual; an English-only embedding model
 # would make the cross_lingual track measure the model rather than the
-# pipeline. Same model the existing eval runners use, so numbers compare.
+# pipeline. Also the production default since 2026-10, but pinned here so a
+# later change of default cannot silently move the eval's numbers.
 MULTILINGUAL_MODEL = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 CHUNK_POOL = 50
 

@@ -17,7 +17,9 @@ class EmbeddingCfg(BaseModel):
     base_url: str | None = None
     api_key: str | None = None
     model: str | None = None
-    local_model: str = "BAAI/bge-small-en-v1.5"
+    # The model every retrieval measurement used (docs/retrieval-tuning.md);
+    # the chunking default was sized with its tokenizer. Multilingual, 768-dim.
+    local_model: str = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 
 
 class StoreCfg(BaseModel):

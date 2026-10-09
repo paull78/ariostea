@@ -14,6 +14,18 @@ def test_minimal_config_applies_defaults(tmp_path):
     assert cfg.search.k_sparse == 50  # default
 
 
+def test_embedding_defaults_to_the_measured_model(tmp_path):
+    # Every retrieval measurement in docs/retrieval-tuning.md ran with this
+    # model, and the default chunking was sized with its tokenizer; a
+    # different default would ship numbers nobody measured.
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text('[vault]\npath = "~/Vault"\n')
+    cfg = load_config(cfg_file)
+    assert (
+        cfg.embedding.local_model == "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+    )
+
+
 def test_full_config_parses(tmp_path):
     cfg_file = tmp_path / "ariostea.toml"
     cfg_file.write_text(

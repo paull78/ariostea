@@ -5,7 +5,7 @@ from ariostea.adapters.embedding.fastembed_local import FastEmbedEmbeddings
 
 @pytest.mark.integration
 def test_embeds_documents_and_query_consistently():
-    emb = FastEmbedEmbeddings()  # default BAAI/bge-small-en-v1.5
+    emb = FastEmbedEmbeddings()  # the default multilingual model
     docs = emb.embed_documents(["cats and dogs", "vector databases"])
     q = emb.embed_query("vector databases")
 
