@@ -1,6 +1,6 @@
 # Design: Embedding model sweep, aimed at cross-lingual
 
-**Status:** draft 2026-10-12, awaiting owner review
+**Status:** implemented and measured 2026-10-12; results in `docs/retrieval-tuning.md`, "Embedding model". The normalise setting was added at gate M1, after the first runs showed the store ranks raw vectors.
 **Date:** 2026-10-12
 
 ## Problem
