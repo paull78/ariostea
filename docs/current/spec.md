@@ -15,11 +15,12 @@ In scope:
 - `BAAI/bge-m3` registered as a custom fastembed model.
 - The eval index and the chunking sweep runner take an embedding model.
 - Cost fields in the experiment log: indexing time and query embedding latency.
+- An `embedding.normalize` setting, off by default, that makes the local embedder return unit-length vectors. With it on, the store's Euclidean ranking equals cosine ranking (embedding-sweep.08).
 - Three candidates against the control: `intfloat/multilingual-e5-large`, `BAAI/bge-m3` and `jinaai/jina-embeddings-v3`. jina is CC BY-NC 4.0, so it can become the default only on a separate licence call (embedding-sweep.01).
 - The sweep itself at 160t+40, logged and written up in `docs/retrieval-tuning.md`, with the log artifact republished.
 
 Non-goals:
-- Changing the default model. If a candidate passes, the owner decides separately, because the change forces every vault to reindex.
+- Changing the default model or turning normalisation on by default. If either passes, the owner decides separately, because both force every vault to reindex.
 - Query translation at search time.
 - Swapping the reranker.
 - Re-tuning chunking for a new model. The one exception: if a candidate passes the decision rule, a DENSE,SPARSE pass at 256t+64 with that model runs and is reported separately, outside the decision.
@@ -31,18 +32,19 @@ Non-goals:
 - **Production, control model:** a vault indexed with `paraphrase-multilingual-mpnet-base-v2` keeps its fingerprint, so upgrading does not trigger a reindex. Its embeddings do not change.
 - **Production, e5:** configuring `intfloat/multilingual-e5-large` indexes passages with a `passage: ` prefix and embeds queries with a `query: ` prefix. Its fingerprint differs from an unprefixed one.
 - **Production, bge-m3:** configuring `BAAI/bge-m3` loads the model from its Hugging Face ONNX export, with no manual registration by the user.
-- **Eval:** `uv run python eval/run_chunk_sweep.py 160t+40 --model <name> --channels DENSE,SPARSE,FUSED` indexes the wiki corpus with that model, scores the channels, and logs a run whose id carries the model slug: the part of the name after the last `/`, lowercased, e.g. `multilingual-e5-large`. Without `--model` the runner behaves and names runs exactly as today.
+- **Production, normalise on:** `[embedding] normalize = true` returns unit-length document and query vectors and changes the fingerprint, so a vault reindexes once when the setting is switched. Off, nothing changes.
+- **Eval:** `uv run python eval/run_chunk_sweep.py 160t+40 --model <name> --channels DENSE,SPARSE,FUSED` indexes the wiki corpus with that model, scores the channels, and logs a run whose id carries the model slug: the part of the name after the last `/`, lowercased, e.g. `multilingual-e5-large`. Without `--model` the runner behaves and names runs exactly as today. `--normalize` turns the setting on for the run; its id gains `-norm` after the spec and model, and its logged config records `normalize: true`.
 
 ### Experiment protocol
 
 Fixed before the runs. Details in the design doc.
 
-1. **Control reproduces.** Rerun the control at 160t+40 with DENSE, SPARSE and FUSED. It must match the logged 0.545, 0.533 and 0.629. If not, rerun HYBRID too and use the new runs as controls.
+1. **Control reproduces, then normalised control.** Rerun the raw control at 160t+40 with DENSE, SPARSE and FUSED. It must match the logged 0.545, 0.533 and 0.629. If not, rerun HYBRID too and use the new runs as the raw control. Then run the normalised control with DENSE, SPARSE and FUSED.
 2. **Pilot.** Load each candidate, check the dimension, check that e5 embeds a query and a passage differently, time 100 chunks. Drop and record any that fail.
-3. **First stage.** DENSE, SPARSE and FUSED per surviving candidate.
-4. **Production pipeline.** HYBRID per surviving candidate, unless no candidate beats the control's dense overall in step 3. In that case, stop and report (embedding-sweep.03).
+3. **First stage.** DENSE, SPARSE and FUSED per surviving candidate, normalised.
+4. **Production pipeline.** HYBRID for the normalised control and per surviving candidate, normalised, unless no candidate beats the normalised control's dense overall in step 3. In that case, run HYBRID for the normalised control only, then stop and report (embedding-sweep.03).
 
-**Decision rule**, unchanged from earlier experiments (embedding-sweep.02). A candidate is recommended only if hybrid overall span recall beats the control by at least 0.03, no type loses more than 0.05, and at least 160 of 167 spans stay reachable. Ties go to span MRR, then lower cost.
+**Decision rule**, unchanged from earlier experiments (embedding-sweep.02). Candidates are judged against the normalised control, so the model is the only difference. The normalised control is judged against the raw control by the same rule, which tells the owner whether normalisation alone is worth a reindex (embedding-sweep.08). A candidate is recommended only if hybrid overall span recall beats the control by at least 0.03, no type loses more than 0.05, and at least 160 of 167 spans stay reachable. Ties go to span MRR, then lower cost.
 
 ## Architecture
 
@@ -51,7 +53,8 @@ Fixed before the runs. Details in the design doc.
 - The fingerprint carries the prefix scheme only for models that have one.
 - The adapter keeps a table of extra fastembed models it registers on first use. bge-m3 is the only entry.
 - `wiki_config` and `index_wiki_corpus` take a `model` defaulting to `MULTILINGUAL_MODEL`. `wiki_channels` reads the model from the container's config instead of the constant.
-- `run_chunk_sweep.py` gains `--model` and records cost fields on each run.
+- `run_chunk_sweep.py` gains `--model` and `--normalize` and records cost fields on each run.
+- `EmbeddingCfg.normalize: bool = False`. The container passes it to `FastEmbedEmbeddings(normalize=...)`, which divides each vector by its length. The fingerprint gains `|unit` when on. `wiki_config` and `index_wiki_corpus` take `normalize`, defaulting to off.
 
 ## Acceptance criteria
 
@@ -64,12 +67,16 @@ Fixed before the runs. Details in the design doc.
 - AC-07 · Each logged run carries the seconds taken to index the corpus and the median milliseconds to embed one gold query with the run's model.
 - AC-08 · Every sweep run is in `eval/results/runs.jsonl` against the control, `experiment_log.html` is re-rendered, and the log artifact is republished.
 - AC-09 · `docs/retrieval-tuning.md` has a section with the per-type tables for each candidate, the cost figures, and a verdict against the decision rule.
+- AC-10 · With `normalize` off, `FastEmbedEmbeddings` returns the same vectors and fingerprint as without the setting. With it on, every document and query vector has length 1 within 1e-6 and the fingerprint ends in `|unit`.
+- AC-11 · `EmbeddingCfg().normalize` is `False`, a TOML `normalize = true` loads, and the container builds the embedder with that value.
+- AC-12 · `run_chunk_sweep.py --normalize` indexes and queries with unit vectors, logs `normalize: true` in the run config, and adds `-norm` to the run id. Without the flag, ids and config are as in AC-06.
 
 ## Testing approach
 
 - Unit tests with a fake fastembed model for the prefix table, the query and passage routing, the fingerprint and `count_tokens`. They cover AC-01 to AC-03.
 - Integration tests, marked `integration`, that load real models. They cover AC-01 and AC-04. The e5 and bge-m3 loads download about 2.2 GB each, so they skip when the model is not cached.
 - Unit tests for the `model` parameter in `wiki_index` and for run ids and logged config in the runner. They cover AC-05 to AC-07.
+- Unit tests with the fake fastembed model for normalisation and its fingerprint, config tests for the setting, and run id and config tests for `--normalize`. They cover AC-10 to AC-12.
 - AC-08 and AC-09 are checked by reading the log and the write-up at the end of the cycle.
 
 Test command: `uv run pytest -m "not integration"` for the fast suite, `uv run pytest` for everything.
@@ -77,3 +84,7 @@ Test command: `uv run pytest -m "not integration"` for the fast suite, `uv run p
 ## Open questions
 
 - none
+
+## Amendments
+
+- 2026-10-12 · `embedding.normalize` setting, off by default; control and candidates measured normalised, raw control kept; candidates judged against the normalised control; AC-10 to AC-12 added · see embedding-sweep.08
