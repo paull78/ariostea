@@ -7,8 +7,10 @@ from ariostea.config.schema import ChunkingCfg
 from ariostea.eval.chunk_sweep import (
     describe,
     load_discriminated,
+    model_slug,
     parse_spec,
     reachable_spans,
+    run_config,
     sweep_run_id,
 )
 from ariostea.eval.wiki_gold import AnswerSpan, WikiGoldCase
@@ -101,3 +103,26 @@ def test_load_discriminated_reads_only_that_stage(tmp_path):
     assert [c.query for c in cases] == ["q1"]
     assert cases[0].answer_spans == (AnswerSpan(note="a.md", text="s1"),)
     assert cases[0].expected_notes == ("a.md",)
+
+
+def test_model_slug_is_the_lowercased_last_path_part():
+    assert model_slug("intfloat/multilingual-e5-large") == "multilingual-e5-large"
+    assert model_slug("BAAI/bge-m3") == "bge-m3"
+    assert model_slug("plain-name") == "plain-name"
+
+
+def test_run_id_without_a_model_is_unchanged():
+    # Control reruns must keep the id shape every logged run already has.
+    expected = "2026-10-12-chunk-160t+40-dense"
+    assert sweep_run_id("2026-10-12", "160t+40", ["DENSE"]) == expected
+    assert sweep_run_id("2026-10-12", "160t+40", ["DENSE"], model=None) == expected
+
+
+def test_run_id_with_a_model_carries_its_slug():
+    run_id = sweep_run_id("2026-10-12", "160t+40", ["DENSE"], model="BAAI/bge-m3")
+    assert run_id == "2026-10-12-chunk-160t+40-bge-m3-dense"
+
+
+def test_run_config_records_the_model():
+    cfg = ChunkingCfg()
+    assert run_config(5, cfg, "m") == {"k": 5, "embedding": "m", "chunking": cfg.model_dump()}

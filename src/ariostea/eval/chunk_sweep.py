@@ -39,10 +39,27 @@ def describe(cfg: ChunkingCfg) -> str:
     return f"{base}, overlap {cfg.overlap}" if cfg.overlap else base
 
 
-def sweep_run_id(date: str, spec: str, channels: list[str]) -> str:
+def model_slug(model: str) -> str:
+    """`BAAI/bge-m3` -> `bge-m3`: the short name a run id carries."""
+    return model.rsplit("/", 1)[-1].lower()
+
+
+def sweep_run_id(date: str, spec: str, channels: list[str], model: str | None = None) -> str:
     """Stable per spec and channel set, so a cheap pass and a full pass of the
-    same spec are separate log entries rather than a refused duplicate."""
-    return f"{date}-chunk-{spec}-{'-'.join(sorted(c.lower() for c in channels))}"
+    same spec are separate log entries rather than a refused duplicate.
+
+    `model` is set only for a model other than the pinned one, so control runs
+    keep the id shape every earlier run has."""
+    parts = [f"{date}-chunk-{spec}"]
+    if model is not None:
+        parts.append(model_slug(model))
+    parts.append("-".join(sorted(c.lower() for c in channels)))
+    return "-".join(parts)
+
+
+def run_config(k: int, cfg: ChunkingCfg, model: str) -> dict:
+    """The `config` a sweep run logs: what was measured, with which model."""
+    return {"k": k, "embedding": model, "chunking": cfg.model_dump()}
 
 
 def reachable_spans(cases: list[WikiGoldCase], notes: dict[str, str], chunker: Chunker) -> int:

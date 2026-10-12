@@ -3,12 +3,15 @@
 Usage:
     uv run python eval/run_chunk_sweep.py 512w 128t 128t+32 --channels DENSE,SPARSE
     uv run python eval/run_chunk_sweep.py 128t+32 --experiment "Chunk sweep: full"
+    uv run python eval/run_chunk_sweep.py 160t+40 --model BAAI/bge-m3 --channels DENSE,FUSED
 
 A spec is a size, a unit (w words, t model tokens) and an optional +overlap.
 Per spec: index the corpus with that policy, count the gold spans it can reach
 at all, score the requested channels on the gold set and on the cases the
 discrimination gate dropped, and append the run to eval/results/runs.jsonl
-with the committed baseline as its control. The shaded log page is re-rendered
+with the committed baseline as its control. `--model` indexes, sizes chunks
+and queries with another embedding model; its runs carry the model's short
+name in their id. The shaded log page is re-rendered
 at the end, and each run's printed tables are kept in eval/results/logs/.
 
 HYBRID reranks every candidate on CPU and costs about an hour per spec; the
@@ -30,8 +33,10 @@ from ariostea.config.schema import ChunkingCfg
 from ariostea.eval.chunk_sweep import (
     describe,
     load_discriminated,
+    model_slug,
     parse_spec,
     reachable_spans,
+    run_config,
     sweep_run_id,
 )
 from ariostea.eval.results_log import (
@@ -82,6 +87,7 @@ def _measure(
     cases: list[WikiGoldCase],
     easy: list[WikiGoldCase],
     reachable: int,
+    model: str,
 ) -> tuple[dict, dict, str]:
     """Index with `cfg`, score, and release the index on return (see
     generate_gold._retrieval_stages for why that has to be a function)."""
@@ -93,9 +99,9 @@ def _measure(
 
     with tempfile.TemporaryDirectory() as tmp:
         db = str(Path(tmp) / "eval.db")
-        say(f"\n##### {spec}  ({describe(cfg)})  spans reachable {reachable}/{len(cases)}")
+        say(f"\n##### {spec}  ({describe(cfg)})  {model}  spans reachable {reachable}/{len(cases)}")
         say("  indexing ...")
-        container = index_wiki_corpus(WIKI, db, chunking=cfg)
+        container = index_wiki_corpus(WIKI, db, chunking=cfg, model=model)
         available = wiki_channels(db, container)
         if "FUSED" in channels:
             available["FUSED"] = fused_channel(container)
@@ -127,6 +133,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--experiment", default="Chunk sweep", help="group name in the log")
     parser.add_argument("--control", default=BASELINE, help="run id to compare against")
     parser.add_argument("--no-log", action="store_true", help="print only, record nothing")
+    parser.add_argument(
+        "--model", default=MULTILINGUAL_MODEL, help="embedding model (default: the pinned one)"
+    )
     args = parser.parse_args(argv)
 
     channels = [c.strip().upper() for c in args.channels.split(",") if c.strip()]
@@ -138,13 +147,16 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         parser.error(str(exc).splitlines()[0])
 
+    # Only a non-default model goes into the run id, so control reruns keep
+    # the id shape of every logged run.
+    id_model = None if args.model == MULTILINGUAL_MODEL else args.model
     today = dt.date.today().isoformat()
     commit = code_commit()
     if not args.no_log:
         logged = {run["id"] for run in load_runs(RUNS)}
         if args.control not in logged:
             parser.error(f"control run {args.control!r} is not in {RUNS}")
-        clashes = [s for s, _ in configs if sweep_run_id(today, s, channels) in logged]
+        clashes = [s for s, _ in configs if sweep_run_id(today, s, channels, id_model) in logged]
         if clashes:
             parser.error(f"already logged today with these channels: {', '.join(clashes)}")
 
@@ -156,23 +168,24 @@ def main(argv: list[str] | None = None) -> int:
     for position, (spec, cfg) in enumerate(configs, start=1):
         print(f"\n[{position}/{len(configs)}] {spec}", flush=True)
         if cfg.unit == "model_tokens" and counter is None:
-            counter = FastEmbedEmbeddings(model_name=MULTILINGUAL_MODEL)
+            # Chunk boundaries follow the run's tokenizer, not the pinned one.
+            counter = FastEmbedEmbeddings(model_name=args.model)
         reachable = reachable_spans(cases, bodies, build_chunker(cfg, counter))
-        scores, dropped, printed = _measure(spec, cfg, channels, cases, easy, reachable)
+        scores, dropped, printed = _measure(spec, cfg, channels, cases, easy, reachable, args.model)
         if args.no_log:
             continue
 
-        run_id = sweep_run_id(today, spec, channels)
+        run_id = sweep_run_id(today, spec, channels, id_model)
         LOGS.mkdir(parents=True, exist_ok=True)
         (LOGS / f"{run_id}.txt").write_text(printed, encoding="utf-8")
         run = make_run(
             run_id=run_id,
             experiment=args.experiment,
-            label=describe(cfg),
+            label=describe(cfg) + (f", {model_slug(args.model)}" if id_model else ""),
             date=today,
             commit=commit,
             control=args.control,
-            config={"k": K, "embedding": MULTILINGUAL_MODEL, "chunking": cfg.model_dump()},
+            config=run_config(K, cfg, args.model),
             cases=len(cases),
             reachable=reachable,
             channels=scores,

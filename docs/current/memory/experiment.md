@@ -11,3 +11,7 @@ The decision rule stays as in chunking and contextual retrieval: hybrid overall 
 ### embedding-sweep.03 · decision · 2026-10-12 · spec
 The sweep spends what it needs: about three CPU hours for HYBRID plus indexing, and about 7 GB of model downloads in `~/.cache/fastembed`. It stops and reports after the first-stage pass only if no candidate beats the control's dense overall.
 **Why:** the reranker cannot recover what dense never retrieves on cross-lingual, so a candidate with no dense gain has no route to a hybrid gain. Rejected: hybrid for every candidate whatever step 3 shows (up to three wasted hours); a pause after step 3 every time (waits on the owner for no new information when a candidate is ahead).
+
+### embedding-sweep.06 · discovery · 2026-10-12 · step 03
+The step 03 smoke run (e5-large, 160t+40, DENSE, `--no-log`, unofficial) scored dense span recall 0.772 overall against the control's 0.545, and 0.696 on cross_lingual against 0.500. Every type rose: buried 0.875, exact_term 0.732, paraphrase 0.800. 167 of 167 spans reachable, so the XLM-R tokenizer cut the corpus as the control did. Discriminated-out cases: 0.931, the same as the control.
+**Why:** an early signal only. The logged first-stage run in step 07 is the measurement; the stop rule after step 07 will not trigger on this evidence.
