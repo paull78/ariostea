@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Sequence
 
 from fastembed import TextEmbedding
+from fastembed.common.model_description import ModelSource, PoolingType
 
 from ariostea.ports.embedding import EmbeddingProvider
 
@@ -15,6 +16,34 @@ _PREFIXES: dict[str, tuple[str, str]] = {
 }
 
 
+# Models fastembed does not list but can load from a Hugging Face ONNX export
+# once registered. bge-m3's dense output is the normalised CLS vector.
+_CUSTOM_MODELS: dict[str, dict] = {
+    "BAAI/bge-m3": {
+        "pooling": PoolingType.CLS,
+        "normalization": True,
+        "sources": ModelSource(hf="BAAI/bge-m3"),
+        "dim": 1024,
+        "model_file": "onnx/model.onnx",
+        "additional_files": ["onnx/model.onnx_data"],
+        "license": "mit",
+        "size_in_gb": 2.27,
+    },
+}
+
+
+def _register_if_custom(model_name: str) -> None:
+    """Register `model_name` with fastembed if it is one of ours and not yet
+    known. fastembed keeps the registry per process and raises on a second
+    registration, so ask it rather than trusting a local flag."""
+    spec = _CUSTOM_MODELS.get(model_name)
+    if spec is None:
+        return
+    if any(m["model"] == model_name for m in TextEmbedding.list_supported_models()):
+        return
+    TextEmbedding.add_custom_model(model=model_name, **spec)
+
+
 class FastEmbedEmbeddings(EmbeddingProvider):
     # Kept in step with EmbeddingCfg.local_model, the configured default.
     def __init__(
@@ -22,6 +51,7 @@ class FastEmbedEmbeddings(EmbeddingProvider):
     ) -> None:
         self._model_name = model_name
         self._query_prefix, self._passage_prefix = _PREFIXES.get(model_name, ("", ""))
+        _register_if_custom(model_name)
         self._model = TextEmbedding(model_name=model_name)
         self._dim: int | None = None
 

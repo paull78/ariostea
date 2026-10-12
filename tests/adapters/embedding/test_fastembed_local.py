@@ -6,6 +6,7 @@ from ariostea.adapters.embedding.fastembed_local import FastEmbedEmbeddings
 
 CONTROL = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 E5 = "intfloat/multilingual-e5-large"
+BGE_M3 = "BAAI/bge-m3"
 
 
 class _FakeTokenizer:
@@ -22,8 +23,20 @@ class _FakeTextEmbedding:
     """Stands in for fastembed's TextEmbedding and records what it is sent."""
 
     instances: list["_FakeTextEmbedding"] = []
+    registered: list[dict] = []
+    events: list[str] = []
+
+    @classmethod
+    def list_supported_models(cls):
+        return [{"model": CONTROL}, {"model": E5}] + [{"model": r["model"]} for r in cls.registered]
+
+    @classmethod
+    def add_custom_model(cls, **kwargs):
+        cls.registered.append(kwargs)
+        cls.events.append(f"register {kwargs['model']}")
 
     def __init__(self, model_name):
+        _FakeTextEmbedding.events.append(f"load {model_name}")
         self.model_name = model_name
         self.calls: list[tuple[str, list[str]]] = []
         self.model = type("_Inner", (), {"tokenizer": _FakeTokenizer()})()
@@ -47,6 +60,8 @@ class _FakeTextEmbedding:
 @pytest.fixture
 def fake(monkeypatch):
     _FakeTextEmbedding.instances = []
+    _FakeTextEmbedding.registered = []
+    _FakeTextEmbedding.events = []
     monkeypatch.setattr(fastembed_local, "TextEmbedding", _FakeTextEmbedding)
 
     def calls():
@@ -98,6 +113,57 @@ def test_count_tokens_ignores_the_prefix(fake):
     # Chunk sizes must mean the same text under every model.
     assert FastEmbedEmbeddings(E5).count_tokens("abc") == 3
     assert FastEmbedEmbeddings(CONTROL).count_tokens("abc") == 3
+
+
+def test_custom_model_is_registered_before_loading(fake):
+    # bge-m3 is not in fastembed's list; its Hugging Face repo ships an ONNX
+    # export with external weights that fastembed can load once told how.
+    from fastembed.common.model_description import PoolingType
+
+    FastEmbedEmbeddings(BGE_M3)
+    (spec,) = _FakeTextEmbedding.registered
+    assert spec["model"] == BGE_M3
+    assert spec["dim"] == 1024
+    assert spec["pooling"] == PoolingType.CLS
+    assert spec["normalization"] is True
+    assert spec["model_file"] == "onnx/model.onnx"
+    assert "onnx/model.onnx_data" in spec["additional_files"]
+    assert _FakeTextEmbedding.events == [f"register {BGE_M3}", f"load {BGE_M3}"]
+
+
+def test_custom_model_is_registered_once(fake):
+    # fastembed raises on a second registration of the same name.
+    FastEmbedEmbeddings(BGE_M3)
+    FastEmbedEmbeddings(BGE_M3)
+    assert len(_FakeTextEmbedding.registered) == 1
+
+
+def test_known_models_are_not_registered(fake):
+    FastEmbedEmbeddings(CONTROL)
+    FastEmbedEmbeddings(E5)
+    assert _FakeTextEmbedding.registered == []
+
+
+def _cached(model: str) -> bool:
+    """True if `model` is in either cache fastembed may have used: the eval's
+    pinned one under $HOME, or fastembed's own default (FASTEMBED_CACHE_PATH,
+    else the system temp directory)."""
+    from pathlib import Path
+
+    from fastembed.common.utils import define_cache_dir
+
+    roots = [Path.home() / ".cache" / "fastembed", Path(define_cache_dir())]
+    return any(any(root.glob(f"models--{model.replace('/', '--')}*")) for root in roots)
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(not _cached(BGE_M3), reason="bge-m3 not downloaded (about 2.3 GB)")
+def test_bge_m3_loads_and_embeds_1024_dims():
+    emb = FastEmbedEmbeddings(BGE_M3)
+    assert emb.dimension == 1024
+    docs = emb.embed_documents(["cats and dogs", "vector databases"])
+    q = emb.embed_query("vector databases")
+    assert np.dot(q, docs[1]) > np.dot(q, docs[0])
 
 
 @pytest.mark.integration
