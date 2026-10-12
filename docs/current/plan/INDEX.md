@@ -1,9 +1,9 @@
 # Plan: embedding-sweep
 
 Status: approved · Mode: sequential · Test: `uv run pytest -m "not integration"` (fast), `uv run pytest` (all)
-Current: gate M1 (pending). Last stop: step 03 done.
+Current: step 04 (not started). Last stop: gate M1 passed; owner chose a normalise option, off by default (embedding-sweep.07).
 
-## Milestone 1 · e5 end to end  ⛔ gate pending
+## Milestone 1 · e5 end to end  ✅ gate passed 2026-10-12
 The runner indexes and scores the wiki corpus with e5 and logs a run tagged with the model. Covers AC-01, AC-02, AC-03, AC-05, AC-06.
 - [x] 01 embedder query/passage modes and prefixes   (needs none)
 - [x] 02 eval index takes a model                    (needs none)  ∥ 01

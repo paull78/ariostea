@@ -15,3 +15,7 @@ The sweep spends what it needs: about three CPU hours for HYBRID plus indexing, 
 ### embedding-sweep.06 · discovery · 2026-10-12 · step 03
 The step 03 smoke run (e5-large, 160t+40, DENSE, `--no-log`, unofficial) scored dense span recall 0.772 overall against the control's 0.545, and 0.696 on cross_lingual against 0.500. Every type rose: buried 0.875, exact_term 0.732, paraphrase 0.800. 167 of 167 spans reachable, so the XLM-R tokenizer cut the corpus as the control did. Discriminated-out cases: 0.931, the same as the control.
 **Why:** an early signal only. The logged first-stage run in step 07 is the measurement; the stop rule after step 07 will not trigger on this evidence.
+
+### embedding-sweep.07 · issue · 2026-10-12 · gate M1
+The dense channel ranks by sqlite-vec's default metric, Euclidean distance, and fastembed returns unnormalised vectors for the control (norms about 2.2 to 2.4) and for e5 (about 30). So every logged dense number ranked by raw Euclidean distance, not cosine, the similarity these models were trained for. bge-m3 as planned (normalisation on) and jina-v3 return unit vectors, so the sweep as specified compares unevenly. A scratch rerun with unit vectors, unlogged, gave dense span recall at 5: control 0.593 overall and 0.587 cross_lingual (raw: 0.545 and 0.500); e5 0.778 and 0.652 (raw: 0.772 and 0.696). Effect on HYBRID unknown.
+**Why:** a confound in the approved protocol and a likely production defect; changing the control's vectors breaks AC-01 and forces a reindex, so it goes to the owner at gate M1.
