@@ -118,3 +118,48 @@ def test_index_wiki_corpus_passes_wrap_chat_to_build_container(tmp_path, monkeyp
     assert seen["wrap_chat"] is wrap
     assert seen["config"].store.path == db
     assert seen["indexed"] is container
+
+
+def test_wiki_config_defaults_to_the_pinned_model():
+    # Every existing caller passes no model and must keep measuring the model
+    # every logged run used.
+    assert wiki_config(CORPUS, "x.db") == wiki_config(CORPUS, "x.db", model=MULTILINGUAL_MODEL)
+
+
+def test_wiki_config_takes_a_model():
+    assert wiki_config(CORPUS, "x.db", model="m").embedding.local_model == "m"
+
+
+def test_index_wiki_corpus_indexes_with_the_given_model(tmp_path, monkeypatch):
+    from ariostea.eval import wiki_index
+
+    seen = {}
+    monkeypatch.setattr(
+        wiki_index, "build_container", lambda config, wrap_chat=None: seen.setdefault("c", config)
+    )
+    monkeypatch.setattr(wiki_index, "reindex_payload", lambda c: None)
+    wiki_index.index_wiki_corpus(tmp_path, str(tmp_path / "eval.db"), model="m")
+    assert seen["c"].embedding.local_model == "m"
+
+
+def test_wiki_channels_queries_with_the_indexed_model(monkeypatch):
+    # The dense channel must embed queries with the model that embedded the
+    # chunks; a pinned constant here would query a candidate's index with the
+    # control model and score noise.
+    from types import SimpleNamespace
+
+    from ariostea.eval import wiki_index
+
+    built = {}
+
+    class FakeEmbeddings:
+        dimension = 3
+
+        def __init__(self, model_name):
+            built["model"] = model_name
+
+    monkeypatch.setattr(wiki_index, "FastEmbedEmbeddings", FakeEmbeddings)
+    monkeypatch.setattr(wiki_index, "SqliteStore", lambda path, dim: object())
+    container = SimpleNamespace(config=wiki_config(CORPUS, "x.db", model="m"))
+    wiki_index.wiki_channels("x.db", container)
+    assert built["model"] == "m"
