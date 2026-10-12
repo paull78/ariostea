@@ -24,6 +24,7 @@ import argparse
 import datetime as dt
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 from ariostea.adapters.embedding.fastembed_local import FastEmbedEmbeddings
@@ -33,6 +34,7 @@ from ariostea.config.schema import ChunkingCfg
 from ariostea.eval.chunk_sweep import (
     describe,
     load_discriminated,
+    median_query_ms,
     model_slug,
     parse_spec,
     reachable_spans,
@@ -88,9 +90,12 @@ def _measure(
     easy: list[WikiGoldCase],
     reachable: int,
     model: str,
-) -> tuple[dict, dict, str]:
+) -> tuple[dict, dict, dict, str]:
     """Index with `cfg`, score, and release the index on return (see
-    generate_gold._retrieval_stages for why that has to be a function)."""
+    generate_gold._retrieval_stages for why that has to be a function).
+
+    Also returns the run's cost: seconds to index the corpus and the median
+    milliseconds to embed one gold query with the run's model."""
     lines: list[str] = []
 
     def say(text: str) -> None:
@@ -101,7 +106,16 @@ def _measure(
         db = str(Path(tmp) / "eval.db")
         say(f"\n##### {spec}  ({describe(cfg)})  {model}  spans reachable {reachable}/{len(cases)}")
         say("  indexing ...")
+        started = time.perf_counter()
         container = index_wiki_corpus(WIKI, db, chunking=cfg, model=model)
+        index_seconds = time.perf_counter() - started
+        query_ms = median_query_ms(
+            FastEmbedEmbeddings(model_name=model).embed_query, [c.query for c in cases]
+        )
+        cost = {"index_seconds": round(index_seconds, 1), "query_ms_median": round(query_ms, 1)}
+        say(
+            f"  indexed in {cost['index_seconds']} s; query embedding median {cost['query_ms_median']} ms"
+        )
         available = wiki_channels(db, container)
         if "FUSED" in channels:
             available["FUSED"] = fused_channel(container)
@@ -119,7 +133,7 @@ def _measure(
                 f"  discriminated-out cases ({len(easy)}): span recall "
                 f"{dropped[name]['span_recall']:.3f}"
             )
-    return scores, dropped, "\n".join(lines) + "\n"
+    return scores, dropped, cost, "\n".join(lines) + "\n"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -171,7 +185,9 @@ def main(argv: list[str] | None = None) -> int:
             # Chunk boundaries follow the run's tokenizer, not the pinned one.
             counter = FastEmbedEmbeddings(model_name=args.model)
         reachable = reachable_spans(cases, bodies, build_chunker(cfg, counter))
-        scores, dropped, printed = _measure(spec, cfg, channels, cases, easy, reachable, args.model)
+        scores, dropped, cost, printed = _measure(
+            spec, cfg, channels, cases, easy, reachable, args.model
+        )
         if args.no_log:
             continue
 
@@ -192,6 +208,7 @@ def main(argv: list[str] | None = None) -> int:
             notes=f"Channels measured: {', '.join(channels)}.",
         )
         run["discriminated"] = dropped
+        run["cost"] = cost
         append_run(RUNS, run)
         print(f"  logged {run_id}", flush=True)
 

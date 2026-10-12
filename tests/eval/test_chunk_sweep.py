@@ -7,6 +7,7 @@ from ariostea.config.schema import ChunkingCfg
 from ariostea.eval.chunk_sweep import (
     describe,
     load_discriminated,
+    median_query_ms,
     model_slug,
     parse_spec,
     reachable_spans,
@@ -126,3 +127,35 @@ def test_run_id_with_a_model_carries_its_slug():
 def test_run_config_records_the_model():
     cfg = ChunkingCfg()
     assert run_config(5, cfg, "m") == {"k": 5, "embedding": "m", "chunking": cfg.model_dump()}
+
+
+class _Clock:
+    """Returns the given instants in order, one per call."""
+
+    def __init__(self, *instants):
+        self._instants = list(instants)
+
+    def __call__(self):
+        return self._instants.pop(0)
+
+
+def test_median_query_ms_uses_the_clock():
+    # Three timed calls taking 10, 20 and 30 ms: the median is 20.
+    clock = _Clock(0.0, 0.010, 1.0, 1.020, 2.0, 2.030)
+    assert median_query_ms(lambda q: None, ["a", "b", "c"], clock) == pytest.approx(20.0)
+
+
+def test_median_query_ms_skips_a_warm_up_call():
+    # The first call loads lazy state (the ONNX session's first run is slow);
+    # it is made once before timing and not counted.
+    seen = []
+    clock = _Clock(0.0, 0.010, 1.0, 1.010)
+    median_query_ms(seen.append, ["a", "b"], clock)
+    assert seen == ["a", "a", "b"]
+
+
+def test_median_query_ms_embeds_every_query():
+    seen = []
+    clock = _Clock(*[float(i) for i in range(6)])
+    median_query_ms(seen.append, ["a", "b", "c"], clock)
+    assert seen[1:] == ["a", "b", "c"]

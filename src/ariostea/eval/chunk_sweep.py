@@ -11,6 +11,9 @@ from __future__ import annotations
 
 import json
 import re
+import statistics
+import time
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from ariostea.config.schema import ChunkingCfg
@@ -104,3 +107,21 @@ def load_discriminated(rejected_path: Path) -> list[WikiGoldCase]:
         for row in rows
         if row["stage"] == "discrimination"
     ]
+
+
+def median_query_ms(
+    embed_query: Callable[[str], object],
+    queries: Sequence[str],
+    clock: Callable[[], float] = time.perf_counter,
+) -> float:
+    """Median milliseconds to embed one query, after one untimed warm-up call.
+
+    The warm-up absorbs the model's first-run cost, which a server pays once
+    at start, not per search."""
+    embed_query(queries[0])
+    timings = []
+    for query in queries:
+        start = clock()
+        embed_query(query)
+        timings.append((clock() - start) * 1000)
+    return statistics.median(timings)
