@@ -24,6 +24,7 @@ class _FakeTextEmbedding:
 
     instances: list["_FakeTextEmbedding"] = []
     registered: list[dict] = []
+    vector = [1.0, 1.0, 1.0]
     events: list[str] = []
 
     @classmethod
@@ -45,7 +46,7 @@ class _FakeTextEmbedding:
     def _vectors(self, method, texts):
         texts = [texts] if isinstance(texts, str) else list(texts)
         self.calls.append((method, texts))
-        return iter(np.ones(3, dtype=np.float32) for _ in texts)
+        return iter(np.array(_FakeTextEmbedding.vector, dtype=np.float32) for _ in texts)
 
     def embed(self, texts, **kwargs):
         return self._vectors("embed", texts)
@@ -62,6 +63,7 @@ def fake(monkeypatch):
     _FakeTextEmbedding.instances = []
     _FakeTextEmbedding.registered = []
     _FakeTextEmbedding.events = []
+    _FakeTextEmbedding.vector = [1.0, 1.0, 1.0]
     monkeypatch.setattr(fastembed_local, "TextEmbedding", _FakeTextEmbedding)
 
     def calls():
@@ -142,6 +144,34 @@ def test_known_models_are_not_registered(fake):
     FastEmbedEmbeddings(CONTROL)
     FastEmbedEmbeddings(E5)
     assert _FakeTextEmbedding.registered == []
+
+
+def test_normalize_off_returns_the_raw_vectors(fake):
+    _FakeTextEmbedding.vector = [3.0, 4.0, 0.0]
+    emb = FastEmbedEmbeddings(CONTROL)
+    assert emb.embed_documents(["a"])[0] == pytest.approx([3.0, 4.0, 0.0])
+    assert emb.embed_query("q") == pytest.approx([3.0, 4.0, 0.0])
+    assert emb.fingerprint == f"fastembed:{CONTROL}"
+
+
+def test_normalize_on_returns_unit_vectors(fake):
+    # The store ranks by Euclidean distance; on unit vectors that ranking is
+    # the cosine ranking these models were trained for (embedding-sweep.07).
+    _FakeTextEmbedding.vector = [3.0, 4.0, 0.0]
+    emb = FastEmbedEmbeddings(CONTROL, normalize=True)
+    assert emb.embed_documents(["a"])[0] == pytest.approx([0.6, 0.8, 0.0], abs=1e-6)
+    assert emb.embed_query("q") == pytest.approx([0.6, 0.8, 0.0], abs=1e-6)
+
+
+def test_normalize_on_leaves_a_zero_vector_alone(fake):
+    _FakeTextEmbedding.vector = [0.0, 0.0, 0.0]
+    assert FastEmbedEmbeddings(CONTROL, normalize=True).embed_query("q") == [0.0, 0.0, 0.0]
+
+
+def test_normalize_on_marks_the_fingerprint(fake):
+    assert FastEmbedEmbeddings(CONTROL, normalize=True).fingerprint == f"fastembed:{CONTROL}|unit"
+    e5 = FastEmbedEmbeddings(E5, normalize=True).fingerprint
+    assert e5.endswith("|unit") and "passage: " in e5
 
 
 def _cached(model: str) -> bool:

@@ -155,7 +155,7 @@ def test_wiki_channels_queries_with_the_indexed_model(monkeypatch):
     class FakeEmbeddings:
         dimension = 3
 
-        def __init__(self, model_name):
+        def __init__(self, model_name, normalize=False):
             built["model"] = model_name
 
     monkeypatch.setattr(wiki_index, "FastEmbedEmbeddings", FakeEmbeddings)
@@ -163,3 +163,42 @@ def test_wiki_channels_queries_with_the_indexed_model(monkeypatch):
     container = SimpleNamespace(config=wiki_config(CORPUS, "x.db", model="m"))
     wiki_index.wiki_channels("x.db", container)
     assert built["model"] == "m"
+
+
+def test_wiki_config_takes_normalize():
+    assert wiki_config(CORPUS, "x.db").embedding.normalize is False
+    assert wiki_config(CORPUS, "x.db", normalize=True).embedding.normalize is True
+
+
+def test_index_wiki_corpus_indexes_with_the_given_normalize(tmp_path, monkeypatch):
+    from ariostea.eval import wiki_index
+
+    seen = {}
+    monkeypatch.setattr(
+        wiki_index, "build_container", lambda config, wrap_chat=None: seen.setdefault("c", config)
+    )
+    monkeypatch.setattr(wiki_index, "reindex_payload", lambda c: None)
+    wiki_index.index_wiki_corpus(tmp_path, str(tmp_path / "eval.db"), normalize=True)
+    assert seen["c"].embedding.normalize is True
+
+
+def test_wiki_channels_embeds_with_the_indexed_normalize(monkeypatch):
+    # Unit-length chunks queried with a raw query vector would rank by a
+    # different metric than the one the run claims to measure.
+    from types import SimpleNamespace
+
+    from ariostea.eval import wiki_index
+
+    built = {}
+
+    class FakeEmbeddings:
+        dimension = 3
+
+        def __init__(self, model_name, normalize=False):
+            built.update(model=model_name, normalize=normalize)
+
+    monkeypatch.setattr(wiki_index, "FastEmbedEmbeddings", FakeEmbeddings)
+    monkeypatch.setattr(wiki_index, "SqliteStore", lambda path, dim: object())
+    container = SimpleNamespace(config=wiki_config(CORPUS, "x.db", model="m", normalize=True))
+    wiki_index.wiki_channels("x.db", container)
+    assert built == {"model": "m", "normalize": True}

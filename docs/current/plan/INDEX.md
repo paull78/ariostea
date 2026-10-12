@@ -1,7 +1,7 @@
 # Plan: embedding-sweep
 
 Status: approved · Mode: sequential · Test: `uv run pytest -m "not integration"` (fast), `uv run pytest` (all)
-Current: step 10 (not started). Last stop: step 05 done.
+Current: step 11 (not started). Last stop: step 10 done.
 
 ## Milestone 1 · e5 end to end  ✅ gate passed 2026-10-12
 The runner indexes and scores the wiki corpus with e5 and logs a run tagged with the model. Covers AC-01, AC-02, AC-03, AC-05, AC-06.
@@ -13,7 +13,7 @@ The runner indexes and scores the wiki corpus with e5 and logs a run tagged with
 All three candidates pass the pilot, every run records its cost, the normalise setting exists, the raw control reproduces or is replaced, and the normalised control's first stage is logged. Covers AC-04, AC-07, AC-10, AC-11, AC-12.
 - [x] 04 bge-m3 custom registration                  (needs 01)
 - [x] 05 cost fields on each run                     (needs 03)  ∥ 04
-- [ ] 10 normalise setting                           (needs 04)
+- [x] 10 normalise setting                           (needs 04)
 - [ ] 11 runner --normalize flag                     (needs 05, 10)
 - [ ] 06 pilot, control rerun, normalised control    (needs 11)
 

@@ -26,6 +26,19 @@ def test_embedding_defaults_to_the_measured_model(tmp_path):
     )
 
 
+def test_embedding_normalize_defaults_off():
+    # On would change every vault's vectors and fingerprint, forcing a reindex.
+    from ariostea.config.schema import EmbeddingCfg
+
+    assert EmbeddingCfg().normalize is False
+
+
+def test_embedding_normalize_loads_from_toml(tmp_path):
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text('[vault]\npath = "~/Vault"\n\n[embedding]\nnormalize = true\n')
+    assert load_config(cfg_file).embedding.normalize is True
+
+
 def test_full_config_parses(tmp_path):
     cfg_file = tmp_path / "ariostea.toml"
     cfg_file.write_text(

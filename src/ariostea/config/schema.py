@@ -20,6 +20,9 @@ class EmbeddingCfg(BaseModel):
     # The model every retrieval measurement used (docs/retrieval-tuning.md);
     # the chunking default was sized with its tokenizer. Multilingual, 768-dim.
     local_model: str = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+    # Return unit-length vectors, so the store's Euclidean ranking equals cosine
+    # ranking. Off keeps existing vaults' vectors; switching it re-embeds.
+    normalize: bool = False
 
 
 class StoreCfg(BaseModel):

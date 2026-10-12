@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Sequence
 
+import numpy as np
 from fastembed import TextEmbedding
 from fastembed.common.model_description import ModelSource, PoolingType
 
@@ -47,9 +48,12 @@ def _register_if_custom(model_name: str) -> None:
 class FastEmbedEmbeddings(EmbeddingProvider):
     # Kept in step with EmbeddingCfg.local_model, the configured default.
     def __init__(
-        self, model_name: str = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+        self,
+        model_name: str = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+        normalize: bool = False,
     ) -> None:
         self._model_name = model_name
+        self._normalize = normalize
         self._query_prefix, self._passage_prefix = _PREFIXES.get(model_name, ("", ""))
         _register_if_custom(model_name)
         self._model = TextEmbedding(model_name=model_name)
@@ -57,10 +61,19 @@ class FastEmbedEmbeddings(EmbeddingProvider):
 
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
         passages = [self._passage_prefix + text for text in texts]
-        return [vec.tolist() for vec in self._model.passage_embed(passages)]
+        return [self._finish(vec) for vec in self._model.passage_embed(passages)]
 
     def embed_query(self, text: str) -> list[float]:
-        return next(iter(self._model.query_embed([self._query_prefix + text]))).tolist()
+        return self._finish(next(iter(self._model.query_embed([self._query_prefix + text]))))
+
+    def _finish(self, vec: np.ndarray) -> list[float]:
+        """The vector as a list, scaled to length 1 when normalising. A zero
+        vector has no direction and is returned as is."""
+        if not self._normalize:
+            return vec.tolist()
+        vec = np.asarray(vec, dtype=np.float64)
+        norm = float(np.linalg.norm(vec))
+        return (vec / norm).tolist() if norm else vec.tolist()
 
     def count_tokens(self, text: str) -> int:
         """Subword tokens the model reads for `text`, without the start and end
@@ -81,7 +94,9 @@ class FastEmbedEmbeddings(EmbeddingProvider):
     def fingerprint(self) -> str:
         # Unprefixed models keep the bare form, so vaults indexed before
         # prefixes existed keep their fingerprint and are not re-embedded.
-        base = f"fastembed:{self._model_name}"
-        if not (self._query_prefix or self._passage_prefix):
-            return base
-        return f"{base}|query={self._query_prefix!r}|passage={self._passage_prefix!r}"
+        fingerprint = f"fastembed:{self._model_name}"
+        if self._query_prefix or self._passage_prefix:
+            fingerprint += f"|query={self._query_prefix!r}|passage={self._passage_prefix!r}"
+        if self._normalize:
+            fingerprint += "|unit"
+        return fingerprint

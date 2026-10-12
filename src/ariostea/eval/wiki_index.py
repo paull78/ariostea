@@ -60,6 +60,7 @@ def wiki_config(
     contextual: ContextualCfg | None = None,
     chunking: ChunkingCfg | None = None,
     model: str = MULTILINGUAL_MODEL,
+    normalize: bool = False,
 ) -> Config:
     """Config for indexing `corpus` into `db`.
 
@@ -67,11 +68,12 @@ def wiki_config(
     no such directory, and every file in it is a note under test. `chunking`
     defaults to the production default, so an eval that does not ask for a
     policy measures the one users get. `model` defaults to the pinned
-    multilingual model; the embedding sweep passes a candidate.
+    multilingual model; the embedding sweep passes a candidate. `normalize`
+    asks for unit-length vectors, off by default like production.
     """
     return Config(
         vault=VaultCfg(path=str(corpus), ignore=[]),
-        embedding=EmbeddingCfg(local_model=model),
+        embedding=EmbeddingCfg(local_model=model, normalize=normalize),
         store=StoreCfg(backend="sqlite", path=db),
         contextual=contextual or ContextualCfg(enabled=False),
         chunking=chunking or ChunkingCfg(),
@@ -85,10 +87,11 @@ def index_wiki_corpus(
     chunking: ChunkingCfg | None = None,
     wrap_chat: Callable[[ChatProvider], ChatProvider] | None = None,
     model: str = MULTILINGUAL_MODEL,
+    normalize: bool = False,
 ) -> Container:
     """Build the index and return the container that owns it. `wrap_chat`
     wraps the contextualizer's chat provider, e.g. in a response cache."""
-    config = wiki_config(corpus, db, contextual, chunking, model=model)
+    config = wiki_config(corpus, db, contextual, chunking, model=model, normalize=normalize)
     container = build_container(config, wrap_chat=wrap_chat)
     reindex_payload(container)
     return container
@@ -103,11 +106,14 @@ def wiki_channels(db: str, container: Container) -> dict[str, SpanSearchFn]:
     second handle over the same file is the cheapest way to keep that boundary
     intact -- the same trick `eval/run_eval.py` already uses.
 
-    The dense channel embeds queries with the model the container indexed
-    with, read from its config, so a candidate's index is never queried with
+    The dense channel embeds queries with the model and normalisation the
+    container indexed with, read from its config, so a candidate's index is never queried with
     another model's vectors.
     """
-    embeddings = FastEmbedEmbeddings(model_name=container.config.embedding.local_model)
+    embedding = container.config.embedding
+    embeddings = FastEmbedEmbeddings(
+        model_name=embedding.local_model, normalize=embedding.normalize
+    )
     store = SqliteStore(path=db, dim=embeddings.dimension)
     return {
         "DENSE": make_dense_chunk_fn(embeddings, store, CHUNK_POOL),

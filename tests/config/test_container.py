@@ -122,3 +122,19 @@ def test_build_reranker_passes_use_context(monkeypatch):
 
     assert built["use_context"] is True
     assert built["model_name"] == RerankCfg().model
+
+
+def test_container_passes_normalize_to_the_embedder(monkeypatch):
+    from ariostea.config import container
+    from ariostea.config.schema import EmbeddingCfg
+
+    built = {}
+
+    class _Fake:
+        def __init__(self, model_name, normalize=False):
+            built.update(model_name=model_name, normalize=normalize)
+
+    monkeypatch.setattr(container, "FastEmbedEmbeddings", _Fake)
+    container._build_embeddings(EmbeddingCfg(local_model="m", normalize=True))
+
+    assert built == {"model_name": "m", "normalize": True}

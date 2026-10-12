@@ -15,3 +15,7 @@ bge-m3 loads through `add_custom_model` with `onnx/model.onnx` plus `onnx/model.
 ### embedding-sweep.10 · issue · 2026-10-12 · step 04
 Outside the eval, nothing pins fastembed's model cache, so the production container downloads models into fastembed's default, the system temp directory (`/var/folders/.../T/fastembed_cache` here). `src/ariostea/eval/wiki_index.py` documents that macOS purges that directory and leaves dangling snapshot links that break or hang the next load, and pins `~/.cache/fastembed` for the eval only. The server is exposed to the same failure. bge-m3 now sits in both caches (4.5 GB in total) because the step 04 check ran outside the eval.
 **Why:** pre-existing and outside this cycle's scope; raised at gate M2 for the owner to schedule. Not fixed here.
+
+### embedding-sweep.11 · discovery · 2026-10-12 · step 10
+`test_normalize_off_returns_the_raw_vectors` passed before any implementation because it guards today's behaviour; forcing normalisation on made it fail. The container test goes through a new `_build_embeddings(cfg)` helper, mirroring `_build_reranker`, instead of a full `build_container` call as the step file said.
+**Why:** born-green note per the build rule; the helper keeps the container test free of a real store and model, like its reranker sibling.
