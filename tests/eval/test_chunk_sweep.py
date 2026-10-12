@@ -159,3 +159,28 @@ def test_median_query_ms_embeds_every_query():
     clock = _Clock(*[float(i) for i in range(6)])
     median_query_ms(seen.append, ["a", "b", "c"], clock)
     assert seen[1:] == ["a", "b", "c"]
+
+
+def test_run_id_with_normalize_ends_the_spec_part_with_norm():
+    assert (
+        sweep_run_id("2026-10-12", "160t+40", ["DENSE"], normalize=True)
+        == "2026-10-12-chunk-160t+40-norm-dense"
+    )
+    assert (
+        sweep_run_id("2026-10-12", "160t+40", ["DENSE"], model="BAAI/bge-m3", normalize=True)
+        == "2026-10-12-chunk-160t+40-bge-m3-norm-dense"
+    )
+
+
+def test_run_id_without_normalize_is_unchanged():
+    assert (
+        sweep_run_id("2026-10-12", "160t+40", ["DENSE"], normalize=False)
+        == "2026-10-12-chunk-160t+40-dense"
+    )
+
+
+def test_run_config_records_normalize_only_when_on():
+    # Off leaves the config exactly as every earlier run logged it.
+    cfg = ChunkingCfg()
+    assert run_config(5, cfg, "m", normalize=True)["normalize"] is True
+    assert "normalize" not in run_config(5, cfg, "m")

@@ -47,22 +47,35 @@ def model_slug(model: str) -> str:
     return model.rsplit("/", 1)[-1].lower()
 
 
-def sweep_run_id(date: str, spec: str, channels: list[str], model: str | None = None) -> str:
+def sweep_run_id(
+    date: str,
+    spec: str,
+    channels: list[str],
+    model: str | None = None,
+    normalize: bool = False,
+) -> str:
     """Stable per spec and channel set, so a cheap pass and a full pass of the
     same spec are separate log entries rather than a refused duplicate.
 
     `model` is set only for a model other than the pinned one, so control runs
-    keep the id shape every earlier run has."""
+    keep the id shape every earlier run has. `normalize` adds `norm` after the
+    spec and model, for runs on unit-length vectors."""
     parts = [f"{date}-chunk-{spec}"]
     if model is not None:
         parts.append(model_slug(model))
+    if normalize:
+        parts.append("norm")
     parts.append("-".join(sorted(c.lower() for c in channels)))
     return "-".join(parts)
 
 
-def run_config(k: int, cfg: ChunkingCfg, model: str) -> dict:
-    """The `config` a sweep run logs: what was measured, with which model."""
-    return {"k": k, "embedding": model, "chunking": cfg.model_dump()}
+def run_config(k: int, cfg: ChunkingCfg, model: str, normalize: bool = False) -> dict:
+    """The `config` a sweep run logs: what was measured, with which model.
+    `normalize` appears only when on, so earlier runs' configs stay as logged."""
+    config = {"k": k, "embedding": model, "chunking": cfg.model_dump()}
+    if normalize:
+        config["normalize"] = True
+    return config
 
 
 def reachable_spans(cases: list[WikiGoldCase], notes: dict[str, str], chunker: Chunker) -> int:

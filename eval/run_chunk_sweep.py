@@ -3,7 +3,7 @@
 Usage:
     uv run python eval/run_chunk_sweep.py 512w 128t 128t+32 --channels DENSE,SPARSE
     uv run python eval/run_chunk_sweep.py 128t+32 --experiment "Chunk sweep: full"
-    uv run python eval/run_chunk_sweep.py 160t+40 --model BAAI/bge-m3 --channels DENSE,FUSED
+    uv run python eval/run_chunk_sweep.py 160t+40 --model BAAI/bge-m3 --normalize --channels DENSE,FUSED
 
 A spec is a size, a unit (w words, t model tokens) and an optional +overlap.
 Per spec: index the corpus with that policy, count the gold spans it can reach
@@ -11,7 +11,8 @@ at all, score the requested channels on the gold set and on the cases the
 discrimination gate dropped, and append the run to eval/results/runs.jsonl
 with the committed baseline as its control. `--model` indexes, sizes chunks
 and queries with another embedding model; its runs carry the model's short
-name in their id. The shaded log page is re-rendered
+name in their id. `--normalize` embeds with unit-length vectors and adds
+`norm` to the id. The shaded log page is re-rendered
 at the end, and each run's printed tables are kept in eval/results/logs/.
 
 HYBRID reranks every candidate on CPU and costs about an hour per spec; the
@@ -90,6 +91,7 @@ def _measure(
     easy: list[WikiGoldCase],
     reachable: int,
     model: str,
+    normalize: bool,
 ) -> tuple[dict, dict, dict, str]:
     """Index with `cfg`, score, and release the index on return (see
     generate_gold._retrieval_stages for why that has to be a function).
@@ -104,13 +106,18 @@ def _measure(
 
     with tempfile.TemporaryDirectory() as tmp:
         db = str(Path(tmp) / "eval.db")
-        say(f"\n##### {spec}  ({describe(cfg)})  {model}  spans reachable {reachable}/{len(cases)}")
+        unit = "  unit vectors" if normalize else ""
+        say(
+            f"\n##### {spec}  ({describe(cfg)})  {model}{unit}  "
+            f"spans reachable {reachable}/{len(cases)}"
+        )
         say("  indexing ...")
         started = time.perf_counter()
-        container = index_wiki_corpus(WIKI, db, chunking=cfg, model=model)
+        container = index_wiki_corpus(WIKI, db, chunking=cfg, model=model, normalize=normalize)
         index_seconds = time.perf_counter() - started
         query_ms = median_query_ms(
-            FastEmbedEmbeddings(model_name=model).embed_query, [c.query for c in cases]
+            FastEmbedEmbeddings(model_name=model, normalize=normalize).embed_query,
+            [c.query for c in cases],
         )
         cost = {"index_seconds": round(index_seconds, 1), "query_ms_median": round(query_ms, 1)}
         say(
@@ -150,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--model", default=MULTILINGUAL_MODEL, help="embedding model (default: the pinned one)"
     )
+    parser.add_argument("--normalize", action="store_true", help="embed with unit-length vectors")
     args = parser.parse_args(argv)
 
     channels = [c.strip().upper() for c in args.channels.split(",") if c.strip()]
@@ -170,7 +178,11 @@ def main(argv: list[str] | None = None) -> int:
         logged = {run["id"] for run in load_runs(RUNS)}
         if args.control not in logged:
             parser.error(f"control run {args.control!r} is not in {RUNS}")
-        clashes = [s for s, _ in configs if sweep_run_id(today, s, channels, id_model) in logged]
+        clashes = [
+            s
+            for s, _ in configs
+            if sweep_run_id(today, s, channels, id_model, args.normalize) in logged
+        ]
         if clashes:
             parser.error(f"already logged today with these channels: {', '.join(clashes)}")
 
@@ -186,22 +198,24 @@ def main(argv: list[str] | None = None) -> int:
             counter = FastEmbedEmbeddings(model_name=args.model)
         reachable = reachable_spans(cases, bodies, build_chunker(cfg, counter))
         scores, dropped, cost, printed = _measure(
-            spec, cfg, channels, cases, easy, reachable, args.model
+            spec, cfg, channels, cases, easy, reachable, args.model, args.normalize
         )
         if args.no_log:
             continue
 
-        run_id = sweep_run_id(today, spec, channels, id_model)
+        run_id = sweep_run_id(today, spec, channels, id_model, args.normalize)
         LOGS.mkdir(parents=True, exist_ok=True)
         (LOGS / f"{run_id}.txt").write_text(printed, encoding="utf-8")
         run = make_run(
             run_id=run_id,
             experiment=args.experiment,
-            label=describe(cfg) + (f", {model_slug(args.model)}" if id_model else ""),
+            label=describe(cfg)
+            + (f", {model_slug(args.model)}" if id_model else "")
+            + (", normalised" if args.normalize else ""),
             date=today,
             commit=commit,
             control=args.control,
-            config=run_config(K, cfg, args.model),
+            config=run_config(K, cfg, args.model, args.normalize),
             cases=len(cases),
             reachable=reachable,
             channels=scores,
