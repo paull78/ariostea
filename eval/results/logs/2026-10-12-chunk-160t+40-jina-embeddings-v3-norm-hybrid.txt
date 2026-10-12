@@ -1,0 +1,13 @@
+
+##### 160t+40  (160 tokens, overlap 40)  jinaai/jina-embeddings-v3  unit vectors  spans reachable 167/167
+  indexing ...
+  indexed in 359.3 s; query embedding median 116.3 ms
+  scoring HYBRID ...
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.983     0.988      0.975     0.903     0.918
+cross_lingual   46      0.978     0.866     0.892      0.891     0.787     0.808
+exact_term      41      1.000     0.951     0.964      0.951     0.868     0.888
+paraphrase      40      0.950     0.918     0.922      0.900     0.842     0.853
+overall        167      0.982     0.928     0.940      0.928     0.848     0.865
+  discriminated-out cases (29): span recall 1.000
