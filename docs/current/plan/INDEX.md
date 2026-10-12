@@ -1,7 +1,7 @@
 # Plan: embedding-sweep
 
 Status: approved · Mode: sequential · Test: `uv run pytest -m "not integration"` (fast), `uv run pytest` (all)
-Current: step 06 (not started). Last stop: step 11 done.
+Current: gate M2 (pending). Last stop: step 06 done.
 
 ## Milestone 1 · e5 end to end  ✅ gate passed 2026-10-12
 The runner indexes and scores the wiki corpus with e5 and logs a run tagged with the model. Covers AC-01, AC-02, AC-03, AC-05, AC-06.
@@ -15,7 +15,7 @@ All three candidates pass the pilot, every run records its cost, the normalise s
 - [x] 05 cost fields on each run                     (needs 03)  ∥ 04
 - [x] 10 normalise setting                           (needs 04)
 - [x] 11 runner --normalize flag                     (needs 05, 10)
-- [ ] 06 pilot, control rerun, normalised control    (needs 11)
+- [x] 06 pilot, control rerun, normalised control    (needs 11)
 
 ## Milestone 3 · the sweep and the verdict  ⛔ gate pending
 Every run is logged, the artifact is republished, and the write-up gives a verdict against the decision rule. Covers AC-08, AC-09.
