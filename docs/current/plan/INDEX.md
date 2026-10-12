@@ -1,7 +1,7 @@
 # Plan: embedding-sweep
 
 Status: approved · Mode: sequential · Test: `uv run pytest -m "not integration"` (fast), `uv run pytest` (all)
-Current: step 04 (not started). Last stop: updating plan: normalise option, off by default, measured as its own factor.
+Current: step 04 (not started). Last stop: plan updated: normalise setting and runner flag added as steps 10 and 11.
 
 ## Milestone 1 · e5 end to end  ✅ gate passed 2026-10-12
 The runner indexes and scores the wiki corpus with e5 and logs a run tagged with the model. Covers AC-01, AC-02, AC-03, AC-05, AC-06.
@@ -10,10 +10,12 @@ The runner indexes and scores the wiki corpus with e5 and logs a run tagged with
 - [x] 03 runner --model flag                         (needs 01, 02)
 
 ## Milestone 2 · all candidates load, costs logged, control reproduced  ⛔ gate pending
-All three candidates pass the pilot, every run records its cost, and the control rerun matches the logged numbers or new controls exist. Covers AC-04, AC-07.
+All three candidates pass the pilot, every run records its cost, the normalise setting exists, the raw control reproduces or is replaced, and the normalised control's first stage is logged. Covers AC-04, AC-07, AC-10, AC-11, AC-12.
 - [ ] 04 bge-m3 custom registration                  (needs 01)
 - [ ] 05 cost fields on each run                     (needs 03)  ∥ 04
-- [ ] 06 pilot and control rerun                     (needs 04, 05)
+- [ ] 10 normalise setting                           (needs 04)
+- [ ] 11 runner --normalize flag                     (needs 05, 10)
+- [ ] 06 pilot, control rerun, normalised control    (needs 11)
 
 ## Milestone 3 · the sweep and the verdict  ⛔ gate pending
 Every run is logged, the artifact is republished, and the write-up gives a verdict against the decision rule. Covers AC-08, AC-09.
@@ -22,3 +24,4 @@ Every run is logged, the artifact is republished, and the write-up gives a verdi
 - [ ] 09 write-up, log and artifact                  (needs 08)
 
 ## Notes
+- 2026-10-12 · plan updated: steps 10 (normalise setting) and 11 (runner --normalize) added to milestone 2; steps 06 to 09 now measure the normalised control and candidates with unit vectors · see embedding-sweep.08

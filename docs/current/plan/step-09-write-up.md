@@ -14,15 +14,15 @@
 Exception: documentation and a publish step.
 
 ## Implementation notes
-- Section content: per-type span recall at k=5 for DENSE, SPARSE, FUSED and HYBRID per model against the control; a cost table (download size, index seconds, median query ms); the verdict against the rule; a finding/evidence/reason table like the per-chunk section; the jina licence caveat if relevant; the 256t+64 pass if it ran.
+- Section content: the normalisation finding (embedding-sweep.07) and its measured effect, raw control against normalised control; per-type span recall at k=5 for DENSE, SPARSE, FUSED and HYBRID per model against the normalised control; a cost table (download size, index seconds, median query ms); the verdict against the rule; a finding/evidence/reason table like the per-chunk section; the jina licence caveat if relevant; the 256t+64 pass if it ran.
 - Write in the neutral register of the rest of the doc: no em dashes, digits for metrics.
 - Republish the artifact: `Artifact` publish of `eval/results/experiment_log.html` with `url` https://claude.ai/artifact/3yrQLivHKFcMRnpsUi4yid (memory: experiment log).
-- Changing the default model is out of scope. If a candidate passes, the write-up recommends it and the owner decides at the final gate.
+- Changing the default model or turning normalisation on by default is out of scope. If either passes, the write-up recommends it and the owner decides at the final gate.
 
 ## Verify
 `grep -n "## Embedding model" docs/retrieval-tuning.md` → one match; the artifact publish returns the same URL with a new version.
 
 ## Done when
-- The section exists with tables for every logged model and a verdict.
+- The section exists with tables for every logged model, a verdict on each candidate and a verdict on normalisation.
 - The artifact is republished.
 - manual: owner reads the verdict.
