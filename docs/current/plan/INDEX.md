@@ -1,12 +1,12 @@
 # Plan: bge-m3-default
 
 Status: approved · Mode: sequential · Test: `uv run pytest -m "not integration"` (fast), `uv run pytest` (all)
-Current: step 03 (not started). Last stop: step 01 done.
+Current: step 02 (not started). Last stop: step 03 done.
 
 ## Milestone 1 · existing indexes survive a model change  ⛔ gate pending
 An index built at one vector size reindexes cleanly at another, and both fastembed adapters cache models under the home directory. Covers AC-02, AC-03, AC-04.
 - [x] 01 store rebuilds the vector table on a size change   (needs none)
-- [ ] 03 fastembed cache directory for both adapters         (needs none)  ∥ 01
+- [x] 03 fastembed cache directory for both adapters         (needs none)  ∥ 01
 - [ ] 02 indexing across a model change                      (needs 01)
 
 ## Milestone 2 · bge-m3 is the default  ⛔ gate pending

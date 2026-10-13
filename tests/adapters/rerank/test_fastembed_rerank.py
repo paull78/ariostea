@@ -37,8 +37,9 @@ class _RecordingEncoder:
     """Stands in for fastembed's cross-encoder: scores passages by position
     (later is better) and remembers what it was given."""
 
-    def __init__(self, model_name):
+    def __init__(self, model_name, cache_dir=None):
         self.seen: list[str] = []
+        self.cache_dir = cache_dir
 
     def rerank(self, query, documents):
         self.seen = list(documents)
@@ -86,3 +87,10 @@ def test_default_scores_raw_text_and_returns_it_unchanged(fake_encoder):
     assert reranker._model.seen == ["first", "second"]
     assert [rc.chunk.text for rc in out] == ["second", "first"]  # fake prefers later
     assert all(rc.context_blurb == "B" for rc in out)
+
+
+def test_reranker_passes_the_cache_dir(fake_encoder, monkeypatch, tmp_path):
+    from ariostea.adapters.rerank.fastembed_rerank import FastEmbedReranker
+
+    monkeypatch.setenv("FASTEMBED_CACHE_PATH", str(tmp_path))
+    assert FastEmbedReranker()._model.cache_dir == str(tmp_path)

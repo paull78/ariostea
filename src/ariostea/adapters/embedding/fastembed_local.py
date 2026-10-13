@@ -6,6 +6,7 @@ import numpy as np
 from fastembed import TextEmbedding
 from fastembed.common.model_description import ModelSource, PoolingType
 
+from ariostea.adapters.fastembed_cache import fastembed_cache_dir
 from ariostea.ports.embedding import EmbeddingProvider
 
 # Models trained with markers on each side of the retrieval pair: (query,
@@ -56,7 +57,7 @@ class FastEmbedEmbeddings(EmbeddingProvider):
         self._normalize = normalize
         self._query_prefix, self._passage_prefix = _PREFIXES.get(model_name, ("", ""))
         _register_if_custom(model_name)
-        self._model = TextEmbedding(model_name=model_name)
+        self._model = TextEmbedding(model_name=model_name, cache_dir=fastembed_cache_dir())
         self._dim: int | None = None
 
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
