@@ -1,7 +1,7 @@
 # Plan: bge-m3-default
 
 Status: approved · Mode: sequential · Test: `uv run pytest -m "not integration"` (fast), `uv run pytest` (all)
-Current: gate M2 (pending). Last stop: step 07 done; real-vault reindex is the gate's manual check.
+Current: step 06 (not started). Last stop: gate M2 passed.
 
 ## Milestone 1 · existing indexes survive a model change  ✅ gate passed 2026-10-13
 An index built at one vector size reindexes cleanly at another, and both fastembed adapters cache models under the home directory. Covers AC-02, AC-03, AC-04.
@@ -9,7 +9,7 @@ An index built at one vector size reindexes cleanly at another, and both fastemb
 - [x] 03 fastembed cache directory for both adapters         (needs none)  ∥ 01
 - [x] 02 indexing across a model change                      (needs 01)
 
-## Milestone 2 · bge-m3 is the default  ⛔ gate pending
+## Milestone 2 · bge-m3 is the default  ✅ gate passed 2026-10-13
 The chunk size is measured and set, the defaults and the eval's pinned model are bge-m3, and the owner's real vault reindexes cleanly on the new default. Covers AC-01, AC-05, AC-08.
 - [x] 04 measure bge-m3 at 256t+64 and apply the rule         (needs 03)
 - [x] 05 switch the defaults                                 (needs 02, 04)

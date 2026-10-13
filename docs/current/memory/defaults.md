@@ -39,3 +39,7 @@ The gate's hands-on reindex of the owner's vault failed: "OperationalError: tabl
 ### bge-m3-default.10 · discovery · 2026-10-13 · step 07
 With missing `chunks` columns added on open, a scratchpad copy of the owner's old index reindexed cleanly on the new defaults: 88 notes and 952 chunks (the old index held 59 and 377, so it was months stale), fingerprint `fastembed:BAAI/bge-m3|noop|chunk:heading_aware:254:64:model_tokens`, 952 vectors all of size 1024, 952 FTS rows, in 1 min 53 s. The chunker records 254 because two of the 256 tokens go to the model's start and end markers. The shared old-schema builder became a `conftest.py` fixture, since `tests/` is not a package and one test file cannot import from another.
 **Why:** retires issue bge-m3-default.09 before the real-vault check is repeated.
+
+### bge-m3-default.11 · discovery · 2026-10-13 · gate M2
+The gate's hands-on check passed on the owner's real vault and index, run by Claude at the owner's request: the `local_model` pin to the old model was removed from `ariostea.toml`, `ariostea reindex` indexed 88 notes into 952 chunks with no error, and `ariostea status` showed `fastembed:BAAI/bge-m3|noop|chunk:heading_aware:254:64:model_tokens`. A read-only search for an Italian query ("come organizzare le priorità del team") returned English notes about teamwork from the vault. Backups of the old config and index remain in the session scratchpad.
+**Why:** closes issue bge-m3-default.09 on real data.
