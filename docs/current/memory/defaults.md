@@ -15,3 +15,7 @@ The eval's pinned model, `MULTILINGUAL_MODEL` in `src/ariostea/eval/wiki_index.p
 ### bge-m3-default.04 · discovery · 2026-10-13 · step 01
 `test_reopening_at_the_same_dimension_keeps_vectors_and_fingerprint` passed before any implementation because it guards today's behaviour; forcing the rebuild on every open made it fail. The store reads the vector table's size from its DDL in `sqlite_master` (`FLOAT[n]`), since an empty table has no rows to measure.
 **Why:** born-green note per the build rule.
+
+### bge-m3-default.05 · discovery · 2026-10-13 · step 02
+`test_reindexing_with_a_model_of_another_size_replaces_every_vector` passed on first run because step 01 already rebuilt the table. With the rebuild call removed it fails with the error a real vault would hit: "sqlite3.OperationalError: Dimension mismatch for inserted vector for the "embedding" column. Expected 2 dimensions but received 3." After the rebuild, every vector has the new size and the chunk and vector counts match the first index.
+**Why:** born-green note per the build rule; the failure message confirms the test exercises the real migration path.
