@@ -1,0 +1,13 @@
+
+##### 160t+40  (160 tokens, overlap 40)  sentence-transformers/paraphrase-multilingual-mpnet-base-v2  unit vectors  spans reachable 167/167
+  indexing ...
+  indexed in 109.0 s; query embedding median 4.8 ms
+  scoring HYBRID ...
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.983     0.988      1.000     0.904     0.927
+cross_lingual   46      0.913     0.797     0.821      0.761     0.707     0.716
+exact_term      41      1.000     0.963     0.973      0.951     0.864     0.886
+paraphrase      40      0.950     0.912     0.919      0.900     0.835     0.850
+overall        167      0.964     0.910     0.922      0.898     0.823     0.841
+  discriminated-out cases (29): span recall 1.000

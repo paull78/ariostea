@@ -11,6 +11,9 @@ from __future__ import annotations
 
 import json
 import re
+import statistics
+import time
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from ariostea.config.schema import ChunkingCfg
@@ -39,10 +42,40 @@ def describe(cfg: ChunkingCfg) -> str:
     return f"{base}, overlap {cfg.overlap}" if cfg.overlap else base
 
 
-def sweep_run_id(date: str, spec: str, channels: list[str]) -> str:
+def model_slug(model: str) -> str:
+    """`BAAI/bge-m3` -> `bge-m3`: the short name a run id carries."""
+    return model.rsplit("/", 1)[-1].lower()
+
+
+def sweep_run_id(
+    date: str,
+    spec: str,
+    channels: list[str],
+    model: str | None = None,
+    normalize: bool = False,
+) -> str:
     """Stable per spec and channel set, so a cheap pass and a full pass of the
-    same spec are separate log entries rather than a refused duplicate."""
-    return f"{date}-chunk-{spec}-{'-'.join(sorted(c.lower() for c in channels))}"
+    same spec are separate log entries rather than a refused duplicate.
+
+    `model` is set only for a model other than the pinned one, so control runs
+    keep the id shape every earlier run has. `normalize` adds `norm` after the
+    spec and model, for runs on unit-length vectors."""
+    parts = [f"{date}-chunk-{spec}"]
+    if model is not None:
+        parts.append(model_slug(model))
+    if normalize:
+        parts.append("norm")
+    parts.append("-".join(sorted(c.lower() for c in channels)))
+    return "-".join(parts)
+
+
+def run_config(k: int, cfg: ChunkingCfg, model: str, normalize: bool = False) -> dict:
+    """The `config` a sweep run logs: what was measured, with which model.
+    `normalize` appears only when on, so earlier runs' configs stay as logged."""
+    config = {"k": k, "embedding": model, "chunking": cfg.model_dump()}
+    if normalize:
+        config["normalize"] = True
+    return config
 
 
 def reachable_spans(cases: list[WikiGoldCase], notes: dict[str, str], chunker: Chunker) -> int:
@@ -87,3 +120,21 @@ def load_discriminated(rejected_path: Path) -> list[WikiGoldCase]:
         for row in rows
         if row["stage"] == "discrimination"
     ]
+
+
+def median_query_ms(
+    embed_query: Callable[[str], object],
+    queries: Sequence[str],
+    clock: Callable[[], float] = time.perf_counter,
+) -> float:
+    """Median milliseconds to embed one query, after one untimed warm-up call.
+
+    The warm-up absorbs the model's first-run cost, which a server pays once
+    at start, not per search."""
+    embed_query(queries[0])
+    timings = []
+    for query in queries:
+        start = clock()
+        embed_query(query)
+        timings.append((clock() - start) * 1000)
+    return statistics.median(timings)

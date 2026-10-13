@@ -1,0 +1,13 @@
+
+##### 160t+40  (160 tokens, overlap 40)  BAAI/bge-m3  unit vectors  spans reachable 167/167
+  indexing ...
+  indexed in 303.0 s; query embedding median 14.3 ms
+  scoring HYBRID ...
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.983     0.988      0.975     0.903     0.918
+cross_lingual   46      1.000     0.877     0.908      0.891     0.788     0.808
+exact_term      41      1.000     0.963     0.973      0.951     0.865     0.885
+paraphrase      40      0.950     0.913     0.919      0.900     0.835     0.850
+overall        167      0.988     0.932     0.946      0.928     0.846     0.863
+  discriminated-out cases (29): span recall 1.000

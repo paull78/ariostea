@@ -1,0 +1,110 @@
+
+[1/1] 160t+40
+/Users/paolo/code/personal/ariostea/src/ariostea/adapters/embedding/fastembed_local.py:59: UserWarning: The model intfloat/multilingual-e5-large now uses mean pooling instead of CLS embedding. In order to preserve the previous behaviour, consider either pinning fastembed version to 0.5.1 or using `add_custom_model` functionality.
+  self._model = TextEmbedding(model_name=model_name)
+
+##### 160t+40  (160 tokens, overlap 40)  intfloat/multilingual-e5-large  unit vectors  spans reachable 167/167
+  indexing ...
+  indexed in 317.2 s; query embedding median 15.0 ms
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.900     0.910      0.900     0.741     0.778
+cross_lingual   46      0.891     0.717     0.760      0.652     0.600     0.597
+exact_term      41      0.976     0.879     0.903      0.756     0.668     0.679
+paraphrase      40      0.975     0.824     0.858      0.825     0.699     0.718
+overall        167      0.946     0.826     0.854      0.778     0.674     0.689
+  discriminated-out cases (29): span recall 0.966
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.881     0.899      0.850     0.776     0.785
+cross_lingual   46      0.087     0.034     0.040      0.022     0.013     0.014
+exact_term      41      0.927     0.894     0.900      0.805     0.741     0.753
+paraphrase      40      0.825     0.554     0.614      0.525     0.307     0.350
+overall        167      0.677     0.573     0.594      0.533     0.445     0.461
+  discriminated-out cases (29): span recall 1.000
+  scoring FUSED ...
+=== FUSED ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.903     0.913      0.950     0.763     0.811
+cross_lingual   46      0.826     0.432     0.525      0.457     0.289     0.309
+exact_term      41      0.927     0.921     0.918      0.829     0.752     0.767
+paraphrase      40      0.875     0.810     0.815      0.725     0.579     0.605
+overall        167      0.892     0.755     0.784      0.731     0.586     0.613
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-10-12-chunk-160t+40-multilingual-e5-large-norm-dense-fused-sparse
+
+rendered /Users/paolo/code/personal/ariostea/eval/results/experiment_log.html
+
+[1/1] 160t+40
+
+##### 160t+40  (160 tokens, overlap 40)  BAAI/bge-m3  unit vectors  spans reachable 167/167
+  indexing ...
+  indexed in 310.4 s; query embedding median 17.5 ms
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.931     0.949      0.900     0.717     0.756
+cross_lingual   46      0.978     0.878     0.901      0.891     0.768     0.793
+exact_term      41      1.000     0.947     0.961      0.756     0.679     0.685
+paraphrase      40      0.975     0.868     0.893      0.875     0.695     0.734
+overall        167      0.988     0.905     0.925      0.856     0.716     0.744
+  discriminated-out cases (29): span recall 0.966
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.881     0.899      0.850     0.776     0.785
+cross_lingual   46      0.087     0.034     0.040      0.022     0.013     0.014
+exact_term      41      0.927     0.894     0.900      0.805     0.741     0.753
+paraphrase      40      0.825     0.554     0.614      0.525     0.307     0.350
+overall        167      0.677     0.573     0.594      0.533     0.445     0.461
+  discriminated-out cases (29): span recall 1.000
+  scoring FUSED ...
+=== FUSED ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.975     0.923     0.933      0.925     0.752     0.792
+cross_lingual   46      0.957     0.727     0.779      0.674     0.578     0.581
+exact_term      41      0.976     0.940     0.946      0.829     0.712     0.735
+paraphrase      40      0.925     0.808     0.832      0.725     0.574     0.601
+overall        167      0.958     0.846     0.870      0.784     0.652     0.674
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-10-12-chunk-160t+40-bge-m3-norm-dense-fused-sparse
+
+rendered /Users/paolo/code/personal/ariostea/eval/results/experiment_log.html
+
+[1/1] 160t+40
+
+##### 160t+40  (160 tokens, overlap 40)  jinaai/jina-embeddings-v3  unit vectors  spans reachable 167/167
+  indexing ...
+  indexed in 361.7 s; query embedding median 109.9 ms
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.975     0.929     0.938      0.950     0.780     0.819
+cross_lingual   46      0.913     0.846     0.854      0.870     0.724     0.755
+exact_term      41      1.000     0.902     0.927      0.756     0.673     0.684
+paraphrase      40      0.950     0.878     0.891      0.750     0.661     0.664
+overall        167      0.958     0.887     0.901      0.832     0.710     0.731
+  discriminated-out cases (29): span recall 0.966
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.881     0.899      0.850     0.776     0.785
+cross_lingual   46      0.087     0.034     0.040      0.022     0.013     0.014
+exact_term      41      0.927     0.894     0.900      0.805     0.741     0.753
+paraphrase      40      0.825     0.554     0.614      0.525     0.307     0.350
+overall        167      0.677     0.573     0.594      0.533     0.445     0.461
+  discriminated-out cases (29): span recall 1.000
+  scoring FUSED ...
+=== FUSED ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.975     0.946     0.950      0.950     0.865     0.885
+cross_lingual   46      0.891     0.682     0.724      0.630     0.515     0.520
+exact_term      41      0.951     0.939     0.936      0.780     0.746     0.744
+paraphrase      40      0.925     0.822     0.842      0.700     0.586     0.596
+overall        167      0.934     0.842     0.859      0.760     0.672     0.681
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-10-12-chunk-160t+40-jina-embeddings-v3-norm-dense-fused-sparse
+
+rendered /Users/paolo/code/personal/ariostea/eval/results/experiment_log.html

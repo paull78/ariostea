@@ -1,0 +1,13 @@
+
+##### 160t+40  (160 tokens, overlap 40)  intfloat/multilingual-e5-large  unit vectors  spans reachable 167/167
+  indexing ...
+  indexed in 312.9 s; query embedding median 14.7 ms
+  scoring HYBRID ...
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.975     0.975     0.975      0.975     0.899     0.918
+cross_lingual   46      0.891     0.828     0.844      0.848     0.775     0.792
+exact_term      41      0.976     0.939     0.949      0.951     0.867     0.888
+paraphrase      40      0.975     0.936     0.944      0.925     0.862     0.875
+overall        167      0.952     0.916     0.925      0.922     0.848     0.865
+  discriminated-out cases (29): span recall 1.000

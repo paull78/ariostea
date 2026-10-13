@@ -371,6 +371,114 @@ became the measured model, so a fresh install runs the configuration these numbe
 Existing vaults re-embed once on the next index; the English-only model stays selectable, at
 half the vector size, for a vault that needs no cross-lingual search.
 
+## Embedding model
+
+Cross-lingual was the one query type the pipeline handled badly: hybrid span recall 0.696 against
+0.90 or better on the other three. Sparse retrieval finds one cross-lingual case in 46, so dense
+retrieval is the only first-stage channel that works there, and the embedding model is the lever.
+Design: `docs/design/2026-10-12-embedding-sweep.md`.
+
+Three newer multilingual models against the current one, all at 160 tokens with overlap 40:
+
+| model | dim | download | licence | index the corpus | embed one query |
+|---|---|---|---|---|---|
+| `paraphrase-multilingual-mpnet-base-v2` (control) | 768 | 1.0 GB | Apache 2.0 | 111 s | 4.8 ms |
+| `intfloat/multilingual-e5-large` | 1024 | 2.24 GB | MIT | 313 s | 14.7 ms |
+| `BAAI/bge-m3` | 1024 | 2.27 GB | MIT | 303 s | 14.3 ms |
+| `jinaai/jina-embeddings-v3` | 1024 | 2.29 GB | CC BY-NC 4.0 | 359 s | 116.3 ms |
+
+Times are from the HYBRID runs on this Mac's CPU, query time as the median over the 167 gold
+queries. All four tokenizers cut the corpus into the same 4,246 chunks, so the model is the only
+thing that changes. e5 needs `query: ` and `passage: ` in front of the text, which the adapter now
+adds; jina-v3 picks a query or passage task inside fastembed. bge-m3 isn't in fastembed's list and
+is registered from its Hugging Face ONNX export.
+
+### Normalisation
+
+The first run turned up a problem older than this experiment. The vector table ranks by
+sqlite-vec's default metric, Euclidean distance, and fastembed returns unnormalised vectors for
+the control (length about 2.2) and for e5 (about 30). Every dense number above therefore ranked raw
+vectors, not by the cosine similarity these models were trained for. bge-m3 and jina-v3 return
+unit vectors, so comparing them with the raw control would have mixed two changes.
+
+`embedding.normalize` now scales every vector to length 1, which makes Euclidean ranking equal to
+cosine ranking. It is off by default, since switching it re-embeds the vault. The sweep measured
+the control both ways and every candidate with it on, and judged candidates against the
+normalised control.
+
+### Results
+
+Span recall at k=5. The raw control's DENSE, SPARSE and FUSED numbers were rerun at the current
+commit and match the September runs exactly, so its HYBRID figure is the September one.
+
+| channel | type | control, raw | control, normalised | e5-large | bge-m3 | jina-v3 |
+|---|---|---|---|---|---|---|
+| dense | overall | 0.545 | 0.593 | 0.778 | 0.856 | 0.832 |
+| dense | buried | 0.575 | 0.650 | 0.900 | 0.900 | 0.950 |
+| dense | cross_lingual | 0.500 | 0.587 | 0.652 | 0.891 | 0.870 |
+| dense | exact_term | 0.561 | 0.585 | 0.756 | 0.756 | 0.756 |
+| dense | paraphrase | 0.550 | 0.550 | 0.825 | 0.875 | 0.750 |
+| sparse | overall | 0.533 | 0.533 | 0.533 | 0.533 | 0.533 |
+| fused | overall | 0.629 | 0.671 | 0.731 | 0.784 | 0.760 |
+| fused | cross_lingual | 0.304 | 0.435 | 0.457 | 0.674 | 0.630 |
+| **hybrid** | **overall** | 0.880 | **0.898** | 0.922 | 0.928 | 0.928 |
+| hybrid | buried | 1.000 | 1.000 | 0.975 | 0.975 | 0.975 |
+| hybrid | cross_lingual | 0.696 | 0.761 | 0.848 | 0.891 | 0.891 |
+| hybrid | exact_term | 0.951 | 0.951 | 0.951 | 0.951 | 0.951 |
+| hybrid | paraphrase | 0.900 | 0.900 | 0.925 | 0.900 | 0.900 |
+
+Hybrid span MRR: 0.810 raw, 0.823 normalised, 0.848 e5, 0.846 bge-m3, 0.848 jina-v3. Hybrid note
+recall: 0.922, 0.964, 0.952, 0.988 and 0.982. Every configuration reaches 167 of 167 spans, and the
+29 discriminated-out cases score 1.000 on hybrid throughout.
+
+In cases out of 167, hybrid finds 147 with the raw control, 150 normalised, 154 with e5 and 155
+with bge-m3 and jina-v3. On cross-lingual, out of 46: 32, 35, 39, 41 and 41.
+
+### Against the decision rule
+
+- **Normalisation alone** gains 3 cases (+0.018) over the raw control and fails the rule, though
+  cross-lingual gains 3 of 46 (+0.065).
+- **e5-large** gains 4 cases (+0.024) over the normalised control and fails.
+- **bge-m3 and jina-v3** gain 5 cases each over the normalised control: +0.0299, with no type down
+  more than 0.025. The rule says "at least 0.03". The chunking design that set the threshold
+  described it as "about five cases out of 167, the smallest change this set can resolve". Under
+  the number they miss by 0.0001, and under the stated intent they pass. Picking a reading after
+  seeing the result would defeat the point of fixing the rule first, so it went to the owner, who
+  read it as five cases: both pass. The reading came after the data and is recorded as such.
+- Against the raw control, what users run today, bge-m3 and jina-v3 gain 8 cases (+0.048), and
+  cross-lingual goes from 32 to 41 of 46.
+
+The tie-break between the two is span MRR, which favours jina-v3 by 0.002, less than one case.
+jina-v3 embeds a query eight times more slowly and its licence is non-commercial.
+
+A follow-up pass at 256 tokens with overlap 64, for bge-m3 only and outside the decision, did
+better on both first-stage channels: dense 0.880 against 0.856 (exact_term 0.805 against 0.756,
+paraphrase 0.925 against 0.875) and sparse 0.575 against 0.533, all spans reachable. Hybrid wasn't
+measured at that size.
+
+In short:
+
+| finding | evidence | reason |
+|---|---|---|
+| Unit vectors help the old model | dense 0.545 to 0.593, cross-lingual 0.500 to 0.587, hybrid 147 to 150 cases | Euclidean distance on raw vectors also ranks by vector length, which says nothing about meaning; cosine ranking ignores it |
+| bge-m3 and jina-v3 fix most of cross-lingual | dense cross-lingual 0.587 to 0.891 and 0.870; hybrid 35 to 41 of 46 | both were trained for retrieval on multilingual query and passage pairs; the control was distilled from paraphrase pairs (likely, not isolated) |
+| The reranker narrows the gap | dense gains up to 0.263, hybrid gains 0.030 | the cross-encoder already rescues much of what the control's dense channel misses |
+| Fusion now drags the new models down | bge-m3 fused 0.784 against dense 0.856; cross-lingual 0.674 against 0.891 | sparse finds one cross-lingual case in 46, so fusing it in mostly adds wrong candidates |
+| Each candidate loses one buried case | hybrid buried 40 to 39 of 40 | not isolated; within the rule's limit |
+| e5 is the weakest candidate | dense cross-lingual 0.652 against 0.891 for bge-m3 | not isolated |
+| The new models cost more | query 14 to 15 ms against 5 ms, jina-v3 116 ms; indexing about three times longer | about twice the parameters; jina-v3 also selects a task adapter per call (likely, not isolated) |
+| bge-m3 may want larger chunks | 256t+64 dense 0.880 and sparse 0.575, against 0.856 and 0.533 | 160 tokens was sized for the control's 128-token training length |
+
+## Decision on the embedding model
+
+The defaults don't change in this cycle; they change in the next one. On 2026-10-12 the owner
+chose `BAAI/bge-m3` as the next default: it passes the rule on the five-case reading, gains 8
+cases over what users run today, carries an MIT licence and embeds a query in 14 ms. jina-v3
+matches its recall at eight times the query time under a non-commercial licence, so it stays an
+option, not the default. bge-m3 returns unit vectors itself, so `normalize` can stay off. The
+switch makes every vault re-embed once, and the next cycle measures HYBRID at 256 tokens with
+overlap 64 before fixing the chunk size.
+
 ## Reproducing
 
 ```bash
@@ -379,6 +487,14 @@ uv run python eval/run_chunk_sweep.py 512w 160t+40 --channels DENSE,SPARSE
 uv run python eval/run_chunk_sweep.py 160t+40              # adds hybrid, about an hour
 uv run python eval/run_chunk_sweep.py 160t+40 --channels FUSED --control <512w fused run id>
 uv run python eval/render_results.py                       # rebuild the log page
+
+# embedding sweep: pilot, then first stage and hybrid per model, about 15 minutes each
+uv run python -u eval/pilot_embeddings.py
+uv run python eval/run_chunk_sweep.py 160t+40 --normalize --channels DENSE,SPARSE,FUSED
+uv run python eval/run_chunk_sweep.py 160t+40 --model BAAI/bge-m3 --normalize \
+  --channels DENSE,SPARSE,FUSED --control <normalised control run id>
+uv run python eval/run_chunk_sweep.py 160t+40 --model BAAI/bge-m3 --normalize \
+  --channels HYBRID --control <normalised control hybrid run id>
 
 # contextual blurbs: load the blurb model first, about 3 hours in all
 lms load qwen2.5-14b-instruct-mlx --context-length 32768

@@ -17,7 +17,7 @@ from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
 from ariostea.adapters.rerank.fastembed_rerank import FastEmbedReranker
 from ariostea.adapters.rerank.noop import NoopReranker
 from ariostea.adapters.store.sqlite_store import SqliteStore
-from ariostea.config.schema import ChunkingCfg, Config, ContextualCfg, RerankCfg
+from ariostea.config.schema import ChunkingCfg, Config, ContextualCfg, EmbeddingCfg, RerankCfg
 from ariostea.indexing.index_vault import IndexVault
 from ariostea.ports.chat import ChatProvider
 from ariostea.ports.embedding import EmbeddingProvider
@@ -121,11 +121,16 @@ def build_chunker(cfg: ChunkingCfg, embeddings: object) -> Chunker:
     )
 
 
+def _build_embeddings(cfg: EmbeddingCfg) -> EmbeddingProvider:
+    """The local fastembed embedder the embedding section describes."""
+    return FastEmbedEmbeddings(model_name=cfg.local_model, normalize=cfg.normalize)
+
+
 def build_container(
     config: Config, *, wrap_chat: Callable[[ChatProvider], ChatProvider] | None = None
 ) -> Container:
     # Embedding provider — local fastembed for the walking skeleton.
-    embeddings: EmbeddingProvider = FastEmbedEmbeddings(model_name=config.embedding.local_model)
+    embeddings = _build_embeddings(config.embedding)
 
     store_path = _expand(config.store.path)
     Path(store_path).parent.mkdir(parents=True, exist_ok=True)

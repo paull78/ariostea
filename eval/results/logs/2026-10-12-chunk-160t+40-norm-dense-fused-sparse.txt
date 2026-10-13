@@ -1,0 +1,31 @@
+
+##### 160t+40  (160 tokens, overlap 40)  sentence-transformers/paraphrase-multilingual-mpnet-base-v2  unit vectors  spans reachable 167/167
+  indexing ...
+  indexed in 110.7 s; query embedding median 4.9 ms
+  scoring DENSE ...
+=== DENSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.925     0.824     0.845      0.650     0.477     0.506
+cross_lingual   46      0.739     0.623     0.631      0.587     0.463     0.484
+exact_term      41      0.902     0.713     0.749      0.585     0.463     0.480
+paraphrase      40      0.850     0.653     0.688      0.550     0.414     0.423
+overall        167      0.850     0.700     0.725      0.593     0.455     0.474
+  discriminated-out cases (29): span recall 0.931
+  scoring SPARSE ...
+=== SPARSE ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.881     0.899      0.850     0.776     0.785
+cross_lingual   46      0.087     0.034     0.040      0.022     0.013     0.014
+exact_term      41      0.927     0.894     0.900      0.805     0.741     0.753
+paraphrase      40      0.825     0.554     0.614      0.525     0.307     0.350
+overall        167      0.677     0.573     0.594      0.533     0.445     0.461
+  discriminated-out cases (29): span recall 1.000
+  scoring FUSED ...
+=== FUSED ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.965     0.973      0.850     0.678     0.711
+cross_lingual   46      0.739     0.446     0.504      0.435     0.292     0.309
+exact_term      41      0.976     0.950     0.954      0.683     0.624     0.624
+paraphrase      40      0.925     0.758     0.798      0.750     0.492     0.549
+overall        167      0.904     0.769     0.797      0.671     0.514     0.540
+  discriminated-out cases (29): span recall 1.000

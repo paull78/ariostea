@@ -1,0 +1,82 @@
+start Mon Oct 12 20:44:47 CEST 2026
+
+[1/1] 160t+40
+/Users/paolo/code/personal/ariostea/src/ariostea/adapters/embedding/fastembed_local.py:59: UserWarning: The model sentence-transformers/paraphrase-multilingual-mpnet-base-v2 now uses mean pooling instead of CLS embedding. In order to preserve the previous behaviour, consider either pinning fastembed version to 0.5.1 or using `add_custom_model` functionality.
+  self._model = TextEmbedding(model_name=model_name)
+
+##### 160t+40  (160 tokens, overlap 40)  sentence-transformers/paraphrase-multilingual-mpnet-base-v2  unit vectors  spans reachable 167/167
+  indexing ...
+  indexed in 109.0 s; query embedding median 4.8 ms
+  scoring HYBRID ...
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.983     0.988      1.000     0.904     0.927
+cross_lingual   46      0.913     0.797     0.821      0.761     0.707     0.716
+exact_term      41      1.000     0.963     0.973      0.951     0.864     0.886
+paraphrase      40      0.950     0.912     0.919      0.900     0.835     0.850
+overall        167      0.964     0.910     0.922      0.898     0.823     0.841
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-10-12-chunk-160t+40-norm-hybrid
+
+rendered /Users/paolo/code/personal/ariostea/eval/results/experiment_log.html
+normalised hybrid control: 2026-10-12-chunk-160t+40-norm-hybrid Mon Oct 12 20:55:49 CEST 2026
+
+[1/1] 160t+40
+/Users/paolo/code/personal/ariostea/src/ariostea/adapters/embedding/fastembed_local.py:59: UserWarning: The model intfloat/multilingual-e5-large now uses mean pooling instead of CLS embedding. In order to preserve the previous behaviour, consider either pinning fastembed version to 0.5.1 or using `add_custom_model` functionality.
+  self._model = TextEmbedding(model_name=model_name)
+
+##### 160t+40  (160 tokens, overlap 40)  intfloat/multilingual-e5-large  unit vectors  spans reachable 167/167
+  indexing ...
+  indexed in 312.9 s; query embedding median 14.7 ms
+  scoring HYBRID ...
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.975     0.975     0.975      0.975     0.899     0.918
+cross_lingual   46      0.891     0.828     0.844      0.848     0.775     0.792
+exact_term      41      0.976     0.939     0.949      0.951     0.867     0.888
+paraphrase      40      0.975     0.936     0.944      0.925     0.862     0.875
+overall        167      0.952     0.916     0.925      0.922     0.848     0.865
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-10-12-chunk-160t+40-multilingual-e5-large-norm-hybrid
+
+rendered /Users/paolo/code/personal/ariostea/eval/results/experiment_log.html
+done intfloat/multilingual-e5-large Mon Oct 12 21:09:55 CEST 2026
+
+[1/1] 160t+40
+
+##### 160t+40  (160 tokens, overlap 40)  BAAI/bge-m3  unit vectors  spans reachable 167/167
+  indexing ...
+  indexed in 303.0 s; query embedding median 14.3 ms
+  scoring HYBRID ...
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.983     0.988      0.975     0.903     0.918
+cross_lingual   46      1.000     0.877     0.908      0.891     0.788     0.808
+exact_term      41      1.000     0.963     0.973      0.951     0.865     0.885
+paraphrase      40      0.950     0.913     0.919      0.900     0.835     0.850
+overall        167      0.988     0.932     0.946      0.928     0.846     0.863
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-10-12-chunk-160t+40-bge-m3-norm-hybrid
+
+rendered /Users/paolo/code/personal/ariostea/eval/results/experiment_log.html
+done BAAI/bge-m3 Mon Oct 12 21:23:57 CEST 2026
+
+[1/1] 160t+40
+
+##### 160t+40  (160 tokens, overlap 40)  jinaai/jina-embeddings-v3  unit vectors  spans reachable 167/167
+  indexing ...
+  indexed in 359.3 s; query embedding median 116.3 ms
+  scoring HYBRID ...
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.983     0.988      0.975     0.903     0.918
+cross_lingual   46      0.978     0.866     0.892      0.891     0.787     0.808
+exact_term      41      1.000     0.951     0.964      0.951     0.868     0.888
+paraphrase      40      0.950     0.918     0.922      0.900     0.842     0.853
+overall        167      0.982     0.928     0.940      0.928     0.848     0.865
+  discriminated-out cases (29): span recall 1.000
+  logged 2026-10-12-chunk-160t+40-jina-embeddings-v3-norm-hybrid
+
+rendered /Users/paolo/code/personal/ariostea/eval/results/experiment_log.html
+done jinaai/jina-embeddings-v3 Mon Oct 12 21:40:01 CEST 2026
+ALL DONE Mon Oct 12 21:40:01 CEST 2026
