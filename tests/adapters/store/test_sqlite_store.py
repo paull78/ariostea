@@ -196,3 +196,41 @@ def test_plain_index_returns_no_blurb(tmp_path):
 
     assert store.dense([1.0, 0.0, 0.0], k=1)[0].context_blurb is None
     assert store.sparse("alpha", k=1)[0].context_blurb is None
+
+
+def test_reopening_at_a_new_dimension_accepts_vectors_of_that_size(tmp_path):
+    # A vault indexed with one embedding model and reopened for another of a
+    # different size must take the new vectors; sqlite-vec fixes a table's size
+    # at creation and rejects anything else (bge-m3-default.01).
+    path = str(tmp_path / "idx.db")
+    old = SqliteStore(path=path, dim=3)
+    old.upsert_note(_note("a.md"), [_cchunk(_note("a.md"), 0, "alpha")], [[1.0, 0.0, 0.0]])
+    old.db.close()
+
+    new = SqliteStore(path=path, dim=4)
+    new.upsert_note(_note("b.md"), [_cchunk(_note("b.md"), 0, "beta")], [[0.0, 1.0, 0.0, 0.0]])
+    hits = new.dense([0.0, 1.0, 0.0, 0.0], k=5)
+    assert [h.chunk.text for h in hits] == ["beta"]
+
+
+def test_reopening_at_a_new_dimension_clears_the_fingerprint(tmp_path):
+    # With the old vectors gone, the next index must re-embed every note, even
+    # one whose content hash has not changed.
+    path = str(tmp_path / "idx.db")
+    old = SqliteStore(path=path, dim=3)
+    old.set_fingerprint("fake:v1")
+    old.db.close()
+
+    assert SqliteStore(path=path, dim=4).fingerprint() == ""
+
+
+def test_reopening_at_the_same_dimension_keeps_vectors_and_fingerprint(tmp_path):
+    path = str(tmp_path / "idx.db")
+    first = SqliteStore(path=path, dim=3)
+    first.upsert_note(_note(), [_cchunk(_note(), 0, "alpha")], [[1.0, 0.0, 0.0]])
+    first.set_fingerprint("fake:v1")
+    first.db.close()
+
+    again = SqliteStore(path=path, dim=3)
+    assert [h.chunk.text for h in again.dense([1.0, 0.0, 0.0], k=5)] == ["alpha"]
+    assert again.fingerprint() == "fake:v1"

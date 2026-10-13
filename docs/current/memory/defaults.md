@@ -11,3 +11,7 @@
 ### bge-m3-default.03 · decision · 2026-10-13 · spec
 The eval's pinned model, `MULTILINGUAL_MODEL` in `src/ariostea/eval/wiki_index.py`, moves to `BAAI/bge-m3`. Run ids without a model slug mean bge-m3 from this cycle on; the old model runs with `--model sentence-transformers/paraphrase-multilingual-mpnet-base-v2`, and past runs keep their recorded `embedding` field.
 **Why:** a plain eval run should measure the configuration users get, so the next experiment starts from the new default. Rejected: keeping the old model pinned (past runs reproduce without flags, but every future experiment would need `--model` and a plain run would measure a model nobody ships).
+
+### bge-m3-default.04 · discovery · 2026-10-13 · step 01
+`test_reopening_at_the_same_dimension_keeps_vectors_and_fingerprint` passed before any implementation because it guards today's behaviour; forcing the rebuild on every open made it fail. The store reads the vector table's size from its DDL in `sqlite_master` (`FLOAT[n]`), since an empty table has no rows to measure.
+**Why:** born-green note per the build rule.

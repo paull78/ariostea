@@ -47,7 +47,28 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
         self.db.enable_load_extension(False)
         self._init_schema()
 
+    def _drop_vectors_of_another_size(self) -> None:
+        """Drop `chunks_vec` if it was created at a size other than `self._dim`.
+
+        sqlite-vec fixes a vector table's size when it is created and rejects
+        vectors of any other size, so an index built with one embedding model
+        cannot take another model's vectors (bge-m3-default.01). The stored
+        fingerprint is cleared with the table, so the next index re-embeds every
+        note even if its content is unchanged; the chunk rows stay until then.
+        """
+        row = self.db.execute("SELECT sql FROM sqlite_master WHERE name = 'chunks_vec'").fetchone()
+        if row is None:
+            return
+        size = re.search(r"FLOAT\[(\d+)\]", row["sql"])
+        if size is not None and int(size.group(1)) == self._dim:
+            return
+        self.db.execute("DROP TABLE chunks_vec")
+        if self.db.execute("SELECT name FROM sqlite_master WHERE name = 'meta'").fetchone():
+            self.db.execute("DELETE FROM meta WHERE key = 'fingerprint'")
+        self.db.commit()
+
     def _init_schema(self) -> None:
+        self._drop_vectors_of_another_size()
         self.db.executescript(
             f"""
             CREATE TABLE IF NOT EXISTS notes (
