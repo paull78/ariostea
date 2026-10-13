@@ -36,6 +36,10 @@ def _fts_query(text: str) -> str:
     return " OR ".join(f'"{t}"' for t in terms)
 
 
+# Columns added to `chunks` after the first release, oldest first.
+_CHUNK_COLUMNS_ADDED_LATER: tuple[tuple[str, str], ...] = (("context_blurb", "TEXT"),)
+
+
 class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
     def __init__(self, path: str, dim: int) -> None:
         self._dim = dim
@@ -99,7 +103,21 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
             CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
             """
         )
+        self._add_missing_chunk_columns()
         self.db.commit()
+
+    def _add_missing_chunk_columns(self) -> None:
+        """Add the `chunks` columns introduced after an index was created.
+
+        `CREATE TABLE IF NOT EXISTS` leaves an existing table as it is, so an
+        index built before a column existed fails its next insert
+        (bge-m3-default.09). Each column here is nullable, which sqlite adds in
+        place. Missing tables need nothing: the script above creates them.
+        """
+        present = {row["name"] for row in self.db.execute("PRAGMA table_info(chunks)")}
+        for column, sql_type in _CHUNK_COLUMNS_ADDED_LATER:
+            if column not in present:
+                self.db.execute(f"ALTER TABLE chunks ADD COLUMN {column} {sql_type}")
 
     # --- DocumentWriter ---
     def upsert_note(

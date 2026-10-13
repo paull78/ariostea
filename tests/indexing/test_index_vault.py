@@ -322,3 +322,28 @@ def test_reindexing_with_a_model_of_another_size_replaces_every_vector(tmp_path)
     assert second.db.execute("SELECT COUNT(*) FROM chunks_vec").fetchone()[0] == chunks_before
     assert second.db.execute("SELECT COUNT(*) FROM chunks").fetchone()[0] == chunks_before
     assert "fake:v2" in second.fingerprint()
+
+
+def test_reindexing_an_old_index_with_a_new_model_succeeds(tmp_path, old_index):
+    # The owner's real index failed here at gate M2: built before the blurb
+    # column, the FTS table and the meta table existed (bge-m3-default.09).
+    from ariostea.adapters.store.sqlite_store import SqliteStore
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "a.md").write_text("# A\n\nThe double bass has four strings.\n")
+    db = str(tmp_path / "old.db")
+    old_index(db, dim=2)
+
+    store = SqliteStore(path=db, dim=3)
+    IndexVault(
+        ObsidianMarkdownParser(),
+        HeadingAwareChunker(),
+        _SizedEmbed(3, "fake:v2"),
+        store,
+        NoopContextualizer(),
+    ).index(vault, ignore=[])
+
+    sizes = {row[0] for row in store.db.execute("SELECT vec_length(embedding) FROM chunks_vec")}
+    assert sizes == {3}
+    assert [h.chunk.note_path for h in store.sparse("strings", k=5)] == ["a.md"]

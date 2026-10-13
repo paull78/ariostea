@@ -234,3 +234,22 @@ def test_reopening_at_the_same_dimension_keeps_vectors_and_fingerprint(tmp_path)
     again = SqliteStore(path=path, dim=3)
     assert [h.chunk.text for h in again.dense([1.0, 0.0, 0.0], k=5)] == ["alpha"]
     assert again.fingerprint() == "fake:v1"
+
+
+def test_opening_an_index_without_context_blurb_adds_the_column(tmp_path, old_index):
+    path = str(tmp_path / "old.db")
+    old_index(path, dim=3)
+    store = SqliteStore(path=path, dim=3)
+    columns = {row[1] for row in store.db.execute("PRAGMA table_info(chunks)")}
+    assert "context_blurb" in columns
+
+
+def test_an_old_index_takes_chunks_with_blurbs(tmp_path, old_index):
+    path = str(tmp_path / "old.db")
+    old_index(path, dim=3)
+    store = SqliteStore(path=path, dim=3)
+    note = _note()
+    store.upsert_note(note, [_cchunk(note, 0, "alpha", blurb="The A note.")], [[1.0, 0.0, 0.0]])
+    (hit,) = store.dense([1.0, 0.0, 0.0], k=5)
+    assert hit.chunk.text == "alpha"
+    assert hit.context_blurb == "The A note."
