@@ -19,3 +19,7 @@ The eval's pinned model, `MULTILINGUAL_MODEL` in `src/ariostea/eval/wiki_index.p
 ### bge-m3-default.05 · discovery · 2026-10-13 · step 02
 `test_reindexing_with_a_model_of_another_size_replaces_every_vector` passed on first run because step 01 already rebuilt the table. With the rebuild call removed it fails with the error a real vault would hit: "sqlite3.OperationalError: Dimension mismatch for inserted vector for the "embedding" column. Expected 2 dimensions but received 3." After the rebuild, every vector has the new size and the chunk and vector counts match the first index.
 **Why:** born-green note per the build rule; the failure message confirms the test exercises the real migration path.
+
+### bge-m3-default.06 · decision · 2026-10-13 · step 04
+The default chunk size becomes 256 model tokens with overlap 64. bge-m3's HYBRID run at 256t+64 (`2026-10-13-chunk-256t+64-bge-m3-norm-hybrid`) found 157 of 167 against 155 at 160t+40: buried 40 of 40 (+1), paraphrase 37 of 40 (+1), cross_lingual 41 of 46 and exact_term 39 of 41 unchanged. Span MRR 0.867 against 0.846, note recall 0.988 both, all 167 spans reachable, discriminated-out cases 1.000. Indexing 334 s, query embedding median 15.2 ms. Against the configuration users run today (147 hits, 0.880) the new defaults find 10 more cases, span recall 0.940.
+**Why:** passes the rule in bge-m3-default.02 (at least 155, no type down more than 2 cases) with room to spare.
