@@ -1,20 +1,10 @@
-# Experiment design
+# Retrieval and evaluation
 
-### embedding-sweep.01 · decision · 2026-10-12 · spec
-The sweep measures three candidates against `paraphrase-multilingual-mpnet-base-v2`: `intfloat/multilingual-e5-large`, `BAAI/bge-m3` and `jinaai/jina-embeddings-v3`. jina-v3 can become the default only on a separate licence call, because it is CC BY-NC 4.0.
-**Why:** measuring jina costs about one extra hybrid hour and nothing else, and leaving it out would leave a strong candidate unmeasured. Rejected: e5-large and bge-m3 only (saves an hour, loses the comparison); e5-large only (no custom registration, but drops bge-m3, the strongest-rated MIT option).
+Decisions and discoveries about retrieval quality, the eval protocol and the embedding model. Results tables live in `docs/retrieval-tuning.md`.
 
 ### embedding-sweep.02 · decision · 2026-10-12 · spec
 The decision rule stays as in chunking and contextual retrieval: hybrid overall span recall at k=5 up at least 0.03 on the control, no query type down more than 0.05, at least 160 of 167 spans reachable. Ties go to span MRR, then lower cost.
 **Why:** results stay comparable with every earlier run, and five extra cross-lingual cases alone move overall by 0.03, so a cross-lingual-only win can still pass. Rejected: an extra cross-lingual bar (breaks comparability, can reject an overall win); a looser rule for this sweep (threshold chosen with the experiment in view).
-
-### embedding-sweep.03 · decision · 2026-10-12 · spec
-The sweep spends what it needs: about three CPU hours for HYBRID plus indexing, and about 7 GB of model downloads in `~/.cache/fastembed`. It stops and reports after the first-stage pass only if no candidate beats the control's dense overall.
-**Why:** the reranker cannot recover what dense never retrieves on cross-lingual, so a candidate with no dense gain has no route to a hybrid gain. Rejected: hybrid for every candidate whatever step 3 shows (up to three wasted hours); a pause after step 3 every time (waits on the owner for no new information when a candidate is ahead).
-
-### embedding-sweep.06 · discovery · 2026-10-12 · step 03
-The step 03 smoke run (e5-large, 160t+40, DENSE, `--no-log`, unofficial) scored dense span recall 0.772 overall against the control's 0.545, and 0.696 on cross_lingual against 0.500. Every type rose: buried 0.875, exact_term 0.732, paraphrase 0.800. 167 of 167 spans reachable, so the XLM-R tokenizer cut the corpus as the control did. Discriminated-out cases: 0.931, the same as the control.
-**Why:** an early signal only. The logged first-stage run in step 07 is the measurement; the stop rule after step 07 will not trigger on this evidence.
 
 ### embedding-sweep.07 · issue · 2026-10-12 · gate M1
 The dense channel ranks by sqlite-vec's default metric, Euclidean distance, and fastembed returns unnormalised vectors for the control (norms about 2.2 to 2.4) and for e5 (about 30). So every logged dense number ranked by raw Euclidean distance, not cosine, the similarity these models were trained for. bge-m3 as planned (normalisation on) and jina-v3 return unit vectors, so the sweep as specified compares unevenly. A scratch rerun with unit vectors, unlogged, gave dense span recall at 5: control 0.593 overall and 0.587 cross_lingual (raw: 0.545 and 0.500); e5 0.778 and 0.652 (raw: 0.772 and 0.696). Effect on HYBRID unknown.
@@ -32,18 +22,20 @@ Pilot (`eval/results/logs/2026-10-12-embedding-pilot.txt`): all four models load
 The raw control reproduces exactly at the current commit (run `2026-10-12-chunk-160t+40-dense-fused-sparse`): DENSE 0.545, SPARSE 0.533, FUSED 0.629, as logged in September. The logged HYBRID control `2026-09-24-chunk-160t+40-dense-hybrid-sparse` (0.880) therefore stands, and no HYBRID rerun was needed. The normalised control (`2026-10-12-chunk-160t+40-norm-dense-fused-sparse`): DENSE 0.593 (cross_lingual 0.587), SPARSE 0.533 (unchanged, as expected), FUSED 0.671 (cross_lingual 0.435 against 0.304 raw). Indexing took about 111 s either way; query embedding median 4.8 to 4.9 ms.
 **Why:** settles protocol step 1; the normalised control is the comparison point for steps 07 and 08 (embedding-sweep.08).
 
-### embedding-sweep.14 · discovery · 2026-10-12 · step 07
-First stage, all with unit vectors, against the normalised control (DENSE 0.593, cross_lingual 0.587, FUSED 0.671): e5-large DENSE 0.778 (cross_lingual 0.652), FUSED 0.731; bge-m3 DENSE 0.856 (cross_lingual 0.891), FUSED 0.784; jina-v3 DENSE 0.832 (cross_lingual 0.870), FUSED 0.760. SPARSE is 0.533 in every run, confirming identical chunks. Discriminated-out cases: DENSE 0.966 for all three candidates against 0.931 for the control. Every candidate beats the control's dense, so the stop rule does not trigger and step 08 runs HYBRID for all three. Two side findings: for the candidates FUSED is below DENSE (sparse noise on cross_lingual drags fusion down), and jina-v3 embeds a query in 110 ms median against 15 to 17.5 ms for e5 and bge-m3. Indexing: 310 to 362 s against 111 s for the control.
-**Why:** protocol step 3 and the stop rule (embedding-sweep.03, embedding-sweep.08).
-
 ### embedding-sweep.15 · discovery · 2026-10-12 · step 08
 HYBRID span recall at k=5, hits out of 167 (cross_lingual out of 46): raw control 147 (32), 0.880; normalised control 150 (35), 0.898; e5-large 154 (39), 0.922; bge-m3 155 (41), 0.928; jina-v3 155 (41), 0.928. Every candidate loses one buried case (40 to 39, −0.025, within the −0.05 limit); exact_term is 39 of 41 everywhere; paraphrase is 36 of 40 except e5 at 37. Span MRR: raw 0.810, normalised 0.823, e5 0.848, bge-m3 0.846, jina-v3 0.848. Note recall: bge-m3 0.988, jina-v3 0.982, e5 0.952, normalised 0.964. Discriminated-out cases: 1.000 for every candidate. Cost: indexing 303 s (bge-m3), 313 s (e5), 359 s (jina-v3) against 109 s; query embedding median 14.3 ms (bge-m3), 14.7 ms (e5), 116.3 ms (jina-v3) against 4.8 ms. A HYBRID run took 11 to 16 minutes, not the hour the plan assumed.
 **Why:** protocol step 4 measurements, before the verdicts in embedding-sweep.16.
 
-### embedding-sweep.16 · issue · 2026-10-12 · step 08
-Verdicts under the decision rule. Normalised control against raw: +3 cases (+0.018), fails; cross_lingual +0.065. e5-large against normalised: +4 (+0.024), fails under any reading. bge-m3 and jina-v3 against normalised: +5 cases, which is +0.0299. The rule as written in embedding-sweep.02 says "at least 0.03"; the chunking design that set it calls 0.03 "about five cases out of 167, which is the smallest change this set can resolve". Under the number both miss by 0.0001; under the stated intent both pass. No type drops more than 0.025, and 167 of 167 spans are reachable. The tie-break, span MRR, favours jina-v3 by 0.002 (0.848 against 0.846), less than one case's worth; jina-v3 costs eight times the query latency and is CC BY-NC 4.0. Against the raw control, what users run today, bge-m3 is +8 cases (+0.048) and cross_lingual 32 to 41 of 46. bge-m3 returns unit vectors natively, so it needs no `normalize` setting.
-**Why:** a threshold reading chosen after seeing the data would defeat pre-registration, so the reading goes to the owner at the final gate; nothing is adopted here.
-
 ### embedding-sweep.17 · discovery · 2026-10-12 · step 08
 The 256t+64 follow-up for bge-m3 (DENSE and SPARSE, unit vectors, run `2026-10-12-chunk-256t+64-bge-m3-norm-dense-sparse`) beats bge-m3 at 160t+40 on both channels: DENSE 0.880 against 0.856 (cross_lingual 0.891 both; exact_term 0.805 against 0.756; paraphrase 0.925 against 0.875), SPARSE 0.575 against 0.533. 167 of 167 spans reachable. HYBRID was not measured at 256t+64. It ran on the five-case reading of embedding-sweep.16 because it is cheap and outside the decision; it does not settle that reading.
 **Why:** the 160-token default was tuned for the control's 128-token training length (design doc, Confounds); a larger model may want larger chunks, and this is the first evidence it does. A chunking re-tune for a new default would be its own cycle.
+
+### embedding-sweep.18 · decision · 2026-10-12 · final gate
+The owner reads the 0.03 threshold as five cases out of 167, the intent the chunking design gave it. Under that reading bge-m3 and jina-v3 pass the decision rule against the normalised control (+5 cases each, no type down more than 0.025, 167 of 167 reachable). e5-large (+4) and normalisation alone (+3) still fail.
+**Why:** the threshold was always described as the smallest change the set can resolve, which is five cases; 5/167 is 0.0299 only because 0.03 was a rounded stand-in. The reading was made after the data, by the owner, and is recorded as such. Rejected: the strict numeric reading, under which nothing passes.
+
+### embedding-sweep.19 · decision · 2026-10-12 · final gate
+The next cycle switches the default embedding model to `BAAI/bge-m3` (MIT, unit vectors natively, 14 ms per query), measuring HYBRID at 256t+64 first since the follow-up pass favoured larger chunks. Every vault reindexes once. The fastembed cache fix (embedding-sweep.10) goes into that cycle or one beside it. jina-v3 is not adopted: same recall, eight times the query latency, non-commercial licence.
+**Why:** bge-m3 passes the rule (embedding-sweep.18) and gains 8 cases (cross_lingual +9 of 46) over what users run today. Rejected: normalisation only (+3 cases, fails the rule); keeping the defaults (leaves the measured gain unused).
+
+# Embedder adapter

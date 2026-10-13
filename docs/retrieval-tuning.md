@@ -443,7 +443,8 @@ with bge-m3 and jina-v3. On cross-lingual, out of 46: 32, 35, 39, 41 and 41.
   more than 0.025. The rule says "at least 0.03". The chunking design that set the threshold
   described it as "about five cases out of 167, the smallest change this set can resolve". Under
   the number they miss by 0.0001, and under the stated intent they pass. Picking a reading after
-  seeing the result would defeat the point of fixing the rule first, so it went to the owner.
+  seeing the result would defeat the point of fixing the rule first, so it went to the owner, who
+  read it as five cases: both pass. The reading came after the data and is recorded as such.
 - Against the raw control, what users run today, bge-m3 and jina-v3 gain 8 cases (+0.048), and
   cross-lingual goes from 32 to 41 of 46.
 
@@ -470,10 +471,13 @@ In short:
 
 ## Decision on the embedding model
 
-The defaults don't change in this cycle. A new model or normalisation on by default would make
-every vault re-embed once, so both are the owner's call on the numbers above, along with the
-reading of the threshold. If bge-m3 is adopted, a chunking pass at 256 tokens with HYBRID is the
-natural next run.
+The defaults don't change in this cycle; they change in the next one. On 2026-10-12 the owner
+chose `BAAI/bge-m3` as the next default: it passes the rule on the five-case reading, gains 8
+cases over what users run today, carries an MIT licence and embeds a query in 14 ms. jina-v3
+matches its recall at eight times the query time under a non-commercial licence, so it stays an
+option, not the default. bge-m3 returns unit vectors itself, so `normalize` can stay off. The
+switch makes every vault re-embed once, and the next cycle measures HYBRID at 256 tokens with
+overlap 64 before fixing the chunk size.
 
 ## Reproducing
 
