@@ -37,7 +37,7 @@ The gate's hands-on reindex of the owner's vault failed: "OperationalError: tabl
 **Why:** blocks the spec's behaviour for existing vaults ("re-embeds every note, no error, no manual step"); needs a fix step before gate M2 can pass.
 
 ### bge-m3-default.10 · discovery · 2026-10-13 · step 07
-With missing `chunks` columns added on open, a scratchpad copy of the owner's old index reindexed cleanly on the new defaults: 88 notes and 952 chunks (the old index held 59 and 377, so it was months stale), fingerprint `fastembed:BAAI/bge-m3|noop|chunk:heading_aware:254:64:model_tokens`, 952 vectors all of size 1024, 952 FTS rows, in 1 min 53 s. The chunker records 254 because two of the 256 tokens go to the model's start and end markers. The shared old-schema builder became a `conftest.py` fixture, since `tests/` is not a package and one test file cannot import from another.
+With missing `chunks` columns added on open, a scratchpad copy of the owner's old index reindexed cleanly on the new defaults: 88 notes and 952 chunks (the old index held 59 and 377, so it was out of date), fingerprint `fastembed:BAAI/bge-m3|noop|chunk:heading_aware:254:64:model_tokens`, 952 vectors all of size 1024, 952 FTS rows, in 1 min 53 s. The chunker records 254 because two of the 256 tokens go to the model's start and end markers. The shared old-schema builder became a `conftest.py` fixture, since `tests/` is not a package and one test file cannot import from another.
 **Why:** retires issue bge-m3-default.09 before the real-vault check is repeated.
 
 ### bge-m3-default.11 · discovery · 2026-10-13 · gate M2
@@ -47,3 +47,7 @@ The gate's hands-on check passed on the owner's real vault and index, run by Cla
 ### bge-m3-default.12 · decision · 2026-10-13 · step 06
 The README section "Where it stands" is renamed "The defaults today": the writing skill's catalogue lists "Where it stands" as a stock status heading, and the new name says what the section holds. The README also gains Trial 4 and an upgrade note in the quick start: reindex once after an upgrade that changes the model or chunking.
 **Why:** AC-06 asks for the section's content, which is unchanged in substance; only the heading moved.
+
+### bge-m3-default.13 · decision · 2026-10-13 · step 03
+Both fastembed adapters, `FastEmbedEmbeddings` and `FastEmbedReranker`, load models from `fastembed_cache_dir()` in `src/ariostea/adapters/fastembed_cache.py`: `FASTEMBED_CACHE_PATH` if set, else `~/.cache/fastembed`, read at call time. The eval's environment-variable pin in `wiki_index.py` is gone. Resolves embedding-sweep.10.
+**Why:** fastembed's default, the system temp directory, is purged by macOS and leaves broken model links that make the next load fail or hang. Rejected: a config option for the path (nobody needs it yet; the environment variable covers the exception).

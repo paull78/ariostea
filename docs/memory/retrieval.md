@@ -39,3 +39,15 @@ The next cycle switches the default embedding model to `BAAI/bge-m3` (MIT, unit 
 **Why:** bge-m3 passes the rule (embedding-sweep.18) and gains 8 cases (cross_lingual +9 of 46) over what users run today. Rejected: normalisation only (+3 cases, fails the rule); keeping the defaults (leaves the measured gain unused).
 
 # Embedder adapter
+
+### bge-m3-default.03 · decision · 2026-10-13 · spec
+The eval's pinned model, `MULTILINGUAL_MODEL` in `src/ariostea/eval/wiki_index.py`, moves to `BAAI/bge-m3`. Run ids without a model slug mean bge-m3 from this cycle on; the old model runs with `--model sentence-transformers/paraphrase-multilingual-mpnet-base-v2`, and past runs keep their recorded `embedding` field.
+**Why:** a plain eval run should measure the configuration users get, so the next experiment starts from the new default. Rejected: keeping the old model pinned (past runs reproduce without flags, but every future experiment would need `--model` and a plain run would measure a model nobody ships).
+
+### bge-m3-default.06 · decision · 2026-10-13 · step 04
+The default chunk size becomes 256 model tokens with overlap 64. bge-m3's HYBRID run at 256t+64 (`2026-10-13-chunk-256t+64-bge-m3-norm-hybrid`) found 157 of 167 against 155 at 160t+40: buried 40 of 40 (+1), paraphrase 37 of 40 (+1), cross_lingual 41 of 46 and exact_term 39 of 41 unchanged. Span MRR 0.867 against 0.846, note recall 0.988 both, all 167 spans reachable, discriminated-out cases 1.000. Indexing 334 s, query embedding median 15.2 ms. Against the configuration users run today (147 hits, 0.880) the new defaults find 10 more cases, span recall 0.940.
+**Why:** passes the rule in bge-m3-default.02 (at least 155, no type down more than 2 cases) with room to spare.
+
+### bge-m3-default.08 · discovery · 2026-10-13 · step 05
+With bge-m3 as the default, the full suite takes 22 min 46 s against about 12 minutes before, because the integration tests that build the default container now embed with the larger model; the fast suite is unchanged at under a second. `test_old_model_run_ids_carry_its_slug` passed before the switch: naming a model's slug in the run id was built in the embedding-sweep cycle, and the test guards it now that the old model is the one that needs naming. Hard-coded references to the old model that stay on purpose: `CONTROL` in the adapter tests (a model without prefixes), `eval/run_eval.py`, `eval/run_contextual_eval.py` and their integration tests (older eval sets with their own pinned model), and the blurb experiment's control run ids.
+**Why:** records the cost of the switch on the test loop and why the remaining references are not stale.
