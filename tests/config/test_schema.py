@@ -15,15 +15,13 @@ def test_minimal_config_applies_defaults(tmp_path):
 
 
 def test_embedding_defaults_to_the_measured_model(tmp_path):
-    # Every retrieval measurement in docs/retrieval-tuning.md ran with this
-    # model, and the default chunking was sized with its tokenizer; a
-    # different default would ship numbers nobody measured.
+    # bge-m3 won the embedding sweep (docs/retrieval-tuning.md, "Embedding
+    # model"): 157 of 167 hybrid hits at 256t+64 against 147 for the previous
+    # default. A different default would ship numbers nobody measured.
     cfg_file = tmp_path / "ariostea.toml"
     cfg_file.write_text('[vault]\npath = "~/Vault"\n')
     cfg = load_config(cfg_file)
-    assert (
-        cfg.embedding.local_model == "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
-    )
+    assert cfg.embedding.local_model == "BAAI/bge-m3"
 
 
 def test_embedding_normalize_defaults_off():
@@ -143,14 +141,14 @@ def test_server_section_parses(tmp_path):
 
 
 def test_chunking_defaults_to_the_measured_policy(tmp_path):
-    # 160 model tokens with 40 of overlap: the policy the chunking sweep
-    # adopted (docs/retrieval-tuning.md). The old 512-word cap overran the
-    # multilingual embedding model's input window on one chunk in five.
+    # 256 model tokens with 64 of overlap: measured for bge-m3, 157 of 167
+    # hybrid hits against 155 at 160t+40 (bge-m3-default.06). The earlier
+    # 160-token default was sized for the previous model's 128-token training.
     cfg_file = tmp_path / "ariostea.toml"
     cfg_file.write_text('[vault]\npath = "~/Vault"\n')
     cfg = load_config(cfg_file)
-    assert cfg.chunking.max_tokens == 160
-    assert cfg.chunking.overlap == 40
+    assert cfg.chunking.max_tokens == 256
+    assert cfg.chunking.overlap == 64
     assert cfg.chunking.unit == "model_tokens"
 
 
@@ -195,11 +193,11 @@ def test_chunking_rejects_impossible_settings(fields):
 
 
 def test_lowering_max_tokens_below_the_default_overlap_says_what_to_do():
-    # The default overlap is 40, so a config that only sets max_tokens = 32
+    # The default overlap is 64, so a config that only sets max_tokens = 32
     # is invalid through a setting the user never wrote. Say so plainly.
     from pydantic import ValidationError
 
     from ariostea.config.schema import ChunkingCfg
 
-    with pytest.raises(ValidationError, match="overlap .40. .*set overlap"):
+    with pytest.raises(ValidationError, match="overlap .64. .*set overlap"):
         ChunkingCfg(max_tokens=32)

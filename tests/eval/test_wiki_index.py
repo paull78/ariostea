@@ -202,3 +202,10 @@ def test_wiki_channels_embeds_with_the_indexed_normalize(monkeypatch):
     container = SimpleNamespace(config=wiki_config(CORPUS, "x.db", model="m", normalize=True))
     wiki_index.wiki_channels("x.db", container)
     assert built == {"model": "m", "normalize": True}
+
+
+def test_eval_pins_the_shipped_model():
+    # A plain eval run measures what users get (bge-m3-default.03).
+    from ariostea.config.schema import EmbeddingCfg
+
+    assert MULTILINGUAL_MODEL == EmbeddingCfg().local_model == "BAAI/bge-m3"

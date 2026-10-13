@@ -184,3 +184,14 @@ def test_run_config_records_normalize_only_when_on():
     cfg = ChunkingCfg()
     assert run_config(5, cfg, "m", normalize=True)["normalize"] is True
     assert "normalize" not in run_config(5, cfg, "m")
+
+
+def test_old_model_run_ids_carry_its_slug():
+    # After the switch the previous default is just another model to name.
+    run_id = sweep_run_id(
+        "d",
+        "160t+40",
+        ["HYBRID"],
+        model="sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+    )
+    assert "paraphrase-multilingual-mpnet-base-v2" in run_id

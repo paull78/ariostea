@@ -36,9 +36,11 @@ from ariostea.ports.chat import ChatProvider
 
 # The corpus is deliberately multilingual; an English-only embedding model
 # would make the cross_lingual track measure the model rather than the
-# pipeline. Also the production default since 2026-10, but pinned here so a
-# later change of default cannot silently move the eval's numbers.
-MULTILINGUAL_MODEL = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+# pipeline. Kept equal to the production default so a plain eval run measures
+# what ships, but pinned here so a change of default is a visible edit, not a
+# silent shift in the eval's numbers. Runs before 2026-10-13 used
+# sentence-transformers/paraphrase-multilingual-mpnet-base-v2.
+MULTILINGUAL_MODEL = "BAAI/bge-m3"
 CHUNK_POOL = 50
 
 

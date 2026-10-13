@@ -17,9 +17,10 @@ class EmbeddingCfg(BaseModel):
     base_url: str | None = None
     api_key: str | None = None
     model: str | None = None
-    # The model every retrieval measurement used (docs/retrieval-tuning.md);
-    # the chunking default was sized with its tokenizer. Multilingual, 768-dim.
-    local_model: str = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+    # The embedding sweep's winner (docs/retrieval-tuning.md, "Embedding
+    # model"): multilingual, 1024-dim, unit vectors of its own. The chunking
+    # default was measured with it.
+    local_model: str = "BAAI/bge-m3"
     # Return unit-length vectors, so the store's Euclidean ranking equals cosine
     # ranking. Off keeps existing vaults' vectors; switching it re-embeds.
     normalize: bool = False
@@ -61,8 +62,8 @@ class ContextualCfg(BaseModel):
 class ChunkingCfg(BaseModel):
     """How notes are cut into chunks.
 
-    The defaults are the policy the chunking sweep adopted: 160 model tokens
-    with 40 of overlap (docs/retrieval-tuning.md). `unit = "model_tokens"`
+    The defaults were measured with the default embedding model, bge-m3: 256
+    model tokens with 64 of overlap (docs/retrieval-tuning.md). `unit = "model_tokens"`
     counts with the embedding model's own tokenizer, so the cap means the same
     thing in every language. `"words"` counts whitespace-separated words, which
     overruns a model's input window on text that tokenizes to more than one
@@ -70,8 +71,8 @@ class ChunkingCfg(BaseModel):
     available that way.
     """
 
-    max_tokens: int = 160
-    overlap: int = 40  # units repeated from the end of the previous chunk
+    max_tokens: int = 256
+    overlap: int = 64  # units repeated from the end of the previous chunk
     unit: Literal["words", "model_tokens"] = "model_tokens"
 
     @model_validator(mode="after")
