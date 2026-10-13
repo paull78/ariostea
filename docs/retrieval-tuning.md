@@ -369,7 +369,8 @@ and the chunking default was sized with its tokenizer, but the shipped default w
 English-only `BAAI/bge-small-en-v1.5`, which no run had measured. On 2026-10-09 the default
 became the measured model, so a fresh install runs the configuration these numbers describe.
 Existing vaults re-embed once on the next index; the English-only model stays selectable, at
-half the vector size, for a vault that needs no cross-lingual search.
+half the vector size, for a vault that needs no cross-lingual search. On 2026-10-13 the default
+moved again, to `BAAI/bge-m3`; see "bge-m3 as the default" below.
 
 ## Embedding model
 
@@ -479,6 +480,37 @@ option, not the default. bge-m3 returns unit vectors itself, so `normalize` can 
 switch makes every vault re-embed once, and the next cycle measures HYBRID at 256 tokens with
 overlap 64 before fixing the chunk size.
 
+## bge-m3 as the default
+
+The follow-up cycle measured bge-m3 on HYBRID at 256 tokens with overlap 64 against its run at
+160 tokens. Because the model switch already makes every vault re-embed, a larger chunk adds no
+cost to users, so the bar was only to rule out a loss: at least 155 of 167 hits and no type
+down more than 2 cases.
+
+| chunks | buried | cross_lingual | exact_term | paraphrase | overall | span MRR |
+|---|---|---|---|---|---|---|
+| 160 tokens, overlap 40 | 39 of 40 | 41 of 46 | 39 of 41 | 36 of 40 | 155 (0.928) | 0.846 |
+| 256 tokens, overlap 64 | 40 of 40 | 41 of 46 | 39 of 41 | 37 of 40 | 157 (0.940) | 0.867 |
+
+Every span stays reachable, the 29 discriminated-out cases score 1.000, indexing takes 334 s
+and a query 15.2 ms. 256 tokens with overlap 64 passes, and the defaults are now `BAAI/bge-m3`
+with that chunking, `normalize` off. Against the previous defaults, 147 of 167, they find 10
+more cases. The eval pins the same model, so a plain eval run measures what ships; runs before
+2026-10-13 record the previous model in their config.
+
+Switching exposed two bugs that would have broken every existing vault on its next reindex.
+sqlite-vec fixes a vector table's size when it is created, so an index built at 768 dimensions
+rejected bge-m3's 1024. And `CREATE TABLE IF NOT EXISTS` never adds a column, so an index built
+before the blurb work lacked `chunks.context_blurb`; the owner's own index failed on that. The
+store now rebuilds the vector table, clearing the fingerprint so every note re-embeds, and adds
+missing columns when it opens. The owner's vault then reindexed cleanly, 88 notes into 952 chunks;
+a rehearsal on a copy of its index took under two minutes. Until that reindex runs, a server on the new model answers from BM25
+alone.
+
+Both fastembed adapters now keep their models under `~/.cache/fastembed` (or
+`FASTEMBED_CACHE_PATH`). fastembed's own default, the system temp directory, is purged by
+macOS, which leaves broken model links behind.
+
 ## Reproducing
 
 ```bash
@@ -495,6 +527,10 @@ uv run python eval/run_chunk_sweep.py 160t+40 --model BAAI/bge-m3 --normalize \
   --channels DENSE,SPARSE,FUSED --control <normalised control run id>
 uv run python eval/run_chunk_sweep.py 160t+40 --model BAAI/bge-m3 --normalize \
   --channels HYBRID --control <normalised control hybrid run id>
+
+# bge-m3 chunk size; since 2026-10-13 bge-m3 is the pinned model, so --model is optional
+uv run python eval/run_chunk_sweep.py 256t+64 --channels HYBRID \
+  --control 2026-10-12-chunk-160t+40-bge-m3-norm-hybrid
 
 # contextual blurbs: load the blurb model first, about 3 hours in all
 lms load qwen2.5-14b-instruct-mlx --context-length 32768

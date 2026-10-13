@@ -43,3 +43,7 @@ With missing `chunks` columns added on open, a scratchpad copy of the owner's ol
 ### bge-m3-default.11 · discovery · 2026-10-13 · gate M2
 The gate's hands-on check passed on the owner's real vault and index, run by Claude at the owner's request: the `local_model` pin to the old model was removed from `ariostea.toml`, `ariostea reindex` indexed 88 notes into 952 chunks with no error, and `ariostea status` showed `fastembed:BAAI/bge-m3|noop|chunk:heading_aware:254:64:model_tokens`. A read-only search for an Italian query ("come organizzare le priorità del team") returned English notes about teamwork from the vault. Backups of the old config and index remain in the session scratchpad.
 **Why:** closes issue bge-m3-default.09 on real data.
+
+### bge-m3-default.12 · decision · 2026-10-13 · step 06
+The README section "Where it stands" is renamed "The defaults today": the writing skill's catalogue lists "Where it stands" as a stock status heading, and the new name says what the section holds. The README also gains Trial 4 and an upgrade note in the quick start: reindex once after an upgrade that changes the model or chunking.
+**Why:** AC-06 asks for the section's content, which is unchanged in substance; only the heading moved.

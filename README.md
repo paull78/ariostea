@@ -136,6 +136,10 @@ Configuration lives in `ariostea.toml`. Only `[vault].path` is required, and eve
 value has a built-in default. [`ariostea.example.toml`](ariostea.example.toml) lists all
 options and defaults.
 
+After an upgrade that changes the embedding model or the chunking, run `uv run ariostea
+reindex` once. When the new model's vectors have a different size, the server answers from
+BM25 alone until that reindex.
+
 ### Connecting an MCP client
 
 For Claude Code or Claude Desktop, register the stdio server:
@@ -282,17 +286,52 @@ and the changed candidate pool costs a few cases, 3 of them cross-lingual. Hybri
 rule either way, so contextual indexing stays off. The per-chunk option stays in the code for
 a setup without a reranker, where it gains +0.036.
 
-### Where it stands
+### Trial 4: the embedding model
 
-The defaults are the measured configuration: 160-token chunks with 40 of overlap, the
-multilingual `paraphrase-multilingual-mpnet-base-v2` embeddings every run used, the
-`jina-reranker-v2-base-multilingual` reranker on, contextual indexing off. Until 2026-10-09
-the shipped embedding default was an English-only model nobody had measured. Hybrid span
-recall is 0.880.
+Cross-lingual was the one weak type, and BM25 finds 1 of its 46 cases, so dense retrieval is
+the only first-stage channel that works there. Three newer multilingual models were measured
+against the one every earlier run used, all at 160 tokens with overlap 40.
 
-The weak spot is cross-lingual, 0.696 on the 46 Italian and Spanish queries against 0.90 or
-better on the other three types, and BM25 cannot help there at all, 0.022. Both context trials
-hurt it most. The next trial is the embedding model.
+The first run turned up a problem older than the trial. The vector store ranks by Euclidean
+distance, and fastembed returns unnormalised vectors for the old model, so every dense number
+above had ranked raw vectors, not by the cosine similarity the model was trained for. A new
+setting, `embedding.normalize`, scales vectors to length 1, and the trial measured it as its
+own factor.
+
+Hybrid hits out of 167, cross-lingual out of 46:
+
+| configuration | dense | hybrid | hybrid cross_lingual | one query |
+|---|---|---|---|---|
+| previous model, raw vectors (control) | 0.545 | 147 | 32 | 4.8 ms |
+| previous model, unit vectors | 0.593 | 150 | 35 | 4.9 ms |
+| `intfloat/multilingual-e5-large` | 0.778 | 154 | 39 | 14.7 ms |
+| `jinaai/jina-embeddings-v3` | 0.832 | 155 | 41 | 116.3 ms |
+| `BAAI/bge-m3` | 0.856 | 155 | 41 | 14.3 ms |
+| `BAAI/bge-m3`, 256 tokens, overlap 64 | 0.880 | 157 | 41 | 15.2 ms |
+
+Normalisation alone gains 3 cases and fails the rule. bge-m3 and jina-v3 gain 5 over the
+normalised control, which is 0.0299 against a rule written as 0.03 but set as "about 5
+cases". The reading was settled after the data, as 5 cases, so both pass. bge-m3 won on
+cost: the same recall as jina-v3 at an eighth of the query time, under MIT where jina-v3 is
+non-commercial. The 160-token chunks had been sized for the old model's 128-token training,
+so the trial measured bge-m3 at 256 tokens too, and it found 2 more cases with no type worse.
+
+Switching the default exposed two upgrade bugs on a real vault. An existing index could not
+take vectors of a new size, and an index built before the late-September blurb work lacked a
+column the store now writes. Both broke the next reindex. The store now rebuilds the vector table and adds missing
+columns when it opens.
+
+### The defaults today
+
+`BAAI/bge-m3` embeddings, 256-token chunks with 64 of overlap, the
+`jina-reranker-v2-base-multilingual` reranker on, contextual indexing off. bge-m3 returns unit
+vectors itself, so `normalize` stays off. Hybrid span recall is 0.940, 157 of 167, against
+0.880 before the trial and 0.832 at the baseline. Cross-lingual is 0.891, 41 of 46.
+
+The cost is a larger model: a 2.27 GB download against 1 GB, about three times the indexing
+time, and 15 ms to embed a query against 5. With dense retrieval this strong, fusing in BM25
+now lowers the first stage on cross-lingual queries, and the reranker hides it. That, and the
+10 cases still missed, are the next things to look at.
 
 ## Licence
 
