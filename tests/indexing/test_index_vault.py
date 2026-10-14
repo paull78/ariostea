@@ -269,3 +269,81 @@ def test_a_chunking_change_rechunks_unchanged_notes(tmp_path):
     _indexer(embed, store, HeadingAwareChunker(max_tokens=10)).index(tmp_path)
     assert len(store.notes["a.md"][1]) > 1
     assert "chunk:heading_aware:10" in store.fingerprint()
+
+
+class _SizedEmbed:
+    """A fake embedder of a given vector size and fingerprint, standing in
+    for a real model."""
+
+    def __init__(self, dim, fingerprint):
+        self._dim, self._fingerprint = dim, fingerprint
+
+    def embed_documents(self, texts):
+        return [[float(len(t))] + [0.0] * (self._dim - 1) for t in texts]
+
+    def embed_query(self, text):
+        return [float(len(text))] + [0.0] * (self._dim - 1)
+
+    @property
+    def dimension(self):
+        return self._dim
+
+    @property
+    def fingerprint(self):
+        return self._fingerprint
+
+
+def test_reindexing_with_a_model_of_another_size_replaces_every_vector(tmp_path):
+    # The upgrade path for every existing vault when the default model changes
+    # size: no error, and no vector of the old size left behind
+    # (bge-m3-default.01).
+    from ariostea.adapters.store.sqlite_store import SqliteStore
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "a.md").write_text("# A\n\nThe double bass has four strings.\n")
+    (vault / "b.md").write_text("# B\n\nThe viola is tuned in fifths.\n")
+    db = str(tmp_path / "idx.db")
+
+    def index_with(embed):
+        store = SqliteStore(path=db, dim=embed.dimension)
+        IndexVault(
+            ObsidianMarkdownParser(), HeadingAwareChunker(), embed, store, NoopContextualizer()
+        ).index(vault, ignore=[])
+        return store
+
+    first = index_with(_SizedEmbed(2, "fake:v1"))
+    chunks_before = first.db.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+    first.db.close()
+
+    second = index_with(_SizedEmbed(3, "fake:v2"))
+    sizes = {row[0] for row in second.db.execute("SELECT vec_length(embedding) FROM chunks_vec")}
+    assert sizes == {3}
+    assert second.db.execute("SELECT COUNT(*) FROM chunks_vec").fetchone()[0] == chunks_before
+    assert second.db.execute("SELECT COUNT(*) FROM chunks").fetchone()[0] == chunks_before
+    assert "fake:v2" in second.fingerprint()
+
+
+def test_reindexing_an_old_index_with_a_new_model_succeeds(tmp_path, old_index):
+    # The owner's real index failed here at gate M2: built before the blurb
+    # column, the FTS table and the meta table existed (bge-m3-default.09).
+    from ariostea.adapters.store.sqlite_store import SqliteStore
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "a.md").write_text("# A\n\nThe double bass has four strings.\n")
+    db = str(tmp_path / "old.db")
+    old_index(db, dim=2)
+
+    store = SqliteStore(path=db, dim=3)
+    IndexVault(
+        ObsidianMarkdownParser(),
+        HeadingAwareChunker(),
+        _SizedEmbed(3, "fake:v2"),
+        store,
+        NoopContextualizer(),
+    ).index(vault, ignore=[])
+
+    sizes = {row[0] for row in store.db.execute("SELECT vec_length(embedding) FROM chunks_vec")}
+    assert sizes == {3}
+    assert [h.chunk.note_path for h in store.sparse("strings", k=5)] == ["a.md"]

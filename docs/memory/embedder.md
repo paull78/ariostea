@@ -13,3 +13,8 @@ bge-m3 loads through `add_custom_model` with `onnx/model.onnx` plus `onnx/model.
 ### embedding-sweep.10 · issue · 2026-10-12 · step 04
 Outside the eval, nothing pins fastembed's model cache, so the production container downloads models into fastembed's default, the system temp directory (`/var/folders/.../T/fastembed_cache` here). `src/ariostea/eval/wiki_index.py` documents that macOS purges that directory and leaves dangling snapshot links that break or hang the next load, and pins `~/.cache/fastembed` for the eval only. The server is exposed to the same failure. bge-m3 now sits in both caches (4.5 GB in total) because the step 04 check ran outside the eval.
 **Why:** pre-existing and outside this cycle's scope; raised at gate M2 for the owner to schedule. Not fixed here.
+Superseded by bge-m3-default.13.
+
+### bge-m3-default.13 · decision · 2026-10-13 · step 03
+Both fastembed adapters, `FastEmbedEmbeddings` and `FastEmbedReranker`, load models from `fastembed_cache_dir()` in `src/ariostea/adapters/fastembed_cache.py`: `FASTEMBED_CACHE_PATH` if set, else `~/.cache/fastembed`, read at call time. The eval's environment-variable pin in `wiki_index.py` is gone. Resolves embedding-sweep.10.
+**Why:** fastembed's default, the system temp directory, is purged by macOS and leaves broken model links that make the next load fail or hang. Rejected: a config option for the path (nobody needs it yet; the environment variable covers the exception).

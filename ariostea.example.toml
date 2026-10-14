@@ -7,9 +7,12 @@ ignore = [".obsidian/", ".trash/"]
 
 [embedding]
 provider = "local"                       # "local" | "openai_compat"
-# Multilingual, 768-dim: the model every measurement in docs/retrieval-tuning.md used.
+# Multilingual, 1024-dim: the best of four models measured in docs/retrieval-tuning.md.
 # Changing it re-embeds the whole vault on the next index.
-local_model = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+local_model = "BAAI/bge-m3"
+# The previous default, half the download (1 GB) and a third of the query time, ten fewer
+# hits out of 167 on the eval set; pair it with normalize = true:
+# local_model = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 # Unit-length vectors, so ranking follows cosine similarity. Switching it re-embeds the vault.
 # normalize = false
 # A smaller English-only option (384-dim), not measured on the eval corpus:
@@ -37,8 +40,8 @@ use_context = false   # score the context blurb with each chunk; needs contextua
 # How notes are cut into chunks. Every note is first split at its headings;
 # a section longer than max_tokens is then cut into windows.
 # Changing any of these re-chunks and re-embeds the whole vault on the next index.
-max_tokens = 160         # cap per chunk, in `unit`
-overlap = 40             # repeated from the end of one chunk at the start of the next
+max_tokens = 256         # cap per chunk, in `unit`
+overlap = 64             # repeated from the end of one chunk at the start of the next
 unit = "model_tokens"    # the local embedding model's own tokenizer, or "words"
 # Measured on the eval corpus; see docs/retrieval-tuning.md. The original policy was
 # max_tokens = 512, overlap = 0, unit = "words".

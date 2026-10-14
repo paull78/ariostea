@@ -36,8 +36,9 @@ class _FakeTextEmbedding:
         cls.registered.append(kwargs)
         cls.events.append(f"register {kwargs['model']}")
 
-    def __init__(self, model_name):
+    def __init__(self, model_name, cache_dir=None):
         _FakeTextEmbedding.events.append(f"load {model_name}")
+        self.cache_dir = cache_dir
         self.model_name = model_name
         self.calls: list[tuple[str, list[str]]] = []
         self.model = type("_Inner", (), {"tokenizer": _FakeTokenizer()})()
@@ -172,6 +173,12 @@ def test_normalize_on_marks_the_fingerprint(fake):
     assert FastEmbedEmbeddings(CONTROL, normalize=True).fingerprint == f"fastembed:{CONTROL}|unit"
     e5 = FastEmbedEmbeddings(E5, normalize=True).fingerprint
     assert e5.endswith("|unit") and "passage: " in e5
+
+
+def test_embedder_passes_the_cache_dir(fake, monkeypatch, tmp_path):
+    monkeypatch.setenv("FASTEMBED_CACHE_PATH", str(tmp_path))
+    FastEmbedEmbeddings(CONTROL)
+    assert _FakeTextEmbedding.instances[-1].cache_dir == str(tmp_path)
 
 
 def _cached(model: str) -> bool:
