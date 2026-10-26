@@ -20,6 +20,7 @@ from ariostea.adapters.store.sqlite_store import SqliteStore
 from ariostea.adapters.vault.filesystem import FilesystemVault
 from ariostea.config.schema import ChunkingCfg, Config, ContextualCfg, EmbeddingCfg, RerankCfg
 from ariostea.indexing.index_vault import IndexVault
+from ariostea.indexing.watch_vault import WatchVault
 from ariostea.ports.chat import ChatProvider
 from ariostea.ports.embedding import EmbeddingProvider
 from ariostea.ports.pipeline import Chunker, Contextualizer
@@ -39,6 +40,7 @@ class Container:
 
     config: Config
     indexer: IndexVault
+    watcher: WatchVault
     searcher: SearchKnowledge
     admin: IndexAdmin
     sources: SearchSources
@@ -143,13 +145,14 @@ def build_container(
     # The store is injected into each use case as its narrow role
     # (DocumentWriter for indexing, ChunkRetriever for search); only its
     # IndexAdmin face is re-exposed on the Container for status.
+    vault = FilesystemVault(config.vault.path, ignore=config.vault.ignore)
     indexer = IndexVault(
         parser=parser,
         chunker=chunker,
         embeddings=embeddings,
         store=store,
         contextualizer=_build_contextualizer(config.contextual, wrap_chat=wrap_chat),
-        vault=FilesystemVault(config.vault.path, ignore=config.vault.ignore),
+        vault=vault,
     )
     searcher = SearchKnowledge(
         embeddings=embeddings,
@@ -165,6 +168,7 @@ def build_container(
     return Container(
         config=config,
         indexer=indexer,
+        watcher=WatchVault(indexer, vault),
         searcher=searcher,
         admin=store,
         sources=sources,

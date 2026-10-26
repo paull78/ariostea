@@ -115,3 +115,64 @@ def test_read_missing_note_raises_note_unreadable(make_vault):
     vault = make_vault({"ok.md": "x"})
     with pytest.raises(NoteUnreadable):
         vault.read("gone.md")
+
+
+# --- changes(): what may have changed, without the churn that holds no notes
+
+# Each step is the set of files written at once; the real watcher may merge
+# steps into one batch, so the contract compares the union of what it yields.
+_STEPS = [
+    {".obsidian/workspace.json": "{}"},
+    {".git/index.md": "x", "Board.excalidraw.md": "x", "Templates/t.md": "x"},
+    {"a.md": "# A"},
+    {"sub/b.md": "# B", "img.png": "x"},
+]
+
+
+def _changes_on_disk(tmp_path, steps, ignore):
+    import threading
+    import time
+
+    vault = FilesystemVault(tmp_path, ignore=ignore)
+    stop = threading.Event()
+
+    def write():
+        time.sleep(0.5)  # let the watcher start
+        for step in steps:
+            for rel, text in step.items():
+                path = tmp_path / rel
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text)
+            time.sleep(0.3)
+        time.sleep(0.8)
+        stop.set()
+
+    threading.Thread(target=write, daemon=True).start()
+    return list(vault.changes(stop_event=stop))
+
+
+def _changes_in_memory(tmp_path, steps, ignore):
+    def apply(step):
+        return lambda vault: (vault.files.update(step), list(step))[1]
+
+    vault = InMemoryVault({}, ignore=ignore, script=[apply(step) for step in steps])
+    return list(vault.changes())
+
+
+@pytest.fixture(params=[_changes_on_disk, _changes_in_memory], ids=["filesystem", "memory"])
+def changes_of(request, tmp_path):
+    return lambda steps, ignore=(): request.param(tmp_path, steps, ignore)
+
+
+def test_changes_skip_paths_outside_the_rule(changes_of):
+    batches = changes_of(_STEPS, ignore=["Templates/"])
+    assert all(batches), "an empty batch was yielded"
+    changed = set().union(*batches)
+    # Folders and attachments may hold or move notes, so they are kept.
+    assert {"a.md", "sub/b.md", "img.png"} <= changed
+    assert not changed & {".obsidian/workspace.json", ".git/index.md", "Board.excalidraw.md"}
+    assert not any(path.startswith("Templates") for path in changed)
+
+
+def test_dot_folder_churn_alone_yields_nothing(changes_of):
+    assert changes_of([{".obsidian/workspace.json": "{}"}, {".obsidian/app.json": "{}"}]) == []

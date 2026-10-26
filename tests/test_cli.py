@@ -6,30 +6,50 @@ from typer.testing import CliRunner
 from ariostea import cli
 
 
-def test_watch_command_builds_container_and_runs_watcher(monkeypatch, tmp_path):
-    fake_container = SimpleNamespace(
-        config=SimpleNamespace(vault=SimpleNamespace(path=str(tmp_path), ignore=[".obsidian/"])),
-        indexer=object(),
+class FakeWatcher:
+    """Plays a fixed list of reports and warnings through the CLI's callbacks."""
+
+    def __init__(self, events):
+        self.events = events
+
+    def run(self, stop_event=None, on_report=None, on_warning=None):
+        for kind, value in self.events:
+            (on_report if kind == "report" else on_warning)(value)
+
+
+def _watch_container(tmp_path, watcher):
+    return SimpleNamespace(
+        config=SimpleNamespace(vault=SimpleNamespace(path=str(tmp_path))), watcher=watcher
+    )
+
+
+def _report(embedded=(), deleted=(), skipped=()):
+    from ariostea.domain.models import IndexReport
+
+    return IndexReport(5, 20, tuple(embedded), tuple(deleted), tuple(skipped))
+
+
+def test_cli_watch_prints_pass_summary(monkeypatch, tmp_path):  # AC-17
+    watcher = FakeWatcher(
+        [
+            ("report", _report(embedded=["a.md", "b.md"])),  # the first pass
+            ("report", _report()),  # a pass that changed nothing
+            ("report", _report(embedded=["a.md"], deleted=["c.md"])),
+            ("warning", "vault /v is unavailable: no such folder"),
+        ]
     )
     monkeypatch.setattr(cli, "load_config", lambda path: None)
-    monkeypatch.setattr(cli, "build_container", lambda cfg: fake_container)
-
-    recorded = {}
-
-    class FakeWatchVault:
-        def __init__(self, indexer, root):
-            recorded["root"] = root
-
-        def run(self, stop_event=None):
-            recorded["ran"] = True
-
-    monkeypatch.setattr(cli, "WatchVault", FakeWatchVault)
+    monkeypatch.setattr(cli, "build_container", lambda cfg: _watch_container(tmp_path, watcher))
 
     result = CliRunner().invoke(cli.app, ["watch", "--config", "x.toml"])
 
     assert result.exit_code == 0
-    assert recorded["ran"] is True
-    assert recorded["root"] == str(tmp_path)
+    assert result.stdout.splitlines() == [
+        f"Indexing and watching {tmp_path} (Ctrl-C to stop)...",
+        "+2 updated, -0 deleted",
+        "+1 updated, -1 deleted",
+    ]
+    assert result.stderr == "warning: vault /v is unavailable: no such folder\n"
 
 
 def test_reindex_cli_prints_skipped_warnings_and_count(monkeypatch):
@@ -148,8 +168,14 @@ def _raising_indexer_container(error):
         def index(self):
             raise error
 
+    class Watcher:
+        def run(self, stop_event=None, on_report=None, on_warning=None):
+            raise error
+
     return SimpleNamespace(
-        config=SimpleNamespace(vault=SimpleNamespace(path="/gone")), indexer=Indexer()
+        config=SimpleNamespace(vault=SimpleNamespace(path="/gone")),
+        indexer=Indexer(),
+        watcher=Watcher(),
     )
 
 

@@ -90,3 +90,25 @@ def test_mtime_is_the_files(tmp_path):
 
 def test_location_is_the_root(tmp_path):
     assert FilesystemVault(Path(tmp_path)).location == str(tmp_path)
+
+
+def test_vault_moved_away_yields_a_change(tmp_path):
+    # A vanished vault must reach the indexer, whose guard then warns
+    # (vault-hardening.24): watchfiles reports only the root, as ".".
+    import threading
+    import time
+
+    root = tmp_path / "vault"
+    root.mkdir()
+    (root / "a.md").write_text("x")
+    stop = threading.Event()
+
+    def move():
+        time.sleep(0.5)
+        root.rename(tmp_path / "away")
+        time.sleep(1.0)
+        stop.set()
+
+    threading.Thread(target=move, daemon=True).start()
+    batches = list(FilesystemVault(root).changes(stop_event=stop))
+    assert batches and all(batches)

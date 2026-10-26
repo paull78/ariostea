@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Sequence
+import threading
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
-from ariostea.adapters.vault.rule import is_note
+from watchfiles import watch
+
+from ariostea.adapters.vault.rule import is_note, may_hold_notes
 from ariostea.ports.vault import NoteFile, NoteUnreadable, Vault, VaultUnavailable
 
 
@@ -54,3 +57,21 @@ class FilesystemVault(Vault):
         except OSError as exc:
             raise NoteUnreadable(path, exc.strerror or str(exc)) from exc
         return NoteFile(path=path, text=text, mtime=mtime)
+
+    def changes(self, stop_event: threading.Event | None = None) -> Iterator[frozenset[str]]:
+        # watchfiles reports real paths; the root may be reached through a link.
+        root = os.path.realpath(self._root)
+        for events in watch(root, stop_event=stop_event):
+            batch = frozenset(
+                rel
+                for rel in (self._relative(path, root) for _, path in events)
+                if may_hold_notes(rel, self._ignore)
+            )
+            if batch:
+                yield batch
+
+    @staticmethod
+    def _relative(path: str, root: str) -> str:
+        rel = os.path.relpath(path, root)
+        # The root itself, or something above it, changed: the whole vault.
+        return "." if rel.startswith("..") else Path(rel).as_posix()

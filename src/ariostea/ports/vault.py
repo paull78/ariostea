@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
@@ -49,4 +51,11 @@ class Vault(Protocol):
     def read(self, path: str) -> NoteFile:
         """The note at `path`. Raises NoteUnreadable, also for a path that is
         not a note of this vault."""
+        ...
+
+    def changes(self, stop_event: threading.Event | None = None) -> Iterator[frozenset[str]]:
+        """Block, yielding a batch of vault-relative paths each time something
+        that may hold notes changes ("." is the vault itself). Changes that
+        cannot touch a note, such as `.obsidian/` churn, yield nothing; a
+        batch is never empty. Ends when `stop_event` is set."""
         ...

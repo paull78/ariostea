@@ -8,7 +8,7 @@ import typer
 
 from ariostea.config.container import build_container
 from ariostea.config.schema import ConfigError, load_config
-from ariostea.indexing.watch_vault import WatchVault
+from ariostea.domain.models import IndexReport
 from ariostea.mcp.handlers import reindex_payload, status_payload
 from ariostea.mcp.server import build_server, resolve_transport
 from ariostea.ports.vault import VaultUnavailable
@@ -29,6 +29,16 @@ def _one_line_errors() -> Iterator[None]:
         yield
     except (ConfigError, VaultUnavailable) as exc:
         raise _fail(str(exc)) from None
+
+
+def _print_warning(message: str) -> None:
+    typer.echo(f"warning: {message}", err=True)
+
+
+def _print_pass(report: IndexReport) -> None:
+    """One line for a pass that changed the index, nothing for one that did not."""
+    if report.embedded or report.deleted:
+        typer.echo(f"+{len(report.embedded)} updated, -{len(report.deleted)} deleted")
 
 
 @app.command()
@@ -63,7 +73,7 @@ def reindex(config: str = typer.Option("ariostea.toml", help="Path to config fil
     if "error" in result:
         raise _fail(result["error"])
     for skip in result["skipped"]:
-        typer.echo(f"warning: skipped {skip['path']}: {skip['reason']}", err=True)
+        _print_warning(f"skipped {skip['path']}: {skip['reason']}")
     typer.echo(
         f"Indexed {result['notes']} notes, {result['chunks']} chunks, "
         f"{len(result['skipped'])} skipped."
@@ -77,7 +87,7 @@ def watch(config: str = typer.Option("ariostea.toml", help="Path to config file"
         container = build_container(load_config(config))
         vault = os.path.expanduser(container.config.vault.path)
         typer.echo(f"Indexing and watching {vault} (Ctrl-C to stop)...")
-        WatchVault(container.indexer, vault).run()
+        container.watcher.run(on_report=_print_pass, on_warning=_print_warning)
 
 
 @app.command()
