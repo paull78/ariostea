@@ -2,6 +2,7 @@ from ariostea.adapters.chunk.heading_aware import HeadingAwareChunker
 from ariostea.adapters.contextualize.noop import NoopContextualizer
 from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
 from ariostea.adapters.store.sqlite_store import SqliteStore
+from ariostea.adapters.vault.filesystem import FilesystemVault
 from ariostea.domain.models import ContextualizedChunk
 from ariostea.indexing.index_vault import IndexVault
 from ariostea.ports.pipeline import Contextualizer
@@ -44,8 +45,13 @@ class TitleStubContextualizer(Contextualizer):
 def _index(vault, db_path, contextualizer):
     store = SqliteStore(path=str(db_path), dim=2)
     IndexVault(
-        ObsidianMarkdownParser(), HeadingAwareChunker(), FakeEmbed(), store, contextualizer
-    ).index(vault, ignore=[])
+        ObsidianMarkdownParser(),
+        HeadingAwareChunker(),
+        FakeEmbed(),
+        store,
+        contextualizer,
+        vault=FilesystemVault(vault),
+    ).index()
     return store
 
 

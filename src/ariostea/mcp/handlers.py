@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING
 
 from ariostea.domain.models import Query
 from ariostea.ports.store import IndexAdmin
+from ariostea.ports.vault import VaultUnavailable
 
 if TYPE_CHECKING:
     from ariostea.config.container import Container
@@ -21,9 +21,17 @@ def status_payload(admin: IndexAdmin) -> dict:
 
 
 def reindex_payload(container: "Container") -> dict:
-    vault_path = os.path.expanduser(container.config.vault.path)
-    stats = container.indexer.index(vault_path, ignore=container.config.vault.ignore)
-    return {"notes": stats.notes, "chunks": stats.chunks}
+    """Index the vault. A vault that cannot be trusted comes back as
+    `{"error": ...}` with the index left as it was."""
+    try:
+        report = container.indexer.index()
+    except VaultUnavailable as exc:
+        return {"error": str(exc)}
+    return {
+        "notes": report.notes,
+        "chunks": report.chunks,
+        "skipped": [{"path": path, "reason": reason} for path, reason in report.skipped],
+    }
 
 
 def search_payload(container: "Container", query: str, k: int = 10) -> dict:

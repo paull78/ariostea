@@ -40,7 +40,12 @@ def reindex(config: str = typer.Option("ariostea.toml", help="Path to config fil
     """Index the vault once and exit."""
     container = build_container(load_config(config))
     result = reindex_payload(container)
-    typer.echo(f"Indexed {result['notes']} notes, {result['chunks']} chunks.")
+    for skip in result["skipped"]:
+        typer.echo(f"warning: skipped {skip['path']}: {skip['reason']}", err=True)
+    typer.echo(
+        f"Indexed {result['notes']} notes, {result['chunks']} chunks, "
+        f"{len(result['skipped'])} skipped."
+    )
 
 
 @app.command()
@@ -49,7 +54,7 @@ def watch(config: str = typer.Option("ariostea.toml", help="Path to config file"
     container = build_container(load_config(config))
     vault = os.path.expanduser(container.config.vault.path)
     typer.echo(f"Indexing and watching {vault} (Ctrl-C to stop)...")
-    WatchVault(container.indexer, vault, ignore=container.config.vault.ignore).run()
+    WatchVault(container.indexer, vault).run()
 
 
 @app.command()

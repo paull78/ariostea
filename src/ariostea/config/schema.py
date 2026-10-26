@@ -9,7 +9,7 @@ from pydantic import BaseModel, model_validator
 
 class VaultCfg(BaseModel):
     path: str
-    ignore: list[str] = [".obsidian/"]
+    ignore: list[str] = []
 
 
 class EmbeddingCfg(BaseModel):

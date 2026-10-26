@@ -1,7 +1,12 @@
+import pytest
+
 from ariostea.adapters.chunk.heading_aware import HeadingAwareChunker
 from ariostea.adapters.contextualize.noop import NoopContextualizer
 from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
+from ariostea.adapters.vault.filesystem import FilesystemVault
+from ariostea.adapters.vault.memory import InMemoryVault
 from ariostea.indexing.index_vault import IndexVault
+from ariostea.ports.vault import VaultUnavailable
 
 
 class FakeEmbed:
@@ -41,7 +46,8 @@ class FakeStore:
     def stats(self):
         from ariostea.domain.models import IndexStats
 
-        return IndexStats(len(self.notes), 0, 0.0, self._fp)
+        chunks = sum(len(c) for _, c, _ in self.notes.values())
+        return IndexStats(len(self.notes), chunks, 0.0, self._fp)
 
     def fingerprint(self):
         return self._fp
@@ -50,112 +56,98 @@ class FakeStore:
         self._fp = value
 
 
-def test_index_vault_indexes_each_note(tmp_path):
-    (tmp_path / "a.md").write_text("# A\nalpha content here")
-    (tmp_path / "b.md").write_text("# B\nbeta content here")
-
-    embed, store = FakeEmbed(), FakeStore()
-    indexer = IndexVault(
+def _indexer(vault, embed=None, store=None, chunker=None, contextualizer=None):
+    return IndexVault(
         parser=ObsidianMarkdownParser(),
-        chunker=HeadingAwareChunker(),
-        embeddings=embed,
-        store=store,
-        contextualizer=NoopContextualizer(),
+        chunker=chunker or HeadingAwareChunker(),
+        embeddings=embed or FakeEmbed(),
+        store=store if store is not None else FakeStore(),
+        contextualizer=contextualizer or NoopContextualizer(),
+        vault=vault,
     )
-    stats = indexer.index(tmp_path, ignore=[])
+
+
+def _two_notes():
+    return InMemoryVault({"a.md": "# A\nalpha content here", "b.md": "# B\nbeta content here"})
+
+
+def test_index_vault_indexes_each_note():
+    embed, store = FakeEmbed(), FakeStore()
+    report = _indexer(_two_notes(), embed, store).index()
 
     assert set(store.notes) == {"a.md", "b.md"}
-    assert stats.notes == 2
+    assert report.notes == 2
+    assert report.chunks == 2
     # embeddings were requested for the chunk text
     assert any("alpha content here" in t for t in embed.seen)
     # fingerprint recorded so later runs can detect model changes
     assert store.fingerprint() == "fake:v1|noop"  # combined embeddings|contextualizer
 
 
-def test_embedding_text_defaults_to_chunk_text(tmp_path):
-    (tmp_path / "a.md").write_text("# A\nplain text")
+def test_embedding_text_defaults_to_chunk_text():
     store = FakeStore()
-    IndexVault(
-        ObsidianMarkdownParser(), HeadingAwareChunker(), FakeEmbed(), store, NoopContextualizer()
-    ).index(tmp_path, ignore=[])
+    _indexer(InMemoryVault({"a.md": "# A\nplain text"}), store=store).index()
     _, chunks, _ = store.notes["a.md"]
     assert chunks[0].context_blurb is None
     assert chunks[0].embedding_text == chunks[0].chunk.text
 
 
-def test_index_removes_notes_deleted_from_disk(tmp_path):
-    (tmp_path / "a.md").write_text("# A\nalpha content here")
-    (tmp_path / "b.md").write_text("# B\nbeta content here")
-
-    embed, store = FakeEmbed(), FakeStore()
-    indexer = IndexVault(
-        parser=ObsidianMarkdownParser(),
-        chunker=HeadingAwareChunker(),
-        embeddings=embed,
-        store=store,
-        contextualizer=NoopContextualizer(),
-    )
-    indexer.index(tmp_path, ignore=[])
+def test_index_removes_notes_deleted_from_disk():
+    vault, store = _two_notes(), FakeStore()
+    indexer = _indexer(vault, store=store)
+    indexer.index()
     assert set(store.notes) == {"a.md", "b.md"}
 
-    # delete b.md from disk and reindex
-    (tmp_path / "b.md").unlink()
-    stats = indexer.index(tmp_path, ignore=[])
+    del vault.files["b.md"]
+    report = indexer.index()
     assert set(store.notes) == {"a.md"}
-    assert stats.notes == 1
+    assert report.notes == 1
 
 
-def test_index_skips_unchanged_notes_on_reindex(tmp_path):
-    (tmp_path / "a.md").write_text("# A\nalpha content here")
-    (tmp_path / "b.md").write_text("# B\nbeta content here")
+def test_index_skips_unchanged_notes_on_reindex():
     embed, store = FakeEmbed(), FakeStore()
-    indexer = IndexVault(
-        ObsidianMarkdownParser(),
-        HeadingAwareChunker(),
-        embed,
-        store,
-        NoopContextualizer(),
-    )
-    indexer.index(tmp_path, ignore=[])
+    indexer = _indexer(_two_notes(), embed, store)
+    indexer.index()
 
-    # Second run, nothing changed on disk: no text should be re-embedded.
+    # Second run, nothing changed: no text should be re-embedded.
     embed.seen.clear()
-    stats = indexer.index(tmp_path, ignore=[])
+    report = indexer.index()
     assert embed.seen == []
     assert set(store.notes) == {"a.md", "b.md"}  # unchanged notes are kept, not swept
-    assert stats.notes == 2
+    assert report.notes == 2
+    assert report.embedded == ()
 
 
-def test_index_reembeds_only_the_changed_note(tmp_path):
-    (tmp_path / "a.md").write_text("# A\nalpha content here")
-    (tmp_path / "b.md").write_text("# B\nbeta content here")
-    embed, store = FakeEmbed(), FakeStore()
-    indexer = IndexVault(
-        ObsidianMarkdownParser(),
-        HeadingAwareChunker(),
-        embed,
-        store,
-        NoopContextualizer(),
-    )
-    indexer.index(tmp_path, ignore=[])
+def test_index_reembeds_only_the_changed_note():
+    vault, embed = _two_notes(), FakeEmbed()
+    indexer = _indexer(vault, embed)
+    indexer.index()
 
-    (tmp_path / "a.md").write_text("# A\nalpha content CHANGED now")
+    vault.files["a.md"] = "# A\nalpha content CHANGED now"
     embed.seen.clear()
-    indexer.index(tmp_path, ignore=[])
+    indexer.index()
     assert any("CHANGED" in t for t in embed.seen)  # changed note re-embedded
     assert not any("beta" in t for t in embed.seen)  # unchanged note skipped
 
 
-def test_index_reembeds_all_when_fingerprint_changes(tmp_path):
-    (tmp_path / "a.md").write_text("# A\nalpha content here")
-    embed, store = FakeEmbed(), FakeStore()
-    IndexVault(
-        ObsidianMarkdownParser(),
-        HeadingAwareChunker(),
-        embed,
-        store,
-        NoopContextualizer(),
-    ).index(tmp_path, ignore=[])
+def test_report_lists_embedded_and_deleted():
+    vault = _two_notes()
+    indexer = _indexer(vault)
+    first = indexer.index()
+    assert first.embedded == ("a.md", "b.md")
+    assert first.deleted == ()
+
+    vault.files["a.md"] = "# A\nedited"
+    del vault.files["b.md"]
+    second = indexer.index()
+    assert second.embedded == ("a.md",)
+    assert second.deleted == ("b.md",)
+    assert second.skipped == ()
+
+
+def test_index_reembeds_all_when_fingerprint_changes():
+    vault, store = InMemoryVault({"a.md": "# A\nalpha content here"}), FakeStore()
+    _indexer(vault, store=store).index()
 
     # Simulate a model swap: same content, different fingerprint -> must re-embed.
     class FakeEmbed2(FakeEmbed):
@@ -164,17 +156,11 @@ def test_index_reembeds_all_when_fingerprint_changes(tmp_path):
             return "fake:v2"
 
     embed2 = FakeEmbed2()
-    IndexVault(
-        ObsidianMarkdownParser(),
-        HeadingAwareChunker(),
-        embed2,
-        store,
-        NoopContextualizer(),
-    ).index(tmp_path, ignore=[])
+    _indexer(vault, embed2, store).index()
     assert any("alpha" in t for t in embed2.seen)  # re-embedded despite unchanged content
 
 
-def test_contextualizer_output_flows_to_store(tmp_path):
+def test_contextualizer_output_flows_to_store():
     from ariostea.domain.models import ContextualizedChunk
     from ariostea.ports.pipeline import Contextualizer
 
@@ -191,11 +177,9 @@ def test_contextualizer_output_flows_to_store(tmp_path):
         def fingerprint(self):
             return "titlectx"
 
-    (tmp_path / "a.md").write_text("# Topic\nbody text")
     store = FakeStore()
-    IndexVault(
-        ObsidianMarkdownParser(), HeadingAwareChunker(), FakeEmbed(), store, TitleCtx()
-    ).index(tmp_path, ignore=[])
+    vault = InMemoryVault({"a.md": "# Topic\nbody text"})
+    _indexer(vault, store=store, contextualizer=TitleCtx()).index()
 
     _, chunks, _ = store.notes["a.md"]
     assert chunks[0].context_blurb == "Topic"
@@ -203,7 +187,7 @@ def test_contextualizer_output_flows_to_store(tmp_path):
     assert store.fingerprint() == "fake:v1|titlectx"  # contextualizer in the fingerprint
 
 
-def test_index_reembeds_when_contextualizer_changes(tmp_path):
+def test_index_reembeds_when_contextualizer_changes():
     from ariostea.domain.models import ContextualizedChunk
     from ariostea.ports.pipeline import Contextualizer
 
@@ -218,57 +202,129 @@ def test_index_reembeds_when_contextualizer_changes(tmp_path):
         def fingerprint(self):
             return "stub"
 
-    (tmp_path / "a.md").write_text("# A\nalpha content here")
+    vault = InMemoryVault({"a.md": "# A\nalpha content here"})
     embed, store = FakeEmbed(), FakeStore()
     # First index with Noop (combined fingerprint "fake:v1|noop").
-    IndexVault(
-        ObsidianMarkdownParser(),
-        HeadingAwareChunker(),
-        embed,
-        store,
-        NoopContextualizer(),
-    ).index(tmp_path, ignore=[])
+    _indexer(vault, embed, store).index()
 
     # Same content, different contextualizer -> combined fingerprint changes -> re-embed.
     embed.seen.clear()
-    IndexVault(ObsidianMarkdownParser(), HeadingAwareChunker(), embed, store, StubCtx()).index(
-        tmp_path, ignore=[]
-    )
+    _indexer(vault, embed, store, contextualizer=StubCtx()).index()
     assert any("alpha" in t for t in embed.seen)  # re-embedded despite unchanged content
     assert store.fingerprint() == "fake:v1|stub"
 
 
-def _indexer(embed, store, chunker):
-    return IndexVault(
-        parser=ObsidianMarkdownParser(),
-        chunker=chunker,
-        embeddings=embed,
-        store=store,
-        contextualizer=NoopContextualizer(),
-    )
-
-
-def test_the_default_chunker_leaves_the_stored_fingerprint_as_it_was(tmp_path):
+def test_the_default_chunker_leaves_the_stored_fingerprint_as_it_was():
     # An index built before chunking was configurable stored "emb|ctx". The
     # default policy must reproduce that string exactly, or every existing
     # vault is forced into a full reindex on upgrade for no reason.
-    (tmp_path / "a.md").write_text("# A\nalpha")
     store = FakeStore()
-    _indexer(FakeEmbed(), store, HeadingAwareChunker()).index(tmp_path)
+    _indexer(InMemoryVault({"a.md": "# A\nalpha"}), store=store).index()
     assert store.fingerprint() == "fake:v1|noop"
 
 
-def test_a_chunking_change_rechunks_unchanged_notes(tmp_path):
+def test_a_chunking_change_rechunks_unchanged_notes():
     # Same content, new chunking policy: the stored chunks are stale and must
     # be rebuilt, even though no note's hash changed.
-    (tmp_path / "a.md").write_text("# A\n" + " ".join(f"w{i}" for i in range(40)))
+    vault = InMemoryVault({"a.md": "# A\n" + " ".join(f"w{i}" for i in range(40))})
     embed, store = FakeEmbed(), FakeStore()
-    _indexer(embed, store, HeadingAwareChunker()).index(tmp_path)
+    _indexer(vault, embed, store).index()
     assert len(store.notes["a.md"][1]) == 1
 
-    _indexer(embed, store, HeadingAwareChunker(max_tokens=10)).index(tmp_path)
+    _indexer(vault, embed, store, chunker=HeadingAwareChunker(max_tokens=10)).index()
     assert len(store.notes["a.md"][1]) > 1
     assert "chunk:heading_aware:10" in store.fingerprint()
+
+
+# --- guards: a vault that cannot be trusted never empties the index (AC-01, AC-02)
+
+
+def test_missing_vault_raises_and_keeps_the_index():
+    vault, store = _two_notes(), FakeStore()
+    indexer = _indexer(vault, store=store)
+    indexer.index()
+    before = dict(store.notes)
+
+    vault.available = False
+    with pytest.raises(VaultUnavailable):
+        indexer.index()
+    assert store.notes == before
+
+
+def test_empty_vault_with_notes_in_index_raises_and_keeps_the_index():
+    vault, store = _two_notes(), FakeStore()
+    indexer = _indexer(vault, store=store)
+    indexer.index()
+    before = dict(store.notes)
+
+    vault.files.clear()
+    with pytest.raises(VaultUnavailable) as err:
+        indexer.index()
+    assert "2" in str(err.value)  # says how many notes the index holds
+    assert store.notes == before
+
+
+def test_empty_vault_on_empty_index_indexes_zero():
+    store = FakeStore()
+    report = _indexer(InMemoryVault({}), store=store).index()
+    assert report.notes == 0
+    assert store.fingerprint() == "fake:v1|noop"
+
+
+# --- unreadable notes are skipped, named, and keep what they had (AC-04)
+
+
+def test_unreadable_note_is_skipped_and_reported():
+    vault = InMemoryVault(
+        {"a.md": "# A\nalpha", "bad.md": "caff\xe8".encode("latin-1"), "c.md": "# C\ngamma"}
+    )
+    store = FakeStore()
+    report = _indexer(vault, store=store).index()
+
+    assert set(store.notes) == {"a.md", "c.md"}
+    assert [path for path, _ in report.skipped] == ["bad.md"]
+    assert "UTF-8" in report.skipped[0][1]
+
+
+def test_unreadable_note_keeps_its_earlier_chunks():
+    vault, store = _two_notes(), FakeStore()
+    indexer = _indexer(vault, store=store)
+    indexer.index()
+    before = store.notes["b.md"]
+
+    vault.files["b.md"] = b"\xff\xfe broken"
+    report = indexer.index()
+    assert store.notes["b.md"] == before
+    assert [path for path, _ in report.skipped] == ["b.md"]
+    assert "b.md" not in report.deleted
+
+
+# --- the vault's rules reach the index (AC-05, AC-09)
+
+
+def test_bom_frontmatter_is_not_indexed():
+    store = FakeStore()
+    vault = InMemoryVault({"n.md": "﻿---\ntitle: Hidden\ntags: [x]\n---\nbody text\n"})
+    _indexer(vault, store=store).index()
+
+    note, chunks, _ = store.notes["n.md"]
+    assert note.title == "n"
+    assert note.frontmatter["title"] == "Hidden"  # read as frontmatter, not body
+    assert all("title:" not in c.chunk.text for c in chunks)
+
+
+def test_excluded_notes_leave_the_index():
+    # An index built before the dot rule holds a note from .trash.
+    store = FakeStore()
+    _indexer(InMemoryVault({"x.md": "# X\nold"}), store=store).index()
+    store.notes[".trash/x.md"] = store.notes.pop("x.md")
+
+    report = _indexer(_two_notes(), store=store).index()
+    assert ".trash/x.md" not in store.notes
+    assert report.deleted == (".trash/x.md",)
+
+
+# --- real files and the real store
 
 
 class _SizedEmbed:
@@ -307,9 +363,7 @@ def test_reindexing_with_a_model_of_another_size_replaces_every_vector(tmp_path)
 
     def index_with(embed):
         store = SqliteStore(path=db, dim=embed.dimension)
-        IndexVault(
-            ObsidianMarkdownParser(), HeadingAwareChunker(), embed, store, NoopContextualizer()
-        ).index(vault, ignore=[])
+        _indexer(FilesystemVault(vault), embed, store).index()
         return store
 
     first = index_with(_SizedEmbed(2, "fake:v1"))
@@ -336,14 +390,19 @@ def test_reindexing_an_old_index_with_a_new_model_succeeds(tmp_path, old_index):
     old_index(db, dim=2)
 
     store = SqliteStore(path=db, dim=3)
-    IndexVault(
-        ObsidianMarkdownParser(),
-        HeadingAwareChunker(),
-        _SizedEmbed(3, "fake:v2"),
-        store,
-        NoopContextualizer(),
-    ).index(vault, ignore=[])
+    _indexer(FilesystemVault(vault), _SizedEmbed(3, "fake:v2"), store).index()
 
     sizes = {row[0] for row in store.db.execute("SELECT vec_length(embedding) FROM chunks_vec")}
     assert sizes == {3}
     assert [h.chunk.note_path for h in store.sparse("strings", k=5)] == ["a.md"]
+
+
+def test_a_note_emptied_of_chunks_leaves_the_index():
+    vault, store = _two_notes(), FakeStore()
+    indexer = _indexer(vault, store=store)
+    indexer.index()
+
+    vault.files["b.md"] = ""
+    report = indexer.index()
+    assert "b.md" not in store.notes
+    assert report.deleted == ("b.md",)

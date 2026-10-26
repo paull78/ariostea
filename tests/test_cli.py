@@ -16,9 +16,8 @@ def test_watch_command_builds_container_and_runs_watcher(monkeypatch, tmp_path):
     recorded = {}
 
     class FakeWatchVault:
-        def __init__(self, indexer, root, ignore=()):
+        def __init__(self, indexer, root):
             recorded["root"] = root
-            recorded["ignore"] = list(ignore)
 
         def run(self, stop_event=None):
             recorded["ran"] = True
@@ -30,7 +29,27 @@ def test_watch_command_builds_container_and_runs_watcher(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert recorded["ran"] is True
     assert recorded["root"] == str(tmp_path)
-    assert recorded["ignore"] == [".obsidian/"]
+
+
+def test_reindex_cli_prints_skipped_warnings_and_count(monkeypatch):
+    payload = {
+        "notes": 3,
+        "chunks": 9,
+        "skipped": [
+            {"path": "bad.md", "reason": "not UTF-8 text"},
+            {"path": "locked.md", "reason": "permission denied"},
+        ],
+    }
+    monkeypatch.setattr(cli, "load_config", lambda path: None)
+    monkeypatch.setattr(cli, "build_container", lambda cfg: object())
+    monkeypatch.setattr(cli, "reindex_payload", lambda container: payload)
+
+    result = CliRunner().invoke(cli.app, ["reindex", "--config", "x.toml"])
+
+    assert result.exit_code == 0
+    assert result.stdout == "Indexed 3 notes, 9 chunks, 2 skipped.\n"
+    assert "skipped bad.md: not UTF-8 text" in result.stderr
+    assert "skipped locked.md: permission denied" in result.stderr
 
 
 def test_serve_http_runs_streamable_transport(monkeypatch):

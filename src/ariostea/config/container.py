@@ -17,6 +17,7 @@ from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
 from ariostea.adapters.rerank.fastembed_rerank import FastEmbedReranker
 from ariostea.adapters.rerank.noop import NoopReranker
 from ariostea.adapters.store.sqlite_store import SqliteStore
+from ariostea.adapters.vault.filesystem import FilesystemVault
 from ariostea.config.schema import ChunkingCfg, Config, ContextualCfg, EmbeddingCfg, RerankCfg
 from ariostea.indexing.index_vault import IndexVault
 from ariostea.ports.chat import ChatProvider
@@ -148,6 +149,7 @@ def build_container(
         embeddings=embeddings,
         store=store,
         contextualizer=_build_contextualizer(config.contextual, wrap_chat=wrap_chat),
+        vault=FilesystemVault(config.vault.path, ignore=config.vault.ignore),
     )
     searcher = SearchKnowledge(
         embeddings=embeddings,

@@ -201,3 +201,11 @@ def test_lowering_max_tokens_below_the_default_overlap_says_what_to_do():
 
     with pytest.raises(ValidationError, match="overlap .64. .*set overlap"):
         ChunkingCfg(max_tokens=32)
+
+
+def test_vault_ignore_defaults_to_nothing(tmp_path):
+    # Dot-folders such as .obsidian are left out by the vault itself;
+    # `ignore` only adds prefixes (vault-hardening.06).
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text('[vault]\npath = "~/Vault"\n')
+    assert load_config(cfg_file).vault.ignore == []

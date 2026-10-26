@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 from watchfiles import watch as _default_watch
@@ -20,15 +20,13 @@ class WatchVault:
         self,
         indexer: IndexVault,
         root: str | Path,
-        ignore: Sequence[str] = (),
         watch_fn: WatchFn = _default_watch,
     ) -> None:
         self._indexer = indexer
         self._root = root
-        self._ignore = tuple(ignore)
         self._watch_fn = watch_fn
 
     def run(self, stop_event: object | None = None) -> None:
-        self._indexer.index(self._root, ignore=self._ignore)  # initial sync
+        self._indexer.index()  # initial sync
         for _changes in self._watch_fn(self._root, stop_event=stop_event):
-            self._indexer.index(self._root, ignore=self._ignore)
+            self._indexer.index()

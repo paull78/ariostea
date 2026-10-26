@@ -171,7 +171,7 @@ def _contextual(granularity: str) -> ContextualCfg:
 
 
 def _note_queue() -> list[tuple[str, int]]:
-    """(note_path, chunk_count) for every note under WIKI, in `scan_vault`'s
+    """(note_path, chunk_count) for every note under WIKI, in the vault's
     sort order -- the order `IndexVault.index` reaches them once the whole
     corpus is freshly indexed, which is what happens after `_move_aside`
     empties the store. Used only to label `NoteProgressChat`'s lines; a

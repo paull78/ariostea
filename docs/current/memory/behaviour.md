@@ -54,3 +54,7 @@ Supersedes vault-hardening.11 for the output mode. Progress is one plain mode ev
 ### vault-hardening.18 · discovery · 2026-10-26 · self-review
 Checked on this Mac: `watchfiles.watch` survives its root folder being deleted and recreated. Deleting the folder yields one batch (`added vault`, `deleted vault`), recreating it and adding `b.md` yields `added b.md`, and later changes keep arriving. So a vanished vault reaches `WatchVault` as an ordinary pass whose guard fails (vault-hardening.03), and the watcher carries on. Linux uses inotify, which drops a watch on a deleted folder; not checked, and the project runs on macOS.
 **Why:** resolves the open point in vault-hardening.03 before Gate 0.
+
+### vault-hardening.21 · discovery · 2026-10-26 · step 02
+The delete sweep removes every stored note not marked seen in the pass, and a note that now yields no chunks is never marked: emptying a note removes it from the index. A first rewrite swept against the vault's note list instead, which would have kept an emptied note's old chunks; `test_a_note_emptied_of_chunks_leaves_the_index` pins the behaviour. Seen = unchanged, re-embedded, or skipped as unreadable.
+**Why:** the old loop's `seen` set carried this rule implicitly, and any refactor of the loop can drop it without a failing test.

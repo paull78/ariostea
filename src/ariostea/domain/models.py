@@ -89,3 +89,15 @@ class IndexStats:
     chunks: int
     last_indexed: float
     config_fingerprint: str
+
+
+@dataclass(frozen=True)
+class IndexReport:
+    """What one indexing pass did. `notes` and `chunks` count the whole index
+    afterwards; `skipped` pairs each unreadable path with the reason."""
+
+    notes: int
+    chunks: int
+    embedded: tuple[str, ...]
+    deleted: tuple[str, ...]
+    skipped: tuple[tuple[str, str], ...]
