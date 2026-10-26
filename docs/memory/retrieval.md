@@ -51,3 +51,11 @@ The default chunk size becomes 256 model tokens with overlap 64. bge-m3's HYBRID
 ### bge-m3-default.08 · discovery · 2026-10-13 · step 05
 With bge-m3 as the default, the full suite takes 22 min 46 s against about 12 minutes before, because the integration tests that build the default container now embed with the larger model; the fast suite is unchanged at under a second. `test_old_model_run_ids_carry_its_slug` passed before the switch: naming a model's slug in the run id was built in the embedding-sweep cycle, and the test guards it now that the old model is the one that needs naming. Hard-coded references to the old model that stay on purpose: `CONTROL` in the adapter tests (a model without prefixes), `eval/run_eval.py`, `eval/run_contextual_eval.py` and their integration tests (older eval sets with their own pinned model), and the blurb experiment's control run ids.
 **Why:** records the cost of the switch on the test loop and why the remaining references are not stale.
+
+### setup.05 · discovery · 2026-10-06 · contextual retrieval
+Contextual indexing was measured twice on the wiki set and both fail the decision rule with the reranker on: one LLM blurb per note (hybrid 0.880 to 0.844, or 0.814 with `rerank.use_context`) and Anthropic-style per-chunk context (0.850, or 0.856). Per-chunk context lifts the first stage (dense and fused +0.036) but the reranker already recovers what it adds. Both stay off; the plumbing stays in code. Full write-up in `docs/retrieval-tuning.md`.
+**Why:** moved from auto-memory at setup; stops either idea being proposed again without a new reason (no reranker, a stronger model, a cross-lingual-aware prompt).
+
+### setup.06 · discovery · 2026-10-06 · contextual retrieval
+Machine facts from the per-chunk context runs on this 48 GB Mac: qwen2.5-14b at a 32k context ran the GPU out of memory and panicked the kernel twice; `qwen2.5-7b-instruct` (mlx 4-bit) ran all 4,246 wiki chunks in 3.5 hours with no crash. LM Studio reuses the cached article prefix only when loaded with `lms load ... --parallel 1`. The overnight launcher is `eval/run_chunk_context_overnight.sh`.
+**Why:** moved from auto-memory at setup; any future local LLM batch job on this machine starts from these limits.
