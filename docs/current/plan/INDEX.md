@@ -26,3 +26,4 @@ The README is honest about first-run setup, ARCHITECTURE.md shows the Vault port
 - [ ] 10 Awkward-vault end-to-end test     (needs 04, 05, 06, 07, 08)  ∥ 09
 
 ## Notes
+- 2026-10-26 · plan updated: step 10 fixture adds a note with a 20,000-character base64 image, plus a test that it indexes within budget · see vault-hardening.22

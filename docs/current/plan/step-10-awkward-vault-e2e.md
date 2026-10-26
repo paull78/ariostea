@@ -1,12 +1,12 @@
 # Step 10 · Awkward-vault end-to-end test
 
-**Milestone:** 4 · **Needs:** 04, 05, 06, 07, 08 · **Covers:** AC-20, AC-16 (stdio clause)
+**Milestone:** 4 · **Needs:** 04, 05, 06, 07, 08 · **Covers:** AC-20, AC-16 (stdio clause), AC-07 and AC-08 end to end
 
 ## Goal
 The 54-note synthetic vault from the usability assessment is a permanent integration test that drives `reindex`, `watch` and every MCP tool.
 
 ## Files touched
-- `tests/fixtures/awkward_vault.py` (new): `build(root: Path) -> Path`, ported from `docs/current/assets/make_vault.py` (no module-level side effects, writes under the given root, symlink target inside the root's parent).
+- `tests/fixtures/awkward_vault.py` (new): `build(root: Path) -> Path`, ported from `docs/current/assets/make_vault.py` (no module-level side effects, writes under the given root, symlink target inside the root's parent). Adds one note the assets lack (vault-hardening.22): `Clips/Web clip with image.md`, an ordinary note with a heading, a paragraph holding a unique marker word, an inline `![](data:image/png;base64,...)` image whose base64 run is about 20,000 characters with no whitespace, and a closing paragraph.
 - `tests/fixtures/awkward_queries.py` (new): the known-answer queries from `docs/current/assets/q.py` with the expected note path.
 - `tests/test_awkward_vault.py` (new, `integration`).
 
@@ -15,6 +15,7 @@ The 54-note synthetic vault from the usability assessment is a permanent integra
 - `test_excluded_files_are_not_searchable`: `.git/notes.md`, `.trash/...`, Excalidraw content and the `.obsidian` plugin README are absent from `search_knowledge` and `search_sources` results for their unique marker strings.
 - `test_known_answer_queries_rank_first`: every query from `awkward_queries.py` ranks its note first through the MCP `search_knowledge` tool over stdio (`mcp` client, `uv run ariostea serve --config <temp>`).
 - `test_stdio_stdout_is_protocol_only_during_reindex` (AC-16): calling the MCP `reindex` tool produces no non-protocol bytes on the server's stdout (the client session stays valid and the call returns).
+- `test_long_base64_note_indexes_within_budget`: after `reindex`, every chunk of `Clips/Web clip with image.md` in the store has at most `chunking.max_tokens` model tokens, and its marker word ranks the note first.
 - `test_get_note_returns_files`: non-ASCII, emoji and CJK paths return the file text; `../../etc/passwd` returns `found: false`.
 - `test_watch_picks_up_an_edit`: `ariostea watch` in a subprocess; after an edit the new text is searchable within 10 s; stop by PID.
 
