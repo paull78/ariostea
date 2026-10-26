@@ -3,7 +3,9 @@
 
 [vault]
 path = "~/Library/Mobile Documents/iCloud~md~obsidian/Documents/My Vault"
-ignore = [".obsidian/", ".trash/"]
+# Files and folders starting with a dot (.obsidian/, .git/, .trash/) and *.excalidraw.md
+# drawings are always skipped. List extra path prefixes to skip, e.g. ["Templates/"].
+ignore = []
 
 [embedding]
 # Multilingual, 1024-dim: the best of four models measured in docs/retrieval-tuning.md.

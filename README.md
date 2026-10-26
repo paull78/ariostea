@@ -35,11 +35,11 @@ flowchart TB
     subgraph FD["🖥️ Frameworks & Drivers"]
         FDex["Typer CLI · FastMCP server · composition root"]
         subgraph IA["🔌 Interface Adapters — adapters/*"]
-            IAex["ObsidianMarkdownParser · SqliteStore · FastEmbedEmbeddings"]
+            IAex["FilesystemVault · ObsidianMarkdownParser · SqliteStore · FastEmbedEmbeddings"]
             subgraph UC["⚙️ Use Cases — indexing/ · search/"]
-                UCex["IndexVault · SearchKnowledge · SearchSources"]
+                UCex["IndexVault · WatchVault · SearchKnowledge · SearchSources · GetNote"]
                 subgraph PO["🧩 Ports — ports/* (abstractions)"]
-                    POex["EmbeddingProvider · ChunkRetriever · Fuser · Reranker"]
+                    POex["Vault · EmbeddingProvider · ChunkRetriever · Fuser · Reranker"]
                     DM["💎 Domain — domain/models.py<br/>Note · Chunk · Query · RetrievedChunk"]
                 end
             end
@@ -61,7 +61,8 @@ about anything outside it, and the outer shell knows about everything.
 
 What this buys:
 
-- The embedding model, store, fusion, reranking and contextualisation all sit behind ports.
+- The vault, the embedding model, store, fusion, reranking and contextualisation all sit
+  behind ports.
   Swapping the English embedding model for a multilingual one, or adding the whole BM25 + RRF
   + reranking stack, touched no use-case code.
 - Use cases run against in-memory fakes, so the fast test suite needs no SQLite file and no
@@ -80,10 +81,10 @@ flows, the config-fingerprint guard, and the reason for each ranking stage.
 | Tool               | Returns                                                            |
 | ------------------ | ----------------------------------------------------------------- |
 | `status`           | Index health: note and chunk counts, last index time, fingerprint. |
-| `reindex`          | (Re)indexes the configured vault and returns note and chunk counts. |
+| `reindex`          | (Re)indexes the configured vault and returns note and chunk counts and the files it skipped. |
 | `search_knowledge` | Most relevant passages with their source notes.                   |
 | `search_sources`   | Which notes a concept appears in: hit count, best score, snippets. |
-| `get_note`         | A full note's reconstructed text and title by vault-relative path. |
+| `get_note`         | A note's title and its text as written in the file, by vault-relative path, for notes the index holds. |
 
 ## Example
 
@@ -117,10 +118,10 @@ with hit counts, best score and snippets.
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-# 1. Configure — point at your vault
+# 1. Configure: point at your vault
 cp ariostea.example.toml ariostea.toml   # then edit [vault] path
 
-# 2. Build the index
+# 2. Build the index (the first run downloads the models, see First run)
 uv run ariostea reindex
 
 # 3. Run the stdio MCP server
@@ -132,13 +133,60 @@ uv run ariostea status                   # print index health
 uv run pytest -m "not integration"       # fast test suite
 ```
 
-Configuration lives in `ariostea.toml`. Only `[vault].path` is required, and every other
-value has a built-in default. [`ariostea.example.toml`](ariostea.example.toml) lists all
-options and defaults.
+Every command reads `ariostea.toml` from the current directory unless `--config` names
+another file. Only `[vault].path` is required, and every other value has a built-in default.
+[`ariostea.example.toml`](ariostea.example.toml) lists all options and defaults.
 
 After an upgrade that changes the embedding model or the chunking, run `uv run ariostea
 reindex` once. When the new model's vectors have a different size, the server answers from
-BM25 alone until that reindex.
+BM25 alone until that reindex. Fixes to how a note is cut into chunks (code fences, long
+unbroken strings such as inline images) apply to each note the next time it changes; for a
+full rebuild, delete the index file and run `reindex`.
+
+### First run
+
+The first run downloads about 3.2 GB of models: the `BAAI/bge-m3` embedding model (2.1 GB)
+and the `jina-reranker-v2-base-multilingual` reranker (1.1 GB). They go to
+`~/.cache/fastembed`, or to `FASTEMBED_CACHE_PATH` when it is set, and later runs load them
+from there.
+
+Run `uv run ariostea reindex` once from a terminal before connecting an MCP client. The
+download and the first index then happen where their progress shows. A client that starts the
+server on a fresh install waits for the download too, and may give up before it ends.
+
+`reindex` prints a progress line on stderr every 100 notes or every 10 seconds, a warning for
+each file it skipped, and a summary:
+
+```text
+38/50 notes · 34 embedded · 1 skipped
+50/50 notes · 46 embedded · 1 skipped
+warning: skipped Legacy/Vecchia nota latin1.md: not UTF-8 text
+Indexed 46 notes, 239 chunks, 1 skipped.
+```
+
+`watch` prints the same progress lines and warnings for its first pass, and one line for each
+pass that changed something, such as `+2 updated, -1 deleted`.
+
+### What gets indexed
+
+Every `.md` file in the vault, except:
+
+- files and folders whose name starts with a dot, at any depth: `.obsidian/`, `.git/`,
+  `.trash/`;
+- Excalidraw drawings, `*.excalidraw.md`;
+- paths that start with a prefix listed in `vault.ignore`, such as `"Templates/"`.
+
+A file that cannot be read (not UTF-8 text, permission denied) is skipped with a warning that
+names it, and the run carries on. If the vault folder is missing, or holds no notes while the
+index holds some (an iCloud vault not synced yet, the wrong folder), the command stops with
+an error and leaves the index as it was. To empty an index on purpose, delete the index file.
+
+### Memory and speed
+
+Measured on a Mac, on CPU: a running server holds about 5 GB of memory, and a search takes
+about 2.5 s. Nearly all of both is the reranker. With `rerank.enabled = false` the server
+holds 1.7 GB and a search takes about 20 ms, at a large cost in ranking quality (Trial 1
+below compares the two).
 
 ### Connecting an MCP client
 
@@ -147,6 +195,10 @@ For Claude Code or Claude Desktop, register the stdio server:
 ```bash
 claude mcp add ariostea -- uv run --directory /path/to/ariostea ariostea serve
 ```
+
+`--directory` makes uv run the server from the repository folder, where it finds the project
+and `ariostea.toml`. To keep the config somewhere else, add `--config /path/to/ariostea.toml`
+after `serve`.
 
 For HTTP clients, n8n for example, serve over Streamable HTTP instead of stdio:
 
@@ -238,7 +290,7 @@ then the same again with the reranker switched off.
 <img src="docs/images/chunking-sweep-hybrid.png" alt="Chunking sweep, hybrid span recall at k=5, shaded by change against the 512-word control" width="720">
 
 160 tokens with 40 of overlap was the only policy that passed the rule with the reranker and
-without it, and it is the default now. The hybrid gain is probably smaller than +0.048, since
+without it, and it became the default until Trial 4 moved to 256 tokens with 64. The hybrid gain is probably smaller than +0.048, since
 the neighbouring policies gained +0.006 to +0.018, so part of it is luck. Without the reranker
 the gain is large and steady, +0.06 to +0.09 for every policy, because the reranker had been
 absorbing most of the damage the word cap did. The change is a fix for silent truncation more
@@ -329,7 +381,8 @@ vectors itself, so `normalize` stays off. Hybrid span recall is 0.940, 157 of 16
 0.880 before the trial and 0.832 at the baseline. Cross-lingual is 0.891, 41 of 46.
 
 The cost is a larger model: a 2.27 GB download against 1 GB, about three times the indexing
-time, and 15 ms to embed a query against 5. With dense retrieval this strong, fusing in BM25
+time, and 15 ms to embed a query against 5. That figure is query embedding alone; a whole
+search, reranker included, takes about 2.5 s (see Memory and speed). With dense retrieval this strong, fusing in BM25
 now lowers the first stage on cross-lingual queries, and the reranker hides it. That, and the
 10 cases still missed, are the next things to look at.
 

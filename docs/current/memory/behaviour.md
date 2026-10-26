@@ -66,3 +66,7 @@ Measured after the split-to-fit change: a note with a 20,000-character base64 im
 ### vault-hardening.27 · discovery · 2026-10-26 · step 07
 The parser's old title pattern, `^#\s+(.+)$` with `re.MULTILINE`, could match across a line break: a line holding only `#` took the next line as the title. The shared `heading_lines` helper matches one line at a time, so that case now falls back to the file name, as it should. `test_real_title_above_code_wins` was born green: the old first-H1 search already found a title above the code. A note whose only `#` lines sit in a fence keeps its old wrong title until it is edited (vault-hardening.08, no fingerprint bump); the manual check needs a fresh store.
 **Why:** a small behaviour change outside the fence fix, and a trap for the gate's hands-on check.
+
+### vault-hardening.29 · discovery · 2026-10-26 · step 09
+Re-measured for the README on the 50-note scratch vault over stdio: a running server holds 4.5 GB after the first search and 5.1 GB after six more, and a search takes 2.3 to 3.0 s. With `rerank.enabled = false` the same server holds 1.7 GB and a search takes about 20 ms, so the reranker accounts for nearly all of both. The README says "about 5 GB" and "about 2.5 s", not the spec's 4.3 GB (vault-hardening.12), and adds the reranker-off figures.
+**Why:** step 09's note asked to re-measure before writing numbers; the hands-on figure was lower than what the server holds after a few searches. Rejected: keeping 4.3 GB to match the spec wording.
