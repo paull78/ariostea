@@ -23,9 +23,6 @@ class FakeReader:
     def note_titles(self, paths):
         return {p: p.upper() for p in paths}
 
-    def read_note(self, path):
-        return None
-
 
 def test_groups_chunks_by_note_with_counts_scores_snippets():
     chunks = [

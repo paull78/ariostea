@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from ariostea.domain.models import Progress, Query
+from ariostea.domain.models import NoteMissing, Progress, Query
 from ariostea.ports.store import IndexAdmin
 from ariostea.ports.vault import VaultUnavailable
 
@@ -70,7 +70,10 @@ def search_sources_payload(container: "Container", query: str, k: int = 10) -> d
 
 
 def get_note_payload(container: "Container", path: str) -> dict:
-    doc = container.reader.read_note(path)
-    if doc is None:
-        return {"found": False, "note_path": path}
-    return {"found": True, "note_path": doc.note_path, "title": doc.title, "text": doc.text}
+    result = container.notes.get(path)
+    if isinstance(result, NoteMissing):
+        payload: dict = {"found": False, "note_path": path}
+        if result.reason is not None:
+            payload["reason"] = result.reason
+        return payload
+    return {"found": True, "note_path": result.path, "title": result.title, "text": result.text}

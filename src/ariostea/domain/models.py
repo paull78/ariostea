@@ -77,10 +77,21 @@ class SourceHit:
 
 
 @dataclass(frozen=True)
-class NoteDocument:
-    note_path: str
+class NoteText:
+    """A note's file text as written, with its indexed title."""
+
+    path: str
     title: str
     text: str
+
+
+@dataclass(frozen=True)
+class NoteMissing:
+    """No note to return: not in the index (`reason` None), or indexed but
+    its file cannot be read now (`reason` says why)."""
+
+    path: str
+    reason: str | None
 
 
 @dataclass(frozen=True)

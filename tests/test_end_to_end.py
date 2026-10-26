@@ -78,3 +78,34 @@ def test_search_sources_and_get_note_end_to_end(tmp_path):
     assert "Vector databases" in note["text"]
 
     assert get_note_payload(container, path="does-not-exist.md")["found"] is False
+
+
+@pytest.mark.integration
+def test_get_note_returns_the_file_of_a_long_note(tmp_path):  # AC-12
+    # Long enough for overlapping windows: rebuilt from chunks, the text
+    # repeated every overlap and lost its line breaks and frontmatter.
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    text = (
+        "---\ntags: [history]\n---\n# Lighthouse\n\n"
+        + "\n\n".join(
+            f"Entry {i}: the keeper logged ships passing the strait, " + "and the weather " * 60
+            for i in range(10)
+        )
+        + "\n\n```text\n# not a heading\n```\n"
+    )
+    (vault / "long.md").write_text(text)
+
+    cfg = Config(
+        vault=VaultCfg(path=str(vault)),
+        store=StoreCfg(backend="sqlite", path=str(tmp_path / "index.db")),
+    )
+    container = build_container(cfg)
+    assert reindex_payload(container)["chunks"] > 3
+
+    from ariostea.mcp.handlers import get_note_payload
+
+    note = get_note_payload(container, path="long.md")
+    assert note["found"] is True
+    assert note["text"] == text
+    assert get_note_payload(container, path="../vault/long.md")["found"] is False

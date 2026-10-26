@@ -25,7 +25,8 @@ from ariostea.ports.chat import ChatProvider
 from ariostea.ports.embedding import EmbeddingProvider
 from ariostea.ports.pipeline import Chunker, Contextualizer
 from ariostea.ports.rerank import Reranker
-from ariostea.ports.store import DocumentReader, IndexAdmin
+from ariostea.ports.store import IndexAdmin
+from ariostea.search.get_note import GetNote
 from ariostea.search.search_knowledge import SearchKnowledge
 from ariostea.search.search_sources import SearchSources
 
@@ -44,7 +45,7 @@ class Container:
     searcher: SearchKnowledge
     admin: IndexAdmin
     sources: SearchSources
-    reader: DocumentReader
+    notes: GetNote
 
 
 def _expand(p: str) -> str:
@@ -172,5 +173,5 @@ def build_container(
         searcher=searcher,
         admin=store,
         sources=sources,
-        reader=store,
+        notes=GetNote(reader=store, vault=vault),
     )

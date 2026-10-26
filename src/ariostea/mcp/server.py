@@ -50,7 +50,8 @@ def build_server(container: "Container", host: str = "127.0.0.1", port: int = 80
 
     @mcp.tool()
     def get_note(path: str) -> dict:
-        """Fetch a full note's reconstructed text and title by its vault-relative path."""
+        """Fetch a note's full text, as written in its file, and its title, by the
+        vault-relative path a search returned."""
         return get_note_payload(container, path=path)
 
     return mcp

@@ -55,25 +55,31 @@ def test_search_sources_payload_shapes_hits():
     }
 
 
-def test_get_note_payload_found_and_missing():
+def test_get_note_payload_shape():
     from types import SimpleNamespace
 
-    from ariostea.domain.models import NoteDocument
+    from ariostea.domain.models import NoteMissing, NoteText
     from ariostea.mcp.handlers import get_note_payload
 
-    class FakeReader:
-        def __init__(self, doc):
-            self._doc = doc
+    class FakeNotes:
+        def __init__(self, result):
+            self.result = result
 
-        def read_note(self, path):
-            return self._doc
+        def get(self, path):
+            return self.result
 
-    doc = NoteDocument(note_path="a.md", title="A", text="hello body")
-    found = get_note_payload(SimpleNamespace(reader=FakeReader(doc)), path="a.md")
-    assert found == {"found": True, "note_path": "a.md", "title": "A", "text": "hello body"}
+    found = get_note_payload(
+        SimpleNamespace(notes=FakeNotes(NoteText("a.md", "A", "# A\n\nbody\n"))), path="a.md"
+    )
+    assert found == {"found": True, "note_path": "a.md", "title": "A", "text": "# A\n\nbody\n"}
 
-    missing = get_note_payload(SimpleNamespace(reader=FakeReader(None)), path="x.md")
+    missing = get_note_payload(SimpleNamespace(notes=FakeNotes(NoteMissing("x.md", None))), "x.md")
     assert missing == {"found": False, "note_path": "x.md"}
+
+    gone = get_note_payload(
+        SimpleNamespace(notes=FakeNotes(NoteMissing("g.md", "no such file"))), "g.md"
+    )
+    assert gone == {"found": False, "note_path": "g.md", "reason": "no such file"}
 
 
 class _FakeIndexer:

@@ -6,7 +6,6 @@ from ariostea.domain.models import (
     ContextualizedChunk,
     IndexStats,
     Note,
-    NoteDocument,
     QueryFilters,
     RetrievedChunk,
 )
@@ -36,7 +35,6 @@ class ChunkRetriever(Protocol):
 @runtime_checkable
 class DocumentReader(Protocol):
     def note_titles(self, paths: Sequence[str]) -> dict[str, str]: ...
-    def read_note(self, path: str) -> NoteDocument | None: ...
 
 
 @runtime_checkable
