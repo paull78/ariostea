@@ -1,7 +1,7 @@
 # Plan: vault-hardening
 
 Status: approved · Mode: sequential · Test: `uv run pytest`
-Current: step 10 (not started). Last stop: step 09 done.
+Current: wrap. Last stop: step 10 done.
 
 ## Milestone 1 · The index cannot be lost  ✅ gate passed 2026-10-26
 `reindex` (CLI and MCP) refuses a missing or empty vault, skips unreadable files with a named warning, leaves out dot-folders and Excalidraw, and prints errors as one line. The vault sits behind a port.
@@ -23,7 +23,7 @@ No chunk exceeds the budget, code comments are not headings, `get_note` returns 
 ## Milestone 4 · Ready for a new user  ⛔ gate pending
 The README is honest about first-run setup, ARCHITECTURE.md shows the Vault port, and the awkward vault is a permanent end-to-end test.
 - [x] 09 README, example config, ARCHITECTURE.md  (needs 03, 04, 05, 06, 07, 08)
-- [ ] 10 Awkward-vault end-to-end test     (needs 04, 05, 06, 07, 08)  ∥ 09
+- [x] 10 Awkward-vault end-to-end test     (needs 04, 05, 06, 07, 08)  ∥ 09
 
 ## Notes
 - 2026-10-26 · plan updated: step 10 fixture adds a note with a 20,000-character base64 image, plus a test that it indexes within budget · see vault-hardening.22
