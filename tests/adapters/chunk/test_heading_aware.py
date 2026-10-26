@@ -106,14 +106,14 @@ def test_a_cost_function_caps_each_piece():
     chunks = HeadingAwareChunker(max_tokens=10, count=len).chunk(_note(), body)
     assert len(chunks) > 1
     for c in chunks:
-        cost = sum(len(w) for w in _words(c) if w not in {"#", "T"})
-        assert cost <= 10 or len(_words(c)) == 1
+        assert sum(len(w) for w in _words(c)) <= 10
 
 
-def test_a_word_costlier_than_the_cap_still_advances():
+def test_a_word_costlier_than_the_cap_is_split_to_fit():
     body = "# T\n" + "tiny " + "x" * 50 + " tiny"
     chunks = HeadingAwareChunker(max_tokens=10, overlap=2, count=len).chunk(_note(), body)
-    assert any("x" * 50 in c.text for c in chunks)
+    assert all(sum(len(w) for w in _words(c)) <= 10 for c in chunks)
+    assert "".join("".join(_words(c)) for c in chunks).count("x") >= 50
     assert _words(chunks[-1])[-1] == "tiny"
 
 
@@ -132,3 +132,88 @@ def test_fingerprint_names_a_non_default_policy():
         HeadingAwareChunker(max_tokens=128).fingerprint
         != HeadingAwareChunker(max_tokens=128, count=len, unit="model_tokens").fingerprint
     )
+
+
+# --- every piece fits, and every window adds new text (AC-08)
+
+
+def _shared(before, after):
+    """How many units `after` repeats from the end of `before`."""
+    for k in range(min(len(before), len(after)), 0, -1):
+        if before[-k:] == after[:k]:
+            return k
+    return 0
+
+
+def test_fit_property():
+    import random
+
+    for seed in range(500):
+        rng = random.Random(seed)
+        max_tokens = rng.randint(2, 40)
+        overlap = rng.randint(0, max_tokens - 1)
+        k = rng.randint(1, 4)
+
+        def cost(text, k=k):  # prices any substring, like a subword tokenizer
+            return len(text) // k + 1
+
+        # Every character is a distinct CJK ideograph, so two units are equal
+        # only when the chunker really repeated one: overlap is unambiguous.
+        chars = (chr(0x4E00 + i) for i in range(20_000))
+        words = []
+        for _ in range(rng.randint(1, 30)):
+            length = rng.randint(1, 3 * max_tokens * k)
+            words.append("".join(next(chars) for _ in range(length)))
+        chunker = HeadingAwareChunker(max_tokens=max_tokens, overlap=overlap, count=cost)
+        pieces = [_words(c) for c in chunker.chunk(_note(), " ".join(words))]
+
+        context = f"seed {seed}: max {max_tokens}, overlap {overlap}, k {k}"
+        rebuilt = list(pieces[0])
+        for piece in pieces:
+            assert sum(cost(u) for u in piece) <= max_tokens, context
+        for before, after in zip(pieces, pieces[1:]):
+            shared = _shared(before, after)
+            assert sum(cost(u) for u in after[:shared]) <= overlap, context
+            assert len(after) > shared, context  # something new in every window
+            rebuilt.extend(after[shared:])
+        assert "".join(rebuilt) == "".join(words), context
+
+
+def test_oversized_word_is_split_to_fit():
+    word = "".join(chr(ord("a") + (i * 7) % 26) for i in range(20_000))
+
+    def cost(text):
+        return len(text) // 3 + 1
+
+    chunks = HeadingAwareChunker(max_tokens=256, overlap=64, count=cost).chunk(_note(), word)
+    assert len(chunks) > 1
+    assert all(cost(c.text) <= 256 for c in chunks)
+    assert "".join(c.text for c in chunks) == word
+
+
+def test_no_shrinking_duplicates_before_an_oversized_word():
+    # The web clip from the hands-on test: a short heading line, then one
+    # whitespace-free string far over the budget. The old chunker emitted
+    # windows that were each a suffix of the one before.
+    body = "# Web clip\nArticle saved from the web " + "QUJD" * 4_500 + " end of clip"
+
+    def cost(text):
+        return len(text) // 4 + 1
+
+    chunks = HeadingAwareChunker(max_tokens=256, overlap=64, count=cost).chunk(_note(), body)
+    texts = [c.text for c in chunks]
+    for a, b in zip(texts, texts[1:]):
+        assert not a.endswith(b) and not b.endswith(a)
+    assert all(sum(cost(w) for w in t.split()) <= 256 for t in texts)
+
+
+def test_short_sections_untouched():
+    body = "# T\nline one\n\n  line two  \n- item"
+    chunks = HeadingAwareChunker(max_tokens=50, overlap=10, count=len).chunk(_note(), body)
+    assert [c.text for c in chunks] == ["# T\nline one\n\n  line two  \n- item"]
+
+
+def test_words_unit_never_splits_a_word():
+    body = "# T\n" + "x" * 5_000 + " tail"
+    chunks = HeadingAwareChunker(max_tokens=512).chunk(_note(), body)
+    assert [c.text for c in chunks] == [body]

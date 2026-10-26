@@ -106,27 +106,57 @@ class HeadingAwareChunker(Chunker):
 
     def _fit(self, text: str) -> list[str]:
         words = text.split()
-        costs = [1] * len(words) if self._count is None else [self._count(w) for w in words]
-        if sum(costs) <= self.max_tokens:
+        if self._count is None:
+            costs = [1] * len(words)
+        else:
+            words = [part for word in words for part in self._split_to_fit(word)]
+            costs = [self._count(w) for w in words]
+        if sum(costs) <= self.max_tokens and len(words) == len(text.split()):
             return [text]  # untouched, newlines and all, as before
 
         pieces: list[str] = []
         start = 0
         while start < len(words):
             end, total = start, 0
-            # Always take at least one word, so a word costlier than the whole
-            # budget becomes its own piece instead of stalling the window.
+            # Take at least one word: after _split_to_fit every word fits alone.
             while end < len(words) and (end == start or total + costs[end] <= self.max_tokens):
                 total += costs[end]
                 end += 1
             pieces.append(" ".join(words[start:end]))
             if end >= len(words):
                 break
-            # Step back to repeat up to `overlap` of cost, but always leave the
-            # next window starting at least one word further on.
+            # Step back to repeat up to `overlap` of cost, but only as far as
+            # still lets the next window reach word `end`: every window then
+            # adds new text, and none is a suffix of the one before.
             back, repeated = end, 0
-            while back > start + 1 and repeated + costs[back - 1] <= self.overlap:
+            while (
+                back > start + 1
+                and repeated + costs[back - 1] <= self.overlap
+                and repeated + costs[back - 1] + costs[end] <= self.max_tokens
+            ):
                 repeated += costs[back - 1]
                 back -= 1
             start = back
         return pieces
+
+    def _split_to_fit(self, word: str) -> list[str]:
+        """`word` itself if it fits the budget, else the longest prefixes that
+        do, one after another. A base64 image or a minified line is one
+        "word" thousands of tokens long; unsplit, it became one chunk the
+        model truncated and that cost gigabytes to embed (vault-hardening.05)."""
+        assert self._count is not None
+        if self._count(word) <= self.max_tokens:
+            return [word]
+        parts = []
+        while word:
+            # Binary search for the longest prefix within budget, at least 1 char.
+            lo, hi = 1, len(word)
+            while lo < hi:
+                mid = (lo + hi + 1) // 2
+                if self._count(word[:mid]) <= self.max_tokens:
+                    lo = mid
+                else:
+                    hi = mid - 1
+            parts.append(word[:lo])
+            word = word[lo:]
+        return parts
