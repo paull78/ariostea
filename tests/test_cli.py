@@ -12,7 +12,7 @@ class FakeWatcher:
     def __init__(self, events):
         self.events = events
 
-    def run(self, stop_event=None, on_report=None, on_warning=None):
+    def run(self, stop_event=None, on_report=None, on_warning=None, progress=None):
         for kind, value in self.events:
             (on_report if kind == "report" else on_warning)(value)
 
@@ -63,7 +63,7 @@ def test_reindex_cli_prints_skipped_warnings_and_count(monkeypatch):
     }
     monkeypatch.setattr(cli, "load_config", lambda path: None)
     monkeypatch.setattr(cli, "build_container", lambda cfg: object())
-    monkeypatch.setattr(cli, "reindex_payload", lambda container: payload)
+    monkeypatch.setattr(cli, "reindex_payload", lambda container, progress=None: payload)
 
     result = CliRunner().invoke(cli.app, ["reindex", "--config", "x.toml"])
 
@@ -165,11 +165,11 @@ def test_cli_removed_key_prints_one_line_and_exits_1(tmp_path):
 
 def _raising_indexer_container(error):
     class Indexer:
-        def index(self):
+        def index(self, progress=None):
             raise error
 
     class Watcher:
-        def run(self, stop_event=None, on_report=None, on_warning=None):
+        def run(self, stop_event=None, on_report=None, on_warning=None, progress=None):
             raise error
 
     return SimpleNamespace(
@@ -218,3 +218,43 @@ def test_cli_unknown_errors_keep_their_traceback(monkeypatch):
 
     assert result.exit_code != 0
     assert isinstance(result.exception, RuntimeError)
+
+
+def test_reindex_cli_progress_on_stderr_only(monkeypatch):  # AC-16
+    from ariostea.domain.models import IndexReport, Progress
+
+    class Indexer:
+        def index(self, progress=None):
+            for done in range(1, 251):
+                progress(Progress(done=done, total=250, embedded=done, skipped=0))
+            return IndexReport(250, 900, (), (), ())
+
+    container = SimpleNamespace(indexer=Indexer())
+    monkeypatch.setattr(cli, "load_config", lambda path: None)
+    monkeypatch.setattr(cli, "build_container", lambda cfg: container)
+
+    result = CliRunner().invoke(cli.app, ["reindex", "--config", "x.toml"])
+
+    assert result.exit_code == 0
+    assert result.stdout == "Indexed 250 notes, 900 chunks, 0 skipped.\n"
+    assert result.stderr.splitlines() == [
+        "100/250 notes · 100 embedded · 0 skipped",
+        "200/250 notes · 200 embedded · 0 skipped",
+        "250/250 notes · 250 embedded · 0 skipped",
+    ]
+
+
+def test_watch_cli_passes_progress_for_the_first_pass(monkeypatch, tmp_path):
+    from ariostea.domain.models import Progress
+
+    class Watcher:
+        def run(self, stop_event=None, on_report=None, on_warning=None, progress=None):
+            progress(Progress(done=1, total=1, embedded=1, skipped=0))
+
+    monkeypatch.setattr(cli, "load_config", lambda path: None)
+    monkeypatch.setattr(cli, "build_container", lambda cfg: _watch_container(tmp_path, Watcher()))
+
+    result = CliRunner().invoke(cli.app, ["watch", "--config", "x.toml"])
+
+    assert result.exit_code == 0
+    assert result.stderr == "1/1 notes · 1 embedded · 0 skipped\n"

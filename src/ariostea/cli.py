@@ -12,6 +12,7 @@ from ariostea.domain.models import IndexReport
 from ariostea.mcp.handlers import reindex_payload, status_payload
 from ariostea.mcp.server import build_server, resolve_transport
 from ariostea.ports.vault import VaultUnavailable
+from ariostea.progress import ProgressPrinter
 
 app = typer.Typer(help="Ariostea — Obsidian RAG MCP server")
 
@@ -33,6 +34,10 @@ def _one_line_errors() -> Iterator[None]:
 
 def _print_warning(message: str) -> None:
     typer.echo(f"warning: {message}", err=True)
+
+
+def _progress_printer() -> ProgressPrinter:
+    return ProgressPrinter(lambda line: typer.echo(line, err=True))
 
 
 def _print_pass(report: IndexReport) -> None:
@@ -69,7 +74,7 @@ def reindex(config: str = typer.Option("ariostea.toml", help="Path to config fil
     """Index the vault once and exit."""
     with _one_line_errors():
         container = build_container(load_config(config))
-    result = reindex_payload(container)
+    result = reindex_payload(container, progress=_progress_printer())
     if "error" in result:
         raise _fail(result["error"])
     for skip in result["skipped"]:
@@ -87,7 +92,9 @@ def watch(config: str = typer.Option("ariostea.toml", help="Path to config file"
         container = build_container(load_config(config))
         vault = os.path.expanduser(container.config.vault.path)
         typer.echo(f"Indexing and watching {vault} (Ctrl-C to stop)...")
-        container.watcher.run(on_report=_print_pass, on_warning=_print_warning)
+        container.watcher.run(
+            on_report=_print_pass, on_warning=_print_warning, progress=_progress_printer()
+        )
 
 
 @app.command()

@@ -406,3 +406,25 @@ def test_a_note_emptied_of_chunks_leaves_the_index():
     report = indexer.index()
     assert "b.md" not in store.notes
     assert report.deleted == ("b.md",)
+
+
+# --- progress: one plain value per listed note (AC-16)
+
+
+def test_progress_reports_every_listed_note():
+    from ariostea.domain.models import Progress
+
+    vault = InMemoryVault({"a.md": "# A\nalpha", "b.md": "# B\nbeta"})
+    indexer = _indexer(vault)
+    indexer.index()
+    vault.files.update({"c.md": "# C\ngamma", "d.md": "# D\ndelta", "e.md": b"\xff"})
+
+    seen = []
+    indexer.index(progress=seen.append)
+    assert [p.done for p in seen] == [1, 2, 3, 4, 5]
+    assert {p.total for p in seen} == {5}
+    assert seen[-1] == Progress(done=5, total=5, embedded=2, skipped=1)
+
+
+def test_no_progress_callback_is_fine():
+    assert _indexer(_two_notes()).index().notes == 2

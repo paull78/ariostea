@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
+from typing import Literal
 
-from ariostea.domain.models import IndexReport
+from ariostea.domain.models import IndexReport, Progress
 from ariostea.ports.embedding import EmbeddingProvider
 from ariostea.ports.pipeline import Chunker, Contextualizer, MarkdownParser
 from ariostea.ports.store import IndexStore
@@ -40,10 +42,11 @@ class IndexVault:
         )
         return "|".join(part for part in parts if part)
 
-    def index(self) -> IndexReport:
+    def index(self, progress: Callable[[Progress], None] | None = None) -> IndexReport:
         """Bring the index in line with the vault. Raises VaultUnavailable,
         before touching the index, when the vault is missing or holds no notes
-        while the index does: either would otherwise delete every note."""
+        while the index does: either would otherwise delete every note.
+        `progress`, if given, hears about every listed note."""
         paths = self._vault.notes()
         known = self._store.known_hashes()
         if not paths and known:
@@ -55,26 +58,18 @@ class IndexVault:
         embedded: list[str] = []
         skipped: list[tuple[str, str]] = []
 
-        for path in paths:
+        for done, path in enumerate(paths, start=1):
             try:
-                file = self._vault.read(path)
+                outcome = self._index_note(path, known.get(path), fingerprint_changed)
             except NoteUnreadable as exc:
                 skipped.append((path, exc.reason))
-                seen.add(path)  # keep what it had: a bad read is not a deletion
-                continue
-            content_hash = hashlib.sha256(file.text.encode("utf-8")).hexdigest()
-            if not fingerprint_changed and known.get(path) == content_hash:
-                seen.add(path)  # unchanged & already indexed — keep it
-                continue
-            note, body = self._parser.parse(path, file.text, file.mtime)
-            chunks = self._chunker.chunk(note, body)
-            if not chunks:
-                continue
-            cchunks = self._contextualizer.contextualize(note, body, chunks)
-            vectors = self._embeddings.embed_documents([cc.embedding_text for cc in cchunks])
-            self._store.upsert_note(note, cchunks, vectors)
-            seen.add(path)
-            embedded.append(path)
+                outcome = "skipped"  # keeps what it had: a bad read is not a deletion
+            if outcome != "empty":  # a note with no chunks left is deleted below
+                seen.add(path)
+            if outcome == "embedded":
+                embedded.append(path)
+            if progress is not None:
+                progress(Progress(done, len(paths), len(embedded), len(skipped)))
 
         # A note left out of `seen` is gone, excluded, or has no chunks left.
         deleted = [path for path in self._store.known_hashes() if path not in seen]
@@ -89,3 +84,21 @@ class IndexVault:
             deleted=tuple(sorted(deleted)),
             skipped=tuple(skipped),
         )
+
+    def _index_note(
+        self, path: str, stored_hash: str | None, fingerprint_changed: bool
+    ) -> Literal["kept", "embedded", "empty"]:
+        """Embed and store one note unless the index already has it as it is.
+        Raises NoteUnreadable."""
+        file = self._vault.read(path)
+        content_hash = hashlib.sha256(file.text.encode("utf-8")).hexdigest()
+        if not fingerprint_changed and stored_hash == content_hash:
+            return "kept"
+        note, body = self._parser.parse(path, file.text, file.mtime)
+        chunks = self._chunker.chunk(note, body)
+        if not chunks:
+            return "empty"
+        cchunks = self._contextualizer.contextualize(note, body, chunks)
+        vectors = self._embeddings.embed_documents([cc.embedding_text for cc in cchunks])
+        self._store.upsert_note(note, cchunks, vectors)
+        return "embedded"

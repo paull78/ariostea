@@ -194,3 +194,18 @@ def test_stop_event_ends_the_watch():
     )
     WatchVault(indexer, vault).run(stop_event=stop)
     assert set(store.notes) == {"a.md"}  # the initial pass only
+
+
+def test_progress_goes_to_the_first_pass_only():
+    vault = InMemoryVault({"a.md": "# A\nalpha"}, script=[edit({"b.md": "# B\nbeta"})])
+    indexer = IndexVault(
+        ObsidianMarkdownParser(),
+        HeadingAwareChunker(),
+        FakeEmbed(),
+        FakeStore(),
+        NoopContextualizer(),
+        vault=vault,
+    )
+    seen = []
+    WatchVault(indexer, vault).run(progress=seen.append)
+    assert [(p.done, p.total) for p in seen] == [(1, 1)]

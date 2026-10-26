@@ -92,6 +92,16 @@ class IndexStats:
 
 
 @dataclass(frozen=True)
+class Progress:
+    """Where an indexing pass stands, reported after each note it lists."""
+
+    done: int
+    total: int
+    embedded: int
+    skipped: int
+
+
+@dataclass(frozen=True)
 class IndexReport:
     """What one indexing pass did. `notes` and `chunks` count the whole index
     afterwards; `skipped` pairs each unreadable path with the reason."""

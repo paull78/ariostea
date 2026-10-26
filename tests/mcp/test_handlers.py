@@ -80,7 +80,7 @@ class _FakeIndexer:
     def __init__(self, result):
         self._result = result
 
-    def index(self):
+    def index(self, progress=None):
         if isinstance(self._result, Exception):
             raise self._result
         return self._result
@@ -112,3 +112,20 @@ def test_reindex_payload_returns_error_on_unavailable_vault():
     error = VaultUnavailable("/gone", "no such folder")
     payload = reindex_payload(SimpleNamespace(indexer=_FakeIndexer(error)))
     assert payload == {"error": "vault /gone is unavailable: no such folder"}
+
+
+def test_mcp_reindex_passes_no_progress():
+    from types import SimpleNamespace
+
+    from ariostea.domain.models import IndexReport
+    from ariostea.mcp.handlers import reindex_payload
+
+    calls = []
+
+    class Indexer:
+        def index(self, progress=None):
+            calls.append(progress)
+            return IndexReport(0, 0, (), (), ())
+
+    reindex_payload(SimpleNamespace(indexer=Indexer()))
+    assert calls == [None]

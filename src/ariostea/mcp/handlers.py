@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from ariostea.domain.models import Query
+from ariostea.domain.models import Progress, Query
 from ariostea.ports.store import IndexAdmin
 from ariostea.ports.vault import VaultUnavailable
 
@@ -20,11 +21,14 @@ def status_payload(admin: IndexAdmin) -> dict:
     }
 
 
-def reindex_payload(container: "Container") -> dict:
+def reindex_payload(
+    container: "Container", progress: Callable[[Progress], None] | None = None
+) -> dict:
     """Index the vault. A vault that cannot be trusted comes back as
-    `{"error": ...}` with the index left as it was."""
+    `{"error": ...}` with the index left as it was. The MCP tool passes no
+    `progress`: on stdio, stdout belongs to the protocol."""
     try:
-        report = container.indexer.index()
+        report = container.indexer.index(progress=progress)
     except VaultUnavailable as exc:
         return {"error": str(exc)}
     return {
