@@ -217,3 +217,20 @@ def test_words_unit_never_splits_a_word():
     body = "# T\n" + "x" * 5_000 + " tail"
     chunks = HeadingAwareChunker(max_tokens=512).chunk(_note(), body)
     assert [c.text for c in chunks] == [body]
+
+
+# --- code fences do not split sections (AC-11)
+
+
+def test_chunks_inside_fences_have_empty_heading_path():
+    body = '```python\n# This comment is not a title\nprint("hello")\n```\n\nBody after.'
+    chunks = HeadingAwareChunker(max_tokens=200).chunk(_note(), body)
+    assert len(chunks) == 1
+    assert chunks[0].heading_path == ()
+    assert chunks[0].text == body
+
+
+def test_fenced_hash_does_not_open_a_section():
+    body = "# Setup\nInstall it.\n```bash\n# step one\nmake\n```\nThen run it."
+    chunks = HeadingAwareChunker(max_tokens=200).chunk(_note(), body)
+    assert [c.heading_path for c in chunks] == [("Setup",)]

@@ -1,7 +1,7 @@
 # Plan: vault-hardening
 
 Status: approved · Mode: sequential · Test: `uv run pytest`
-Current: step 07 (not started). Last stop: step 06 done.
+Current: step 08 (not started). Last stop: step 07 done.
 
 ## Milestone 1 · The index cannot be lost  ✅ gate passed 2026-10-26
 `reindex` (CLI and MCP) refuses a missing or empty vault, skips unreadable files with a named warning, leaves out dot-folders and Excalidraw, and prints errors as one line. The vault sits behind a port.
@@ -17,7 +17,7 @@ Current: step 07 (not started). Last stop: step 06 done.
 ## Milestone 3 · Correct content  ⛔ gate pending
 No chunk exceeds the budget, code comments are not headings, `get_note` returns the file.
 - [x] 06 Chunker bounds oversized words    (needs none)
-- [ ] 07 Code fences in chunker and parser (needs 06)
+- [x] 07 Code fences in chunker and parser (needs 06)
 - [ ] 08 GetNote reads the file            (needs 02)  ∥ 06, 07
 
 ## Milestone 4 · Ready for a new user  ⛔ gate pending

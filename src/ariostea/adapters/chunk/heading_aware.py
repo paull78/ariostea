@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from ariostea.adapters.markdown import heading_lines
 from ariostea.domain.models import Chunk, Note
 from ariostea.ports.pipeline import Chunker
-
-_HEADING = re.compile(r"^(#{1,6})\s+(.+)$")
 
 
 @dataclass
@@ -28,8 +26,7 @@ def _split_sections(body: str) -> list[_Section]:
             sections.append(_Section(current_path, text))
         buffer.clear()
 
-    for line in body.splitlines():
-        m = _HEADING.match(line)
+    for line, m in heading_lines(body):
         if m:
             flush()
             level = len(m.group(1))
