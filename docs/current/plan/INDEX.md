@@ -1,9 +1,9 @@
 # Plan: vault-hardening
 
 Status: approved · Mode: sequential · Test: `uv run pytest`
-Current: gate M1 (pending). Last stop: step 03 done.
+Current: step 04 (not started). Last stop: gate M1 passed.
 
-## Milestone 1 · The index cannot be lost  ⛔ gate pending
+## Milestone 1 · The index cannot be lost  ✅ gate passed 2026-10-26
 `reindex` (CLI and MCP) refuses a missing or empty vault, skips unreadable files with a named warning, leaves out dot-folders and Excalidraw, and prints errors as one line. The vault sits behind a port.
 - [x] 01 Vault port and adapters          (needs none)
 - [x] 02 IndexVault on the Vault port     (needs 01)

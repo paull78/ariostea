@@ -207,8 +207,14 @@ def test_bge_m3_loads_and_embeds_1024_dims():
 def test_control_vectors_match_plain_embed():
     from fastembed import TextEmbedding
 
+    from ariostea.adapters.fastembed_cache import fastembed_cache_dir
+
     text = "Il violino si accorda per quinte."
-    plain = next(iter(TextEmbedding(model_name=CONTROL).embed([text])))
+    # The adapter's cache: fastembed's default lives in the temp folder, which
+    # macOS purges, and a re-download can fail.
+    plain = next(
+        iter(TextEmbedding(model_name=CONTROL, cache_dir=fastembed_cache_dir()).embed([text]))
+    )
     emb = FastEmbedEmbeddings(CONTROL)
     assert np.allclose(emb.embed_documents([text])[0], plain, atol=1e-6)
     assert np.allclose(emb.embed_query(text), plain, atol=1e-6)
