@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+import pytest
 from typer.testing import CliRunner
 
 from ariostea import cli
@@ -112,3 +113,82 @@ def test_serve_rejects_unknown_transport(monkeypatch):
     result = CliRunner().invoke(cli.app, ["serve", "--transport", "grpc", "--config", "x.toml"])
 
     assert result.exit_code != 0
+
+
+# --- known errors are one line on stderr and exit 1 (AC-14, AC-15)
+
+
+@pytest.mark.parametrize("command", ["serve", "reindex", "watch", "status"])
+def test_cli_config_error_prints_one_line_and_exits_1(monkeypatch, tmp_path, command):
+    built = []
+    monkeypatch.setattr(cli, "build_container", lambda cfg: built.append(cfg))
+    missing = tmp_path / "nope.toml"
+
+    result = CliRunner().invoke(cli.app, [command, "--config", str(missing)])
+
+    assert result.exit_code == 1
+    assert result.stderr == f"config file not found: {missing}\n"
+    assert "Traceback" not in result.output
+    assert built == []  # no model was loaded
+
+
+def test_cli_removed_key_prints_one_line_and_exits_1(tmp_path):
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text('[vault]\npath = "~/V"\n\n[embedding]\nprovider = "openai_compat"\n')
+
+    result = CliRunner().invoke(cli.app, ["status", "--config", str(cfg_file)])
+
+    assert result.exit_code == 1
+    assert result.stderr.count("\n") == 1
+    assert "embedding.provider was removed" in result.stderr
+
+
+def _raising_indexer_container(error):
+    class Indexer:
+        def index(self):
+            raise error
+
+    return SimpleNamespace(
+        config=SimpleNamespace(vault=SimpleNamespace(path="/gone")), indexer=Indexer()
+    )
+
+
+def test_cli_vault_unavailable_prints_one_line_and_exits_1(monkeypatch):
+    from ariostea.ports.vault import VaultUnavailable
+
+    error = VaultUnavailable("/gone", "no such folder")
+    monkeypatch.setattr(cli, "load_config", lambda path: None)
+    monkeypatch.setattr(cli, "build_container", lambda cfg: _raising_indexer_container(error))
+
+    result = CliRunner().invoke(cli.app, ["reindex", "--config", "x.toml"])
+
+    assert result.exit_code == 1
+    assert result.stderr == "vault /gone is unavailable: no such folder\n"
+    assert result.stdout == ""
+
+
+def test_cli_watch_vault_unavailable_on_first_pass_exits_1(monkeypatch):
+    from ariostea.ports.vault import VaultUnavailable
+
+    error = VaultUnavailable("/gone", "no such folder")
+    monkeypatch.setattr(cli, "load_config", lambda path: None)
+    monkeypatch.setattr(cli, "build_container", lambda cfg: _raising_indexer_container(error))
+
+    result = CliRunner().invoke(cli.app, ["watch", "--config", "x.toml"])
+
+    assert result.exit_code == 1
+    assert result.stderr == "vault /gone is unavailable: no such folder\n"
+
+
+def test_cli_unknown_errors_keep_their_traceback(monkeypatch):
+    monkeypatch.setattr(cli, "load_config", lambda path: None)
+
+    def boom(cfg):
+        raise RuntimeError("unexpected")
+
+    monkeypatch.setattr(cli, "build_container", boom)
+
+    result = CliRunner().invoke(cli.app, ["status", "--config", "x.toml"])
+
+    assert result.exit_code != 0
+    assert isinstance(result.exception, RuntimeError)

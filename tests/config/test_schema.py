@@ -1,6 +1,6 @@
 import pytest
 
-from ariostea.config.schema import load_config
+from ariostea.config.schema import ConfigError, load_config
 
 
 def test_minimal_config_applies_defaults(tmp_path):
@@ -8,7 +8,6 @@ def test_minimal_config_applies_defaults(tmp_path):
     cfg_file.write_text('[vault]\npath = "~/Vault"\n')
     cfg = load_config(cfg_file)
     assert cfg.vault.path == "~/Vault"
-    assert cfg.embedding.provider == "local"  # default
     assert cfg.store.backend == "sqlite"  # default
     assert cfg.search.top_k == 10  # default
     assert cfg.search.k_sparse == 50  # default
@@ -46,9 +45,8 @@ path = "/notes"
 ignore = [".obsidian/"]
 
 [embedding]
-provider = "openai_compat"
-base_url = "http://localhost:11434/v1"
-model = "nomic-embed-text"
+local_model = "BAAI/bge-small-en-v1.5"
+normalize = true
 
 [store]
 backend = "sqlite"
@@ -60,8 +58,8 @@ top_k = 8
 """
     )
     cfg = load_config(cfg_file)
-    assert cfg.embedding.base_url == "http://localhost:11434/v1"
-    assert cfg.embedding.model == "nomic-embed-text"
+    assert cfg.embedding.local_model == "BAAI/bge-small-en-v1.5"
+    assert cfg.embedding.normalize is True
     assert cfg.vault.ignore == [".obsidian/"]
     assert cfg.search.k_dense == 40 and cfg.search.top_k == 8
 
@@ -209,3 +207,61 @@ def test_vault_ignore_defaults_to_nothing(tmp_path):
     cfg_file = tmp_path / "ariostea.toml"
     cfg_file.write_text('[vault]\npath = "~/Vault"\n')
     assert load_config(cfg_file).vault.ignore == []
+
+
+# --- config errors are one line, never a traceback (AC-14)
+
+
+@pytest.mark.parametrize("key", ["provider", "base_url", "api_key", "model"])
+def test_removed_embedding_keys_are_rejected(tmp_path, key):
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text(f'[vault]\npath = "~/Vault"\n\n[embedding]\n{key} = "x"\n')
+    with pytest.raises(ConfigError) as err:
+        load_config(cfg_file)
+    message = str(err.value)
+    assert f"embedding.{key} was removed" in message
+    assert "embedding.local_model" in message
+    assert "\n" not in message
+
+
+def test_missing_config_file_is_a_config_error(tmp_path):
+    missing = tmp_path / "nope.toml"
+    with pytest.raises(ConfigError) as err:
+        load_config(missing)
+    assert str(err.value) == f"config file not found: {missing}"
+
+
+def test_missing_vault_path_is_a_config_error(tmp_path):
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text("[vault]\n")
+    with pytest.raises(ConfigError) as err:
+        load_config(cfg_file)
+    message = str(err.value)
+    assert "vault.path" in message
+    assert str(cfg_file) in message
+    assert "\n" not in message
+
+
+def test_bad_toml_is_a_config_error(tmp_path):
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text("[vault\npath = 1\n")
+    with pytest.raises(ConfigError) as err:
+        load_config(cfg_file)
+    assert str(cfg_file) in str(err.value)
+    assert "\n" not in str(err.value)
+
+
+def test_invalid_value_is_a_config_error(tmp_path):
+    cfg_file = tmp_path / "ariostea.toml"
+    cfg_file.write_text('[vault]\npath = "~/V"\n\n[chunking]\nmax_tokens = 10\noverlap = 20\n')
+    with pytest.raises(ConfigError) as err:
+        load_config(cfg_file)
+    assert "chunking.overlap (20)" in str(err.value)
+    assert "\n" not in str(err.value)
+
+
+def test_the_example_config_loads():
+    from pathlib import Path
+
+    example = Path(__file__).parents[2] / "ariostea.example.toml"
+    assert load_config(example).vault.path

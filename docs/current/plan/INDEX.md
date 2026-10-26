@@ -1,13 +1,13 @@
 # Plan: vault-hardening
 
 Status: approved · Mode: sequential · Test: `uv run pytest`
-Current: step 03 (not started). Last stop: step 02 done.
+Current: gate M1 (pending). Last stop: step 03 done.
 
 ## Milestone 1 · The index cannot be lost  ⛔ gate pending
 `reindex` (CLI and MCP) refuses a missing or empty vault, skips unreadable files with a named warning, leaves out dot-folders and Excalidraw, and prints errors as one line. The vault sits behind a port.
 - [x] 01 Vault port and adapters          (needs none)
 - [x] 02 IndexVault on the Vault port     (needs 01)
-- [ ] 03 One-line CLI errors, openai_compat removed  (needs 02)
+- [x] 03 One-line CLI errors, openai_compat removed  (needs 02)
 
 ## Milestone 2 · Watch and progress  ⛔ gate pending
 `watch` ignores `.obsidian` churn, survives a vanished vault and bad files and reports each pass in one line; `reindex` shows progress; a test enforces the dependency rule.
