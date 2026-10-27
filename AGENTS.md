@@ -1,4 +1,4 @@
-<!-- project-time:start v4 -->
+<!-- project-time:start v5 -->
 ## Project workflow (project-time)
 
 This repo runs the project-time workflow. Its state lives in `docs/`: the files are the source of truth, the conversation is scratch.
@@ -8,8 +8,8 @@ This repo runs the project-time workflow. Its state lives in `docs/`: the files 
 | Level | Where | Holds | Changed |
 |---|---|---|---|
 | cycle | `docs/current/memory/` | the feature being built on this branch | as things happen |
-| project | `docs/memory/` | what holds for this repo: code, product, working rules, this machine's setup | only by `project-wrap` (and setup, moving old auto-memory in) |
-| general | `~/.agents/memory/` | what holds in every project: the user, their tools, lessons | at wrap, each item approved by the user, or when the user asks to remember something for every project |
+| project | `docs/memory/` | what is true now for this repo: code, product, working rules, this machine's setup | only by `project-wrap` (and setup, moving old auto-memory in) |
+| general | `~/.agents/memory/` | what holds in every project: the user, their tools, lessons | at wrap, only big lessons that are general, proven and undisputed, or when the user asks to remember something for every project |
 
 The rest of `docs/`: `docs/current/` is the active cycle (`spec.md`, `plan/INDEX.md` with `plan/step-NN-*.md`, `memory/`); `docs/archive/<date>-<slug>/` holds finished cycles.
 
@@ -27,9 +27,9 @@ Entries go in area files by topic, each area listed in one line in the INDEX:
     <the fact>
     **Why:** <reason; rejected options>
 
-NN is the highest number in the cycle plus one, pins included. Never delete an entry. A pivot adds a new entry marked `Supersedes <id>` and appends `Superseded by <id>` to the old one. If the old one is in project memory, add `- <old> → <new> · <one line>` under `## Overrides` in the cycle INDEX instead.
+NN is the highest number in the cycle plus one, pins included. Never delete a cycle entry. A pivot adds a new entry marked `Supersedes <id>` and appends `Superseded by <id>` to the old one. If the old one is in project memory, add `- <old> → <new> · <one line>` under `## Overrides` in the cycle INDEX instead.
 
-**Flowing up.** At wrap, each cycle entry is promoted to project memory or archived with the cycle. Then whatever holds beyond this repo is proposed for the general level, one item at a time. Only promote what will be useful at the higher level.
+**Flowing up.** At wrap, the cycle entries that still matter are promoted to project memory, which keeps only what is true now: a promoted entry replaces the one it changes, and the history stays in `docs/archive/`. Only a big lesson that is general, proven and undisputed goes on to the general level; most cycles add nothing there. Both levels are merged and compacted as entries arrive, so they stay small.
 
 **Claude Code auto-memory is off** in this repo (`.claude/settings.json`): everything goes to one of the three levels.
 
