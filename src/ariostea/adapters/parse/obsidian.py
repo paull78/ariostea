@@ -4,13 +4,13 @@ import hashlib
 import re
 from pathlib import PurePosixPath
 
+from ariostea.adapters.markdown import heading_lines
 from ariostea.domain.models import Note
 from ariostea.ports.pipeline import MarkdownParser
 
 _FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 _TAG = re.compile(r"(?:^|\s)#([A-Za-z0-9_\-/]+)")
 _WIKILINK = re.compile(r"\[\[([^\]|#]+)")
-_H1 = re.compile(r"^#\s+(.+)$", re.MULTILINE)
 
 
 def _parse_frontmatter(raw: str) -> tuple[dict, str]:
@@ -26,11 +26,18 @@ def _parse_frontmatter(raw: str) -> tuple[dict, str]:
     return fm, body
 
 
+def _title(body: str) -> str | None:
+    """The first level-1 heading outside code fences."""
+    for _, heading in heading_lines(body):
+        if heading and len(heading.group(1)) == 1:
+            return heading.group(2).strip()
+    return None
+
+
 class ObsidianMarkdownParser(MarkdownParser):
     def parse(self, path: str, raw: str, mtime: float) -> tuple[Note, str]:
         frontmatter, body = _parse_frontmatter(raw)
-        heading = _H1.search(body)
-        title = heading.group(1).strip() if heading else PurePosixPath(path).stem
+        title = _title(body) or PurePosixPath(path).stem
         tags = tuple(sorted(set(_TAG.findall(body))))
         wikilinks = tuple(sorted(set(link.strip() for link in _WIKILINK.findall(body))))
         content_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()

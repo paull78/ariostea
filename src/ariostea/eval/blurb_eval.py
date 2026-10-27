@@ -315,7 +315,7 @@ class NoteProgressChat(ChatProvider):
     and different for the next one, so watching for the change costs no LLM
     calls and never touches the prompt (the cache key depends on it). `notes`
     supplies the path and chunk count for each note, in the order the indexer
-    will reach them (`scan_vault`'s sort order); once exhausted, further notes
+    will reach them (the vault's sort order); once exhausted, further notes
     print as "?" rather than raising, so a mismatch never aborts the run over
     a progress cosmetic.
 

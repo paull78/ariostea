@@ -48,6 +48,8 @@ dev = ["pytest>=8", "ruff>=0.6"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# docs/ holds scripts kept as they ran (cycle assets, archived cycles).
+extend-exclude = ["docs"]
 
 [tool.ruff.lint]
 # E/W: pycodestyle, F: pyflakes, I: import sorting (isort)

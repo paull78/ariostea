@@ -20,15 +20,15 @@ flowchart TB
         FDnodes["cli.py · mcp/server.py · mcp/handlers.py<br/>config/container.py (composition root)"]
         subgraph IA["🔌 Interface Adapters — adapters/*"]
             direction TB
-            IAnodes["ObsidianMarkdownParser · HeadingAwareChunker · LLMContextualizer<br/>FastEmbedEmbeddings · SqliteStore · RRFFuser · FastEmbedReranker"]
+            IAnodes["FilesystemVault · ObsidianMarkdownParser · HeadingAwareChunker · LLMContextualizer<br/>FastEmbedEmbeddings · SqliteStore · RRFFuser · FastEmbedReranker"]
             subgraph UC["⚙️ Use Cases — indexing/ · search/"]
                 direction TB
-                UCnodes["IndexVault · SearchKnowledge · SearchSources"]
+                UCnodes["IndexVault · WatchVault · SearchKnowledge · SearchSources · GetNote"]
                 subgraph PO["🧩 Ports — ports/* (abstractions)"]
                     direction TB
-                    POnodes["MarkdownParser · Chunker · Contextualizer · EmbeddingProvider<br/>Fuser · Reranker · ChatProvider · DocumentWriter · ChunkRetriever<br/>DocumentReader · IndexAdmin"]
+                    POnodes["Vault · MarkdownParser · Chunker · Contextualizer · EmbeddingProvider<br/>Fuser · Reranker · ChatProvider · DocumentWriter · ChunkRetriever<br/>DocumentReader · IndexAdmin"]
                     subgraph DM["💎 Domain — domain/models.py"]
-                        DMnodes["Note · Chunk · ContextualizedChunk · Query · RetrievedChunk<br/>SearchResult · SourceHit · NoteDocument · IndexStats"]
+                        DMnodes["Note · Chunk · ContextualizedChunk · Query · RetrievedChunk<br/>SearchResult · SourceHit · NoteText · NoteMissing<br/>IndexStats · IndexReport · Progress"]
                     end
                 end
             end
@@ -49,17 +49,23 @@ flowchart TB
 
 **Domain (`domain/models.py`)** — frozen dataclasses with no behaviour and no imports
 beyond the standard library: `Note`, `Chunk`, `ContextualizedChunk`, `Query`,
-`RetrievedChunk`, `SearchResult`, `SourceHit`, `NoteDocument`, `IndexStats`. These are the
-vocabulary every other layer speaks in.
+`RetrievedChunk`, `SearchResult`, `SourceHit`, `NoteText`, `NoteMissing`, `IndexStats`,
+`IndexReport`, `Progress`. These are the vocabulary every other layer speaks in.
 
 **Ports (`ports/*`)** — `typing.Protocol` abstractions describing *what* a collaborator
-does, never *how*. Because they are structural (`@runtime_checkable`) Protocols, an adapter
-implements a port simply by having the right methods — the dependency arrow points from the
-adapter *to* the port, not the reverse.
+does, never *how*. Every adapter names the ports it implements as its base classes
+(`class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin)`), so the
+adapter file shows its roles and a conformance error points at the adapter's definition.
+The dependency arrow points from the adapter *to* the port, not the reverse.
 
-**Use cases (`indexing/`, `search/`)** — the application logic: `IndexVault`,
-`SearchKnowledge`, `SearchSources`. Each accepts its collaborators through the constructor,
-typed only as ports. A use case can be exercised end-to-end against in-memory fakes.
+**Use cases (`indexing/`, `search/`)** — the application logic: `IndexVault`, `WatchVault`,
+`SearchKnowledge`, `SearchSources`, `GetNote`. Each accepts its collaborators through the
+constructor, typed only as ports. A use case can be exercised end-to-end against in-memory
+fakes.
+
+`tests/test_architecture.py` checks the rule on every run: it parses each module in
+`domain/`, `ports/`, `indexing/` and `search/` and fails if one imports an adapter, the
+config, the MCP layer, or a vendor library such as fastembed, watchfiles or sqlite3.
 
 **Interface adapters (`adapters/*`)** — the concrete implementations: parsing Obsidian
 Markdown, chunking, embedding with fastembed, storing in SQLite, fusing with RRF, reranking
@@ -77,6 +83,7 @@ sees only the face it needs.
 
 | Port (abstraction)  | Implemented by                          | Consumed by                        |
 | ------------------- | --------------------------------------- | ---------------------------------- |
+| `Vault`             | `FilesystemVault` / `InMemoryVault`     | `IndexVault`, `WatchVault`, `GetNote` |
 | `MarkdownParser`    | `ObsidianMarkdownParser`                | `IndexVault`                       |
 | `Chunker`           | `HeadingAwareChunker`                   | `IndexVault`                       |
 | `Contextualizer`    | `LLMContextualizer` / `NoopContextualizer` | `IndexVault`                    |
@@ -85,7 +92,7 @@ sees only the face it needs.
 | `DocumentWriter`    | `SqliteStore`                           | `IndexVault`                       |
 | `IndexAdmin`        | `SqliteStore`                           | `IndexVault`, status / fingerprint |
 | `ChunkRetriever`    | `SqliteStore`                           | `SearchKnowledge`                  |
-| `DocumentReader`    | `SqliteStore`                           | `SearchSources`, `get_note`        |
+| `DocumentReader`    | `SqliteStore`                           | `SearchSources`, `GetNote`         |
 | `Fuser`             | `RRFFuser`                              | `SearchKnowledge`                  |
 | `Reranker`          | `FastEmbedReranker` / `NoopReranker`    | `SearchKnowledge`                  |
 
@@ -100,13 +107,40 @@ Two ports carry a design decision worth calling out:
   The use case has exactly one code path; whether contextualization or reranking happens is
   decided by *which object was injected*.
 
+### The vault
+
+The `Vault` port (`ports/vault.py`) is everything the application asks of the notes folder:
+`notes()` lists the vault-relative paths of the notes, `read(path)` returns one note's text
+and modification time, and `changes()` yields a batch of changed paths each time something in
+the vault changes. It raises two errors of its own, `VaultUnavailable` (the folder is missing
+or not a folder) and `NoteUnreadable` (one file, with the reason), so no `OSError` or
+`UnicodeDecodeError` reaches a use case.
+
+```text
+  IndexVault ─┐                 ┌─ FilesystemVault   disk + watchfiles
+  WatchVault ─┼──► Vault port ◄─┤
+  GetNote ────┘                 └─ InMemoryVault     dict + scripted changes (tests)
+```
+
+Both adapters apply the same rule for what counts as a note (`adapters/vault/rule.py`: a
+`.md` file, no path segment starting with a dot, not `*.excalidraw.md`, not under a
+`vault.ignore` prefix), and one contract suite (`tests/adapters/vault/test_vault_contract.py`)
+runs against both, so the in-memory fake the use-case tests rely on behaves like the disk.
+
+Policy stays in the use cases. `IndexVault` refuses to sweep the index when the vault lists
+no notes but the index holds some, records an unreadable note as skipped and keeps its old
+entry, and reports each note to an optional progress callback as a plain `Progress` value.
+The clock and the decision of when to print belong to the CLI's `ProgressPrinter`.
+`WatchVault` runs one pass at start and one per batch from `changes()`. If the vault vanishes
+mid-watch, the pass reports a warning and the watch carries on.
+
 ## Request flows
 
 ### Indexing (`reindex` tool / `ariostea reindex`)
 
 ```mermaid
 flowchart LR
-    A[scan_vault] --> B[MarkdownParser<br/>parse]
+    A[Vault<br/>notes · read] --> B[MarkdownParser<br/>parse]
     B --> C[Chunker<br/>heading-aware split]
     C --> D[Contextualizer<br/>optional LLM blurb]
     D --> E[EmbeddingProvider<br/>embed_documents]
@@ -120,11 +154,15 @@ moved. Files that have disappeared from the vault are removed in a final deletio
 (anything in the store but not `seen` this pass).
 
 Correctness hinges on a **config fingerprint**. The stored vectors are only valid for the
-exact `embedding model | contextualizer` pair that produced them, because both influence the
-`embedding_text` that was embedded. `IndexVault._fingerprint()` combines both fingerprints;
-if it differs from the stored value, the incremental fast-path is bypassed and *every* note
-is re-embedded. Swap the embedding model or toggle contextualization and the next index
-rebuilds automatically — you can never silently mix vectors from two different models.
+embedding model, contextualizer and chunking policy that produced them: the first two shape
+the `embedding_text` that was embedded, and the chunking policy decides which chunks exist.
+`IndexVault._fingerprint()` joins the three parts as `embedding | contextualizer | chunker`,
+leaving out empty ones. The original chunking policy (512 words, no overlap) has an empty
+part, so an index built before chunking was configurable keeps its stored fingerprint. If the joined value differs from the
+stored one, the incremental fast path is bypassed and every note is re-embedded. Swap the
+embedding model, toggle contextualization or change `[chunking]`, and the next index rebuilds
+automatically, so vectors from two configurations never mix. A fix to the chunker's code
+leaves the fingerprint as it is: notes pick it up when they next change.
 
 ### Knowledge search (`search_knowledge` tool)
 
@@ -175,7 +213,10 @@ flowchart LR
 *which passages* are most relevant. It is a thin composition over `SearchKnowledge`: run a
 broad knowledge search, roll the passage hits up by source note (hit count, best score,
 representative snippets), then decorate with titles via `DocumentReader`. `get_note` completes
-the loop, fetching a full note's reconstructed text by its vault-relative path.
+the loop through the `GetNote` use case: it asks `DocumentReader` whether the index holds the
+path, and only then reads the file through the `Vault` port, so the text comes back as
+written and a path the index does not hold (`../../etc/passwd`, `.obsidian/app.json`) is
+never read.
 
 ## The composition root
 
@@ -223,8 +264,8 @@ note-level blurb to each chunk before embedding, per Anthropic's
 | ------------------------ | ------------------------------------------------------------- |
 | `domain/models.py`       | Framework-free domain types.                                  |
 | `ports/`                 | Protocol abstractions every use case depends on.              |
-| `indexing/`              | `IndexVault` use case, vault scanner, filesystem watcher.     |
-| `search/`                | `SearchKnowledge` and `SearchSources` use cases.              |
+| `indexing/`              | `IndexVault` and `WatchVault` use cases.                      |
+| `search/`                | `SearchKnowledge`, `SearchSources` and `GetNote` use cases.   |
 | `adapters/`              | Concrete implementations of the ports.                        |
 | `config/`                | Config schema (`schema.py`) and composition root (`container.py`). |
 | `mcp/`                   | FastMCP server (`server.py`) and tool handlers (`handlers.py`). |

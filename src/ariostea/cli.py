@@ -1,16 +1,49 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 
 import typer
 
 from ariostea.config.container import build_container
-from ariostea.config.schema import load_config
-from ariostea.indexing.watch_vault import WatchVault
+from ariostea.config.schema import ConfigError, load_config
+from ariostea.domain.models import IndexReport
 from ariostea.mcp.handlers import reindex_payload, status_payload
 from ariostea.mcp.server import build_server, resolve_transport
+from ariostea.ports.vault import VaultUnavailable
+from ariostea.progress import ProgressPrinter
 
 app = typer.Typer(help="Ariostea — Obsidian RAG MCP server")
+
+
+def _fail(message: str) -> typer.Exit:
+    typer.echo(message, err=True)
+    return typer.Exit(1)
+
+
+@contextmanager
+def _one_line_errors() -> Iterator[None]:
+    """Print an error the user can fix as one line on stderr and exit 1.
+    Anything else keeps its traceback: it is a bug, not a setup problem."""
+    try:
+        yield
+    except (ConfigError, VaultUnavailable) as exc:
+        raise _fail(str(exc)) from None
+
+
+def _print_warning(message: str) -> None:
+    typer.echo(f"warning: {message}", err=True)
+
+
+def _progress_printer() -> ProgressPrinter:
+    return ProgressPrinter(lambda line: typer.echo(line, err=True))
+
+
+def _print_pass(report: IndexReport) -> None:
+    """One line for a pass that changed the index, nothing for one that did not."""
+    if report.embedded or report.deleted:
+        typer.echo(f"+{len(report.embedded)} updated, -{len(report.deleted)} deleted")
 
 
 @app.command()
@@ -21,8 +54,9 @@ def serve(
     port: int = typer.Option(None, help="HTTP bind port (default from config)"),
 ) -> None:
     """Run the MCP server (stdio by default, or Streamable HTTP for n8n)."""
-    cfg = load_config(config)
-    container = build_container(cfg)
+    with _one_line_errors():
+        cfg = load_config(config)
+        container = build_container(cfg)
     bind_host = host if host is not None else cfg.server.host
     bind_port = port if port is not None else cfg.server.port
     try:
@@ -38,24 +72,36 @@ def serve(
 @app.command()
 def reindex(config: str = typer.Option("ariostea.toml", help="Path to config file")) -> None:
     """Index the vault once and exit."""
-    container = build_container(load_config(config))
-    result = reindex_payload(container)
-    typer.echo(f"Indexed {result['notes']} notes, {result['chunks']} chunks.")
+    with _one_line_errors():
+        container = build_container(load_config(config))
+    result = reindex_payload(container, progress=_progress_printer())
+    if "error" in result:
+        raise _fail(result["error"])
+    for skip in result["skipped"]:
+        _print_warning(f"skipped {skip['path']}: {skip['reason']}")
+    typer.echo(
+        f"Indexed {result['notes']} notes, {result['chunks']} chunks, "
+        f"{len(result['skipped'])} skipped."
+    )
 
 
 @app.command()
 def watch(config: str = typer.Option("ariostea.toml", help="Path to config file")) -> None:
     """Index the vault, then watch for changes and re-index incrementally."""
-    container = build_container(load_config(config))
-    vault = os.path.expanduser(container.config.vault.path)
-    typer.echo(f"Indexing and watching {vault} (Ctrl-C to stop)...")
-    WatchVault(container.indexer, vault, ignore=container.config.vault.ignore).run()
+    with _one_line_errors():
+        container = build_container(load_config(config))
+        vault = os.path.expanduser(container.config.vault.path)
+        typer.echo(f"Indexing and watching {vault} (Ctrl-C to stop)...")
+        container.watcher.run(
+            on_report=_print_pass, on_warning=_print_warning, progress=_progress_printer()
+        )
 
 
 @app.command()
 def status(config: str = typer.Option("ariostea.toml", help="Path to config file")) -> None:
     """Print index status and exit."""
-    container = build_container(load_config(config))
+    with _one_line_errors():
+        container = build_container(load_config(config))
     typer.echo(status_payload(container.admin))
 
 

@@ -17,13 +17,16 @@ from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
 from ariostea.adapters.rerank.fastembed_rerank import FastEmbedReranker
 from ariostea.adapters.rerank.noop import NoopReranker
 from ariostea.adapters.store.sqlite_store import SqliteStore
+from ariostea.adapters.vault.filesystem import FilesystemVault
 from ariostea.config.schema import ChunkingCfg, Config, ContextualCfg, EmbeddingCfg, RerankCfg
 from ariostea.indexing.index_vault import IndexVault
+from ariostea.indexing.watch_vault import WatchVault
 from ariostea.ports.chat import ChatProvider
 from ariostea.ports.embedding import EmbeddingProvider
 from ariostea.ports.pipeline import Chunker, Contextualizer
 from ariostea.ports.rerank import Reranker
-from ariostea.ports.store import DocumentReader, IndexAdmin
+from ariostea.ports.store import IndexAdmin
+from ariostea.search.get_note import GetNote
 from ariostea.search.search_knowledge import SearchKnowledge
 from ariostea.search.search_sources import SearchSources
 
@@ -38,10 +41,11 @@ class Container:
 
     config: Config
     indexer: IndexVault
+    watcher: WatchVault
     searcher: SearchKnowledge
     admin: IndexAdmin
     sources: SearchSources
-    reader: DocumentReader
+    notes: GetNote
 
 
 def _expand(p: str) -> str:
@@ -142,12 +146,14 @@ def build_container(
     # The store is injected into each use case as its narrow role
     # (DocumentWriter for indexing, ChunkRetriever for search); only its
     # IndexAdmin face is re-exposed on the Container for status.
+    vault = FilesystemVault(config.vault.path, ignore=config.vault.ignore)
     indexer = IndexVault(
         parser=parser,
         chunker=chunker,
         embeddings=embeddings,
         store=store,
         contextualizer=_build_contextualizer(config.contextual, wrap_chat=wrap_chat),
+        vault=vault,
     )
     searcher = SearchKnowledge(
         embeddings=embeddings,
@@ -163,8 +169,9 @@ def build_container(
     return Container(
         config=config,
         indexer=indexer,
+        watcher=WatchVault(indexer, vault),
         searcher=searcher,
         admin=store,
         sources=sources,
-        reader=store,
+        notes=GetNote(reader=store, vault=vault),
     )

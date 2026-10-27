@@ -77,10 +77,21 @@ class SourceHit:
 
 
 @dataclass(frozen=True)
-class NoteDocument:
-    note_path: str
+class NoteText:
+    """A note's file text as written, with its indexed title."""
+
+    path: str
     title: str
     text: str
+
+
+@dataclass(frozen=True)
+class NoteMissing:
+    """No note to return: not in the index (`reason` None), or indexed but
+    its file cannot be read now (`reason` says why)."""
+
+    path: str
+    reason: str | None
 
 
 @dataclass(frozen=True)
@@ -89,3 +100,25 @@ class IndexStats:
     chunks: int
     last_indexed: float
     config_fingerprint: str
+
+
+@dataclass(frozen=True)
+class Progress:
+    """Where an indexing pass stands, reported after each note it lists."""
+
+    done: int
+    total: int
+    embedded: int
+    skipped: int
+
+
+@dataclass(frozen=True)
+class IndexReport:
+    """What one indexing pass did. `notes` and `chunks` count the whole index
+    afterwards; `skipped` pairs each unreadable path with the reason."""
+
+    notes: int
+    chunks: int
+    embedded: tuple[str, ...]
+    deleted: tuple[str, ...]
+    skipped: tuple[tuple[str, str], ...]

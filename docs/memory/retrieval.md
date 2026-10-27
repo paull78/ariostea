@@ -59,3 +59,7 @@ Contextual indexing was measured twice on the wiki set and both fail the decisio
 ### setup.06 · discovery · 2026-10-06 · contextual retrieval
 Machine facts from the per-chunk context runs on this 48 GB Mac: qwen2.5-14b at a 32k context ran the GPU out of memory and panicked the kernel twice; `qwen2.5-7b-instruct` (mlx 4-bit) ran all 4,246 wiki chunks in 3.5 hours with no crash. LM Studio reuses the cached article prefix only when loaded with `lms load ... --parallel 1`. The overnight launcher is `eval/run_chunk_context_overnight.sh`.
 **Why:** moved from auto-memory at setup; any future local LLM batch job on this machine starts from these limits.
+
+### vault-hardening.29 · discovery · 2026-10-26 · step 09
+Re-measured for the README on the 50-note scratch vault over stdio: a running server holds 4.5 GB after the first search and 5.1 GB after six more, and a search takes 2.3 to 3.0 s. With `rerank.enabled = false` the same server holds 1.7 GB and a search takes about 20 ms, so the reranker accounts for nearly all of both. The README says "about 5 GB" and "about 2.5 s", not the spec's 4.3 GB (vault-hardening.12), and adds the reranker-off figures.
+**Why:** step 09's note asked to re-measure before writing numbers; the hands-on figure was lower than what the server holds after a few searches. Rejected: keeping 4.3 GB to match the spec wording.

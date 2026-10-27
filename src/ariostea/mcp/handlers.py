@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import os
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from ariostea.domain.models import Query
+from ariostea.domain.models import NoteMissing, Progress, Query
 from ariostea.ports.store import IndexAdmin
+from ariostea.ports.vault import VaultUnavailable
 
 if TYPE_CHECKING:
     from ariostea.config.container import Container
@@ -20,10 +21,21 @@ def status_payload(admin: IndexAdmin) -> dict:
     }
 
 
-def reindex_payload(container: "Container") -> dict:
-    vault_path = os.path.expanduser(container.config.vault.path)
-    stats = container.indexer.index(vault_path, ignore=container.config.vault.ignore)
-    return {"notes": stats.notes, "chunks": stats.chunks}
+def reindex_payload(
+    container: "Container", progress: Callable[[Progress], None] | None = None
+) -> dict:
+    """Index the vault. A vault that cannot be trusted comes back as
+    `{"error": ...}` with the index left as it was. The MCP tool passes no
+    `progress`: on stdio, stdout belongs to the protocol."""
+    try:
+        report = container.indexer.index(progress=progress)
+    except VaultUnavailable as exc:
+        return {"error": str(exc)}
+    return {
+        "notes": report.notes,
+        "chunks": report.chunks,
+        "skipped": [{"path": path, "reason": reason} for path, reason in report.skipped],
+    }
 
 
 def search_payload(container: "Container", query: str, k: int = 10) -> dict:
@@ -58,7 +70,10 @@ def search_sources_payload(container: "Container", query: str, k: int = 10) -> d
 
 
 def get_note_payload(container: "Container", path: str) -> dict:
-    doc = container.reader.read_note(path)
-    if doc is None:
-        return {"found": False, "note_path": path}
-    return {"found": True, "note_path": doc.note_path, "title": doc.title, "text": doc.text}
+    result = container.notes.get(path)
+    if isinstance(result, NoteMissing):
+        payload: dict = {"found": False, "note_path": path}
+        if result.reason is not None:
+            payload["reason"] = result.reason
+        return payload
+    return {"found": True, "note_path": result.path, "title": result.title, "text": result.text}

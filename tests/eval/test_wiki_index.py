@@ -15,8 +15,7 @@ def test_wiki_config_points_at_the_corpus_and_the_given_database(tmp_path):
 
 
 def test_wiki_config_ignores_nothing_so_every_note_is_indexed():
-    # The default vault ignore list skips `.obsidian/`; the eval corpus has no
-    # such directory and every file in it is a note under test.
+    # Every file in the eval corpus is a note under test.
     assert wiki_config(CORPUS, "x.db").vault.ignore == []
 
 

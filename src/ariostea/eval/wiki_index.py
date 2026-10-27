@@ -54,8 +54,7 @@ def wiki_config(
 ) -> Config:
     """Config for indexing `corpus` into `db`.
 
-    `ignore=[]` overrides the default `.obsidian/` skip: the eval corpus has
-    no such directory, and every file in it is a note under test. `chunking`
+    `ignore=[]`: every file in the eval corpus is a note under test. `chunking`
     defaults to the production default, so an eval that does not ask for a
     policy measures the one users get. `model` defaults to the pinned
     multilingual model; the embedding sweep passes a candidate. `normalize`

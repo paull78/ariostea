@@ -4,19 +4,25 @@ import tomllib
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ValidationError, model_validator
+
+
+class ConfigError(Exception):
+    """The config file is missing or invalid. The message is one line, fit to
+    print as it is."""
 
 
 class VaultCfg(BaseModel):
     path: str
-    ignore: list[str] = [".obsidian/"]
+    ignore: list[str] = []
+
+
+# Keys of the remote embedding provider, which was never wired in: a config
+# that still sets one would otherwise be read and silently ignored.
+_REMOVED_EMBEDDING_KEYS = ("provider", "base_url", "api_key", "model")
 
 
 class EmbeddingCfg(BaseModel):
-    provider: str = "local"  # "local" | "openai_compat"
-    base_url: str | None = None
-    api_key: str | None = None
-    model: str | None = None
     # The embedding sweep's winner (docs/retrieval-tuning.md, "Embedding
     # model"): multilingual, 1024-dim, unit vectors of its own. The chunking
     # default was measured with it.
@@ -24,6 +30,18 @@ class EmbeddingCfg(BaseModel):
     # Return unit-length vectors, so the store's Euclidean ranking equals cosine
     # ranking. Off keeps existing vaults' vectors; switching it re-embeds.
     normalize: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_removed_keys(cls, data: object) -> object:
+        if isinstance(data, dict):
+            for key in _REMOVED_EMBEDDING_KEYS:
+                if key in data:
+                    raise ValueError(
+                        f"embedding.{key} was removed: Ariostea embeds locally with "
+                        "fastembed; set embedding.local_model"
+                    )
+        return data
 
 
 class StoreCfg(BaseModel):
@@ -107,6 +125,25 @@ class Config(BaseModel):
 
 
 def load_config(path: str | Path) -> Config:
-    with open(path, "rb") as fh:
-        data = tomllib.load(fh)
-    return Config(**data)
+    """Read and validate the config file. Raises ConfigError."""
+    try:
+        with open(path, "rb") as fh:
+            data = tomllib.load(fh)
+    except FileNotFoundError:
+        raise ConfigError(f"config file not found: {path}") from None
+    except tomllib.TOMLDecodeError as exc:
+        raise ConfigError(f"{path}: invalid TOML: {exc}") from None
+    try:
+        return Config(**data)
+    except ValidationError as exc:
+        raise ConfigError(f"{path}: {_first_error(exc)}") from None
+
+
+def _first_error(exc: ValidationError) -> str:
+    """The first validation error as one line: where, then what."""
+    error = exc.errors()[0]
+    where = ".".join(str(part) for part in error["loc"])
+    # A validator's own ValueError arrives as "Value error, <its message>".
+    what = error["msg"].removeprefix("Value error, ")
+    message = f"{where}: {what}" if where and not what.startswith(where) else what
+    return " ".join(message.split())
