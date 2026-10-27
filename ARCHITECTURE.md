@@ -90,7 +90,8 @@ sees only the face it needs.
 | `ChatProvider`      | `OpenAICompatChat`                      | `LLMContextualizer`                |
 | `EmbeddingProvider` | `FastEmbedEmbeddings`                   | `IndexVault`, `SearchKnowledge`    |
 | `DocumentWriter`    | `SqliteStore`                           | `IndexVault`                       |
-| `IndexAdmin`        | `SqliteStore`                           | `IndexVault`, status / fingerprint |
+| `IndexAdmin`        | `SqliteStore`                           | `IndexVault`, `IndexRuns`, status  |
+| `RunLock`           | `FileRunLock` / `InMemoryRunLock`       | `IndexRuns`                        |
 | `ChunkRetriever`    | `SqliteStore`                           | `SearchKnowledge`                  |
 | `DocumentReader`    | `SqliteStore`                           | `SearchSources`, `GetNote`         |
 | `Fuser`             | `RRFFuser`                              | `SearchKnowledge`                  |
@@ -148,21 +149,36 @@ flowchart LR
     F --> G[deletion sweep<br/>DocumentWriter.delete_note]
 ```
 
-`IndexVault.index` is **incremental**. It reads the store's `known_hashes()` up front and
-skips any file whose content hash is unchanged, so a re-index only touches what actually
-moved. Files that have disappeared from the vault are removed in a final deletion sweep
+Every run goes through `IndexRuns`, which takes the `RunLock` first, so one run goes on at a
+time across every process that writes the index: an flock on `<index>.lock`, released by the
+operating system when the process ends. `begin(wait, on_wait)` returns a run holding the lock,
+or `None` when another holds it and `wait` is false; `Run.execute(progress)` indexes, stores
+the run's record (completed or failed) in the index, and releases the lock. `IndexRuns`
+starts no threads: the CLI and `watch` wait for the lock and run inline, and the MCP adapter
+(`mcp/background.py`) refuses when the lock is taken and otherwise runs the index on a thread
+it owns, keeping the latest progress for `status`. The index uses sqlite's write-ahead log, and
+the composition root opens two connections: the run writes through one while search, `get_note`
+and `status` read through the other without waiting.
+
+`IndexVault.index` is **incremental**. It reads the store's `known_notes()` up front and
+skips any note whose content hash and fingerprint both match, so a re-index only touches what
+actually moved. Each note commits on its own, so a run stopped partway keeps what it
+finished. Files that have disappeared from the vault are removed in a final deletion sweep
 (anything in the store but not `seen` this pass).
 
 Correctness hinges on a **config fingerprint**. The stored vectors are only valid for the
 embedding model, contextualizer and chunking policy that produced them: the first two shape
 the `embedding_text` that was embedded, and the chunking policy decides which chunks exist.
-`IndexVault._fingerprint()` joins the three parts as `embedding | contextualizer | chunker`,
+`IndexVault.fingerprint` joins the three parts as `embedding | contextualizer | chunker`,
 leaving out empty ones. The original chunking policy (512 words, no overlap) has an empty
-part, so an index built before chunking was configurable keeps its stored fingerprint. If the joined value differs from the
-stored one, the incremental fast path is bypassed and every note is re-embedded. Swap the
-embedding model, toggle contextualization or change `[chunking]`, and the next index rebuilds
-automatically, so vectors from two configurations never mix. A fix to the chunker's code
-leaves the fingerprint as it is: notes pick it up when they next change.
+part, so an index built before chunking was configurable keeps its stored fingerprint. Each
+note records the fingerprint it was embedded with, and a note whose fingerprint differs from
+the current one is embedded again. Swap the embedding model, toggle contextualization or
+change `[chunking]`, and the next index re-embeds every note; if that run stops partway, the
+next one re-embeds only the notes still on the old settings, and until one finishes the
+index mixes the two. An index from before per-note fingerprints takes its index-wide one for
+every note when it opens. A fix to the chunker's code leaves the fingerprint as it is: notes
+pick it up when they next change.
 
 ### Knowledge search (`search_knowledge` tool)
 
