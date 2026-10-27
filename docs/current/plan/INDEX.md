@@ -1,7 +1,7 @@
 # Plan: server-robustness
 
 Status: approved · Mode: sequential · Test: `uv run pytest`
-Current: wrap. Last stop: step 10 done.
+Current: wrap: recap written. Last stop: final gate passed (1328 passed, 1 skipped).
 
 ## Milestone 1 · A reindex that doesn't block  ✅ gate passed 2026-10-27
 MCP `reindex` returns at once and searches are answered while it runs; a second writer is refused (MCP) or waits (CLI, `watch`), and nothing prints "database is locked"; a SIGKILL leaves no lock; `watch` holds the lock only during a pass.
@@ -12,7 +12,7 @@ MCP `reindex` returns at once and searches are answered while it runs; a second 
 - [x] 05 MCP reindex on a background thread       (needs 03)
 - [x] 06 Cross-process integration tests          (needs 04, 05)
 
-## Milestone 2 · Resume and an honest status  ⛔ gate pending
+## Milestone 2 · Resume and an honest status  ✅ gate passed 2026-10-28
 An interrupted run resumes and old indexes migrate without re-embedding; every run leaves a record in the index, and `status` reports `last_indexed`, `config_fingerprint` and `last_run` truthfully from any process; the README is up to date.
 - [x] 07 Per-note fingerprint and migration       (needs 03)
 - [x] 08 Run records                              (needs 07)
