@@ -4,7 +4,7 @@ import hashlib
 from collections.abc import Callable
 from typing import Literal
 
-from ariostea.domain.models import IndexReport, Progress
+from ariostea.domain.models import IndexReport, Progress, StoredNote
 from ariostea.ports.embedding import EmbeddingProvider
 from ariostea.ports.pipeline import Chunker, Contextualizer, MarkdownParser
 from ariostea.ports.store import IndexStore
@@ -28,13 +28,15 @@ class IndexVault:
         self._contextualizer = contextualizer
         self._vault = vault
 
-    def _fingerprint(self) -> str:
-        # The embedding model and the contextualization both change embedding_text,
-        # and the chunking policy changes which texts exist at all, so a change in
-        # any of them must rebuild every note. Empty parts are skipped: the default
-        # chunker's fingerprint is "" so indexes built before chunking was
-        # configurable keep the "emb|ctx" string they stored, and are not forced
-        # into a full reindex on upgrade.
+    @property
+    def fingerprint(self) -> str:
+        """What a note's embedding depends on besides its text. The embedding
+        model and the contextualization both change embedding_text, and the
+        chunking policy changes which texts exist at all, so a change in any of
+        them must rebuild every note. Empty parts are skipped: the default
+        chunker's fingerprint is "" so indexes built before chunking was
+        configurable keep the "emb|ctx" string they stored, and are not forced
+        into a full reindex on upgrade."""
         parts = (
             self._embeddings.fingerprint,
             self._contextualizer.fingerprint,
@@ -46,21 +48,22 @@ class IndexVault:
         """Bring the index in line with the vault. Raises VaultUnavailable,
         before touching the index, when the vault is missing or holds no notes
         while the index does: either would otherwise delete every note.
-        `progress`, if given, hears about every listed note."""
+        `progress`, if given, hears about every listed note. Each note commits
+        on its own, so a run stopped partway keeps the notes it finished, and
+        the next run embeds only the rest."""
         paths = self._vault.notes()
-        known = self._store.known_hashes()
+        known = self._store.known_notes()
         if not paths and known:
             raise VaultUnavailable(
                 self._vault.location, f"no notes found while the index holds {len(known)}"
             )
-        fingerprint_changed = self._store.fingerprint() != self._fingerprint()
         seen: set[str] = set()
         embedded: list[str] = []
         skipped: list[tuple[str, str]] = []
 
         for done, path in enumerate(paths, start=1):
             try:
-                outcome = self._index_note(path, known.get(path), fingerprint_changed)
+                outcome = self._index_note(path, known.get(path))
             except NoteUnreadable as exc:
                 skipped.append((path, exc.reason))
                 outcome = "skipped"  # keeps what it had: a bad read is not a deletion
@@ -72,10 +75,9 @@ class IndexVault:
                 progress(Progress(done, len(paths), len(embedded), len(skipped)))
 
         # A note left out of `seen` is gone, excluded, or has no chunks left.
-        deleted = [path for path in self._store.known_hashes() if path not in seen]
+        deleted = [path for path in self._store.known_notes() if path not in seen]
         for path in deleted:
             self._store.delete_note(path)
-        self._store.set_fingerprint(self._fingerprint())
         stats = self._store.stats()
         return IndexReport(
             notes=stats.notes,
@@ -86,13 +88,13 @@ class IndexVault:
         )
 
     def _index_note(
-        self, path: str, stored_hash: str | None, fingerprint_changed: bool
+        self, path: str, stored: StoredNote | None
     ) -> Literal["kept", "embedded", "empty"]:
-        """Embed and store one note unless the index already has it as it is.
-        Raises NoteUnreadable."""
+        """Embed and store one note unless the index already has it as it is,
+        from the same text under the same settings. Raises NoteUnreadable."""
         file = self._vault.read(path)
         content_hash = hashlib.sha256(file.text.encode("utf-8")).hexdigest()
-        if not fingerprint_changed and stored_hash == content_hash:
+        if stored == StoredNote(content_hash, self.fingerprint):
             return "kept"
         note, body = self._parser.parse(path, file.text, file.mtime)
         chunks = self._chunker.chunk(note, body)
@@ -100,5 +102,5 @@ class IndexVault:
             return "empty"
         cchunks = self._contextualizer.contextualize(note, body, chunks)
         vectors = self._embeddings.embed_documents([cc.embedding_text for cc in cchunks])
-        self._store.upsert_note(note, cchunks, vectors)
+        self._store.upsert_note(note, cchunks, vectors, self.fingerprint)
         return "embedded"

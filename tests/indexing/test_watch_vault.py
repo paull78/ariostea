@@ -8,7 +8,7 @@ from ariostea.adapters.contextualize.noop import NoopContextualizer
 from ariostea.adapters.lock.memory import InMemoryRunLock
 from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
 from ariostea.adapters.vault.memory import InMemoryVault
-from ariostea.domain.models import IndexStats
+from ariostea.domain.models import IndexStats, StoredNote
 from ariostea.indexing.index_runs import IndexRuns
 from ariostea.indexing.index_vault import IndexVault
 from ariostea.indexing.watch_vault import WatchVault
@@ -33,25 +33,19 @@ class FakeEmbed:
 
 class FakeStore:
     def __init__(self):
-        self.notes, self._fp = {}, ""
+        self.notes = {}
 
-    def upsert_note(self, note, chunks, embeddings):
-        self.notes[note.path] = (note, list(chunks))
+    def upsert_note(self, note, chunks, embeddings, fingerprint):
+        self.notes[note.path] = (note, list(chunks), fingerprint)
 
     def delete_note(self, path):
         self.notes.pop(path, None)
 
-    def known_hashes(self):
-        return {p: n.content_hash for p, (n, _) in self.notes.items()}
+    def known_notes(self):
+        return {p: StoredNote(n.content_hash, fp) for p, (n, _, fp) in self.notes.items()}
 
     def stats(self):
-        return IndexStats(len(self.notes), sum(len(c) for _, c in self.notes.values()), 0.0, "")
-
-    def fingerprint(self):
-        return self._fp
-
-    def set_fingerprint(self, value):
-        self._fp = value
+        return IndexStats(len(self.notes), sum(len(c) for _, c, _ in self.notes.values()), 0.0, "")
 
 
 def _watcher(vault, store, lock=None):

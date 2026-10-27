@@ -3,17 +3,11 @@ from ariostea.mcp.handlers import status_payload
 
 
 class FakeAdmin:
-    def known_hashes(self):
+    def known_notes(self):
         return {}
 
     def stats(self):
         return IndexStats(notes=3, chunks=12, last_indexed=42.0, config_fingerprint="fp")
-
-    def fingerprint(self):
-        return "fp"
-
-    def set_fingerprint(self, value):
-        pass
 
 
 def test_status_payload_reports_counts():

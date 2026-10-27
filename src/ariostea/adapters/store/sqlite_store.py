@@ -15,6 +15,7 @@ from ariostea.domain.models import (
     Note,
     QueryFilters,
     RetrievedChunk,
+    StoredNote,
 )
 from ariostea.ports.store import ChunkRetriever, DocumentReader, DocumentWriter, IndexAdmin
 
@@ -61,9 +62,9 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
 
         sqlite-vec fixes a vector table's size when it is created and rejects
         vectors of any other size, so an index built with one embedding model
-        cannot take another model's vectors (bge-m3-default.01). The stored
-        fingerprint is cleared with the table, so the next index re-embeds every
-        note even if its content is unchanged; the chunk rows stay until then.
+        cannot take another model's vectors (bge-m3-default.01). Every note
+        still records the old model's fingerprint, so the next index re-embeds
+        it even if its content is unchanged; the chunk rows stay until then.
         """
         row = self.db.execute("SELECT sql FROM sqlite_master WHERE name = 'chunks_vec'").fetchone()
         if row is None:
@@ -72,8 +73,6 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
         if size is not None and int(size.group(1)) == self._dim:
             return
         self.db.execute("DROP TABLE chunks_vec")
-        if self.db.execute("SELECT name FROM sqlite_master WHERE name = 'meta'").fetchone():
-            self.db.execute("DELETE FROM meta WHERE key = 'fingerprint'")
         self.db.commit()
 
     def _init_schema(self) -> None:
@@ -85,7 +84,8 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
                 path TEXT UNIQUE NOT NULL,
                 title TEXT NOT NULL,
                 content_hash TEXT NOT NULL,
-                mtime REAL NOT NULL
+                mtime REAL NOT NULL,
+                fingerprint TEXT NOT NULL DEFAULT ''
             );
             CREATE TABLE IF NOT EXISTS chunks (
                 id INTEGER PRIMARY KEY,
@@ -109,6 +109,7 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
             """
         )
         self._add_missing_chunk_columns()
+        self._add_note_fingerprints()
         self.db.commit()
 
     def _add_missing_chunk_columns(self) -> None:
@@ -124,20 +125,41 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
             if column not in present:
                 self.db.execute(f"ALTER TABLE chunks ADD COLUMN {column} {sql_type}")
 
+    def _add_note_fingerprints(self) -> None:
+        """Give an index built before server-robustness a fingerprint per note.
+
+        Those indexes kept one fingerprint for the whole index in `meta`,
+        written when a run finished; every note it holds was embedded under it.
+        Each note takes it, and the index-wide one goes, so the per-note
+        fingerprints are the only record of what each note was embedded with
+        (server-robustness.04, .10). Notes in an index older than `meta` get
+        "", which no settings produce, so they are embedded again.
+        """
+        present = {row["name"] for row in self.db.execute("PRAGMA table_info(notes)")}
+        if "fingerprint" in present:
+            return
+        self.db.execute("ALTER TABLE notes ADD COLUMN fingerprint TEXT NOT NULL DEFAULT ''")
+        row = self.db.execute("SELECT value FROM meta WHERE key = 'fingerprint'").fetchone()
+        if row is not None:
+            self.db.execute("UPDATE notes SET fingerprint = ?", (row["value"],))
+        self.db.execute("DELETE FROM meta WHERE key = 'fingerprint'")
+
     # --- DocumentWriter ---
     def upsert_note(
         self,
         note: Note,
         chunks: Sequence[ContextualizedChunk],
         embeddings: Sequence[list[float]],
+        fingerprint: str,
     ) -> None:
         cur = self.db.cursor()
         cur.execute("BEGIN")
         try:
             self._delete_note_rows(cur, note.path)
             cur.execute(
-                "INSERT INTO notes(path, title, content_hash, mtime) VALUES (?,?,?,?)",
-                (note.path, note.title, note.content_hash, note.mtime),
+                "INSERT INTO notes(path, title, content_hash, mtime, fingerprint) "
+                "VALUES (?,?,?,?,?)",
+                (note.path, note.title, note.content_hash, note.mtime, fingerprint),
             )
             note_id = cur.lastrowid
             for cc, vec in zip(chunks, embeddings):
@@ -291,9 +313,9 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
         return {r["path"]: r["title"] for r in rows}
 
     # --- IndexAdmin ---
-    def known_hashes(self) -> dict[str, str]:
-        rows = self.db.execute("SELECT path, content_hash FROM notes").fetchall()
-        return {r["path"]: r["content_hash"] for r in rows}
+    def known_notes(self) -> dict[str, StoredNote]:
+        rows = self.db.execute("SELECT path, content_hash, fingerprint FROM notes").fetchall()
+        return {r["path"]: StoredNote(r["content_hash"], r["fingerprint"]) for r in rows}
 
     def stats(self) -> IndexStats:
         notes = self.db.execute("SELECT COUNT(*) AS c FROM notes").fetchone()["c"]
@@ -302,17 +324,5 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
             notes=notes,
             chunks=chunks,
             last_indexed=time.time(),
-            config_fingerprint=self.fingerprint(),
+            config_fingerprint="",  # replaced by the run records (step 08)
         )
-
-    def fingerprint(self) -> str:
-        row = self.db.execute("SELECT value FROM meta WHERE key = 'fingerprint'").fetchone()
-        return row["value"] if row else ""
-
-    def set_fingerprint(self, value: str) -> None:
-        self.db.execute(
-            "INSERT INTO meta(key, value) VALUES ('fingerprint', ?) "
-            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            (value,),
-        )
-        self.db.commit()

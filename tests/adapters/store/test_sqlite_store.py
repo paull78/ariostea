@@ -1,5 +1,5 @@
 from ariostea.adapters.store.sqlite_store import SqliteStore
-from ariostea.domain.models import Chunk, ContextualizedChunk, Note
+from ariostea.domain.models import Chunk, ContextualizedChunk, Note, StoredNote
 
 
 def _note(path="a.md"):
@@ -25,7 +25,7 @@ def test_upsert_then_dense_retrieves_nearest(tmp_path):
     note = _note()
     chunks = [_cchunk(note, 0, "alpha"), _cchunk(note, 1, "beta")]
     embeddings = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
-    store.upsert_note(note, chunks, embeddings)
+    store.upsert_note(note, chunks, embeddings, "fp")
 
     hits = store.dense([0.9, 0.1, 0.0], k=2)
     assert hits[0].chunk.text == "alpha"  # nearest to [1,0,0]
@@ -36,29 +36,28 @@ def test_upsert_then_dense_retrieves_nearest(tmp_path):
 def test_upsert_replaces_previous_chunks(tmp_path):
     store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
     note = _note()
-    store.upsert_note(note, [_cchunk(note, 0, "old")], [[1.0, 0.0, 0.0]])
-    store.upsert_note(note, [_cchunk(note, 0, "new")], [[1.0, 0.0, 0.0]])
+    store.upsert_note(note, [_cchunk(note, 0, "old")], [[1.0, 0.0, 0.0]], "fp")
+    store.upsert_note(note, [_cchunk(note, 0, "new")], [[1.0, 0.0, 0.0]], "fp")
     hits = store.dense([1.0, 0.0, 0.0], k=5)
     assert [h.chunk.text for h in hits] == ["new"]  # old chunk gone
 
 
-def test_admin_reports_hashes_and_stats(tmp_path):
+def test_admin_reports_notes_and_stats(tmp_path):
     store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
     note = _note()
-    store.upsert_note(note, [_cchunk(note, 0, "x")], [[1.0, 0.0, 0.0]])
-    store.set_fingerprint("fp-1")
+    store.upsert_note(note, [_cchunk(note, 0, "x")], [[1.0, 0.0, 0.0]], "fp-1")
 
-    assert store.known_hashes() == {"a.md": "h1"}
+    assert store.known_notes() == {"a.md": StoredNote("h1", "fp-1")}
     stats = store.stats()
-    assert stats.notes == 1 and stats.chunks == 1 and stats.config_fingerprint == "fp-1"
+    assert stats.notes == 1 and stats.chunks == 1
 
 
 def test_delete_note_removes_everything(tmp_path):
     store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
     note = _note()
-    store.upsert_note(note, [_cchunk(note, 0, "x")], [[1.0, 0.0, 0.0]])
+    store.upsert_note(note, [_cchunk(note, 0, "x")], [[1.0, 0.0, 0.0]], "fp")
     store.delete_note("a.md")
-    assert store.known_hashes() == {}
+    assert store.known_notes() == {}
     assert store.dense([1.0, 0.0, 0.0], k=5) == []
 
 
@@ -70,7 +69,7 @@ def test_sparse_bm25_ranks_keyword_matches(tmp_path):
         _cchunk(note, 1, "lorem ipsum dolor sit amet"),
     ]
     embeddings = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
-    store.upsert_note(note, chunks, embeddings)
+    store.upsert_note(note, chunks, embeddings, "fp")
 
     hits = store.sparse("fox", k=5)
     assert hits[0].chunk.text == "the quick brown fox jumps"
@@ -88,7 +87,7 @@ def test_sparse_matches_accented_terms_in_main_languages(tmp_path):
         _cchunk(note, 2, "Herr Muller wohnt hier"),  # German
         _cchunk(note, 3, "pedido de informacao urgente"),  # Portuguese
     ]
-    store.upsert_note(note, chunks, [[1.0, 0.0, 0.0]] * 4)
+    store.upsert_note(note, chunks, [[1.0, 0.0, 0.0]] * 4, "fp")
 
     # Accented queries must fold to the same token as the unaccented stored text.
     assert store.sparse("città", k=5)[0].chunk.ordinal == 0
@@ -100,14 +99,14 @@ def test_sparse_matches_accented_terms_in_main_languages(tmp_path):
 def test_sparse_returns_empty_when_no_term_matches(tmp_path):
     store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
     note = _note()
-    store.upsert_note(note, [_cchunk(note, 0, "alpha beta gamma")], [[1.0, 0.0, 0.0]])
+    store.upsert_note(note, [_cchunk(note, 0, "alpha beta gamma")], [[1.0, 0.0, 0.0]], "fp")
     assert store.sparse("zebra", k=5) == []
 
 
 def test_sparse_sanitizes_punctuation_and_empty_queries(tmp_path):
     store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
     note = _note()
-    store.upsert_note(note, [_cchunk(note, 0, "alpha beta gamma")], [[1.0, 0.0, 0.0]])
+    store.upsert_note(note, [_cchunk(note, 0, "alpha beta gamma")], [[1.0, 0.0, 0.0]], "fp")
     # punctuation around a real term must not raise and must still match
     assert store.sparse("  beta?! ", k=5)[0].chunk.text == "alpha beta gamma"
     # a query with no word characters yields no results (and no SQL error)
@@ -117,7 +116,7 @@ def test_sparse_sanitizes_punctuation_and_empty_queries(tmp_path):
 def test_delete_note_removes_from_fts(tmp_path):
     store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
     note = _note()
-    store.upsert_note(note, [_cchunk(note, 0, "findable keyword")], [[1.0, 0.0, 0.0]])
+    store.upsert_note(note, [_cchunk(note, 0, "findable keyword")], [[1.0, 0.0, 0.0]], "fp")
     assert store.sparse("findable", k=5)  # present before delete
     store.delete_note("a.md")
     assert store.sparse("findable", k=5) == []
@@ -126,16 +125,16 @@ def test_delete_note_removes_from_fts(tmp_path):
 def test_reupsert_does_not_duplicate_fts_rows(tmp_path):
     store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
     note = _note()
-    store.upsert_note(note, [_cchunk(note, 0, "unique token")], [[1.0, 0.0, 0.0]])
-    store.upsert_note(note, [_cchunk(note, 0, "unique token")], [[1.0, 0.0, 0.0]])
+    store.upsert_note(note, [_cchunk(note, 0, "unique token")], [[1.0, 0.0, 0.0]], "fp")
+    store.upsert_note(note, [_cchunk(note, 0, "unique token")], [[1.0, 0.0, 0.0]], "fp")
     hits = store.sparse("unique", k=10)
     assert len(hits) == 1  # old FTS row was cleaned, not duplicated
 
 
 def test_note_titles_batch_lookup(tmp_path):
     store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
-    store.upsert_note(_note("a.md"), [_cchunk(_note("a.md"), 0, "x")], [[1.0, 0.0, 0.0]])
-    store.upsert_note(_note("b.md"), [_cchunk(_note("b.md"), 0, "y")], [[0.0, 1.0, 0.0]])
+    store.upsert_note(_note("a.md"), [_cchunk(_note("a.md"), 0, "x")], [[1.0, 0.0, 0.0]], "fp")
+    store.upsert_note(_note("b.md"), [_cchunk(_note("b.md"), 0, "y")], [[0.0, 1.0, 0.0]], "fp")
     titles = store.note_titles(["a.md", "b.md", "missing.md"])
     assert titles == {"a.md": "A", "b.md": "A"}  # _note() always titles "A"
     assert store.note_titles([]) == {}
@@ -150,7 +149,7 @@ def test_upsert_persists_context_blurb(tmp_path):
     cc = ContextualizedChunk(
         chunk=chunk, context_blurb="the blurb", embedding_text="the blurb\n\nbare"
     )
-    store.upsert_note(note, [cc], [[1.0, 0.0, 0.0]])
+    store.upsert_note(note, [cc], [[1.0, 0.0, 0.0]], "fp")
 
     rows = store.db.execute("SELECT context_blurb FROM chunks").fetchall()
     assert rows[0]["context_blurb"] == "the blurb"
@@ -160,7 +159,7 @@ def test_dense_and_sparse_return_the_stored_blurb(tmp_path):
     store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
     note = _note()
     store.upsert_note(
-        note, [_cchunk(note, 0, "alpha", blurb="About Greek letters.")], [[1.0, 0.0, 0.0]]
+        note, [_cchunk(note, 0, "alpha", blurb="About Greek letters.")], [[1.0, 0.0, 0.0]], "fp"
     )
 
     dense = store.dense([1.0, 0.0, 0.0], k=1)
@@ -174,7 +173,7 @@ def test_dense_and_sparse_return_the_stored_blurb(tmp_path):
 def test_plain_index_returns_no_blurb(tmp_path):
     store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
     note = _note()
-    store.upsert_note(note, [_cchunk(note, 0, "alpha")], [[1.0, 0.0, 0.0]])
+    store.upsert_note(note, [_cchunk(note, 0, "alpha")], [[1.0, 0.0, 0.0]], "fp")
 
     assert store.dense([1.0, 0.0, 0.0], k=1)[0].context_blurb is None
     assert store.sparse("alpha", k=1)[0].context_blurb is None
@@ -186,36 +185,37 @@ def test_reopening_at_a_new_dimension_accepts_vectors_of_that_size(tmp_path):
     # at creation and rejects anything else (bge-m3-default.01).
     path = str(tmp_path / "idx.db")
     old = SqliteStore(path=path, dim=3)
-    old.upsert_note(_note("a.md"), [_cchunk(_note("a.md"), 0, "alpha")], [[1.0, 0.0, 0.0]])
+    old.upsert_note(_note("a.md"), [_cchunk(_note("a.md"), 0, "alpha")], [[1.0, 0.0, 0.0]], "fp")
     old.db.close()
 
     new = SqliteStore(path=path, dim=4)
-    new.upsert_note(_note("b.md"), [_cchunk(_note("b.md"), 0, "beta")], [[0.0, 1.0, 0.0, 0.0]])
+    new.upsert_note(
+        _note("b.md"), [_cchunk(_note("b.md"), 0, "beta")], [[0.0, 1.0, 0.0, 0.0]], "fp"
+    )
     hits = new.dense([0.0, 1.0, 0.0, 0.0], k=5)
     assert [h.chunk.text for h in hits] == ["beta"]
 
 
-def test_reopening_at_a_new_dimension_clears_the_fingerprint(tmp_path):
-    # With the old vectors gone, the next index must re-embed every note, even
-    # one whose content hash has not changed.
+def test_reopening_at_a_new_dimension_keeps_each_notes_fingerprint(tmp_path):
+    # With the old vectors gone, the next index must re-embed every note. Each
+    # note still names the old model, so a run with the new one re-embeds it.
     path = str(tmp_path / "idx.db")
     old = SqliteStore(path=path, dim=3)
-    old.set_fingerprint("fake:v1")
+    old.upsert_note(_note(), [_cchunk(_note(), 0, "alpha")], [[1.0, 0.0, 0.0]], "fake:v1")
     old.db.close()
 
-    assert SqliteStore(path=path, dim=4).fingerprint() == ""
+    assert SqliteStore(path=path, dim=4).known_notes() == {"a.md": StoredNote("h1", "fake:v1")}
 
 
 def test_reopening_at_the_same_dimension_keeps_vectors_and_fingerprint(tmp_path):
     path = str(tmp_path / "idx.db")
     first = SqliteStore(path=path, dim=3)
-    first.upsert_note(_note(), [_cchunk(_note(), 0, "alpha")], [[1.0, 0.0, 0.0]])
-    first.set_fingerprint("fake:v1")
+    first.upsert_note(_note(), [_cchunk(_note(), 0, "alpha")], [[1.0, 0.0, 0.0]], "fake:v1")
     first.db.close()
 
     again = SqliteStore(path=path, dim=3)
     assert [h.chunk.text for h in again.dense([1.0, 0.0, 0.0], k=5)] == ["alpha"]
-    assert again.fingerprint() == "fake:v1"
+    assert again.known_notes()["a.md"].fingerprint == "fake:v1"
 
 
 def test_opening_an_index_without_context_blurb_adds_the_column(tmp_path, old_index):
@@ -231,7 +231,9 @@ def test_an_old_index_takes_chunks_with_blurbs(tmp_path, old_index):
     old_index(path, dim=3)
     store = SqliteStore(path=path, dim=3)
     note = _note()
-    store.upsert_note(note, [_cchunk(note, 0, "alpha", blurb="The A note.")], [[1.0, 0.0, 0.0]])
+    store.upsert_note(
+        note, [_cchunk(note, 0, "alpha", blurb="The A note.")], [[1.0, 0.0, 0.0]], "fp"
+    )
     (hit,) = store.dense([1.0, 0.0, 0.0], k=5)
     assert hit.chunk.text == "alpha"
     assert hit.context_blurb == "The A note."
@@ -267,7 +269,7 @@ def test_reader_reads_while_a_write_is_open(tmp_path):  # AC-05
     path = str(tmp_path / "idx.db")
     writer = SqliteStore(path=path, dim=3)
     note = _note()
-    writer.upsert_note(note, [_cchunk(note, 0, "x")], [[1.0, 0.0, 0.0]])
+    writer.upsert_note(note, [_cchunk(note, 0, "x")], [[1.0, 0.0, 0.0]], "fp")
     reader = SqliteStore(path=path, dim=3)
 
     writer.db.execute("BEGIN EXCLUSIVE")
@@ -276,7 +278,7 @@ def test_reader_reads_while_a_write_is_open(tmp_path):  # AC-05
     )
     try:
         started = time.monotonic()
-        assert reader.known_hashes() == {"a.md": "h1"}  # the committed content only
+        assert set(reader.known_notes()) == {"a.md"}  # the committed content only
         assert reader.stats().notes == 1
         assert time.monotonic() - started < 1
     finally:
@@ -303,3 +305,50 @@ def test_any_thread_store_works_from_another_thread(tmp_path):
     worker.start()
     worker.join(timeout=10)
     assert outcome == {"shared": 0, "own": "refused"}
+
+
+def _fingerprints(path) -> dict[str, str]:
+    import sqlite3
+
+    db = sqlite3.connect(path)
+    try:
+        return dict(db.execute("SELECT path, fingerprint FROM notes"))
+    finally:
+        db.close()
+
+
+def _meta_fingerprints(path) -> int:
+    import sqlite3
+
+    db = sqlite3.connect(path)
+    try:
+        return db.execute("SELECT count(*) FROM meta WHERE key = 'fingerprint'").fetchone()[0]
+    finally:
+        db.close()
+
+
+def test_previous_release_index_migrates(tmp_path, previous_release_index):  # AC-09
+    path = str(tmp_path / "idx.db")
+    previous_release_index(path, 3, {"a.md": "h1", "b.md": "h2"}, "fake:v1|noop")
+
+    store = SqliteStore(path=path, dim=3)
+    assert store.known_notes() == {
+        "a.md": StoredNote("h1", "fake:v1|noop"),
+        "b.md": StoredNote("h2", "fake:v1|noop"),
+    }
+    assert _meta_fingerprints(path) == 0
+    store.db.close()
+
+    SqliteStore(path=path, dim=3).db.close()  # opening again changes nothing
+    assert _fingerprints(path) == {"a.md": "fake:v1|noop", "b.md": "fake:v1|noop"}
+
+
+def test_pre_meta_index_gets_an_empty_fingerprint(tmp_path, old_index):
+    path = str(tmp_path / "old.db")
+    old_index(path, 3)
+    db = __import__("sqlite3").connect(path)
+    db.execute("INSERT INTO notes(path, title, content_hash, mtime) VALUES ('a.md', 'A', 'h1', 0)")
+    db.commit()
+    db.close()
+
+    assert SqliteStore(path=path, dim=3).known_notes() == {"a.md": StoredNote("h1", "")}

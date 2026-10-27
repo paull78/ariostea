@@ -103,6 +103,15 @@ class IndexStats:
 
 
 @dataclass(frozen=True)
+class StoredNote:
+    """What the index knows of a note: the hash of the text it embedded and
+    the fingerprint (model, contextualizer, chunking) it embedded it with."""
+
+    content_hash: str
+    fingerprint: str
+
+
+@dataclass(frozen=True)
 class Progress:
     """Where an indexing pass stands, reported after each note it lists."""
 

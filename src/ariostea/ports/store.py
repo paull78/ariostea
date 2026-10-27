@@ -8,6 +8,7 @@ from ariostea.domain.models import (
     Note,
     QueryFilters,
     RetrievedChunk,
+    StoredNote,
 )
 
 
@@ -18,6 +19,7 @@ class DocumentWriter(Protocol):
         note: Note,
         chunks: Sequence[ContextualizedChunk],
         embeddings: Sequence[list[float]],
+        fingerprint: str,
     ) -> None: ...
     def delete_note(self, path: str) -> None: ...
 
@@ -39,14 +41,12 @@ class DocumentReader(Protocol):
 
 @runtime_checkable
 class IndexAdmin(Protocol):
-    def known_hashes(self) -> dict[str, str]: ...
+    def known_notes(self) -> dict[str, StoredNote]: ...
     def stats(self) -> IndexStats: ...
-    def fingerprint(self) -> str: ...
-    def set_fingerprint(self, value: str) -> None: ...
 
 
 @runtime_checkable
 class IndexStore(DocumentWriter, IndexAdmin, Protocol):
     """Composite role for the indexing use case: it both writes notes and
-    administers the index (hashes, fingerprint, stats). Python has no
+    administers the index (what each note was embedded from, stats). Python has no
     intersection type, so we name the combination as one Protocol."""
