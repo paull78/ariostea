@@ -32,8 +32,11 @@ def build_server(container: "Container", host: str = "127.0.0.1", port: int = 80
 
     @mcp.tool()
     def status() -> dict:
-        """Report index health: note and chunk counts, whether an index run is
-        going on (`running`) and, for a run this server started, its `progress`
+        """Report index health: note and chunk counts; `last_indexed` (when an
+        index run last completed, ISO 8601 UTC, or null) and `config_fingerprint`
+        (the settings it ran with); `last_run` (the last run that ended:
+        finished_at, notes, chunks, skipped, error); `running` (an index run is
+        going on in any process) and, for a run this server started, `progress`
         (done and total notes, embedded and skipped so far)."""
         return status_payload(container, background)
 

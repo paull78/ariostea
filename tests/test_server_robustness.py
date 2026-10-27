@@ -14,6 +14,7 @@ import sys
 import threading
 import time
 from contextlib import asynccontextmanager, contextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -155,8 +156,12 @@ def test_reindex_returns_at_once_and_search_answers_mid_run(vault, tmp_path):  #
             assert "results" in found
             still = await call("status")
             assert still["running"] is True, "the run ended before the search was answered"
-            after = await _until(call, lambda s: not s["running"], timeout=300)
+            after = await _until(call, lambda s: not s["running"], timeout=300)  # AC-02
             assert after["notes"] > 0 and "progress" not in after
+            last = after["last_run"]
+            assert last["error"] is None and last["notes"] == after["notes"]
+            assert last["chunks"] == after["chunks"] and last["skipped"] == 1  # the Latin-1 note
+            assert after["last_indexed"] == last["finished_at"]
 
     asyncio.run(main())
 
@@ -193,12 +198,18 @@ def test_second_writer_is_refused_or_waits(indexed):  # AC-03
     assert re.search(r"Indexed \d+ notes", out)
 
 
-def test_reads_answer_while_another_process_writes(vault, tmp_path):  # AC-05, AC-11
+def _when(iso: str) -> datetime:
+    return datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+
+
+def test_reads_answer_while_another_process_writes(vault, tmp_path):  # AC-05, AC-10, AC-11
     config = _config(vault, tmp_path / "shared")
 
     async def main():
         async with _server(config) as call:
             await call("search_knowledge", query="warm up", k=1)  # first inference is slow
+            fresh = await call("status")
+            assert fresh["last_indexed"] is None and fresh["last_run"] is None
             cli = subprocess.Popen(
                 [*ARIOSTEA, "reindex", "--config", str(config)],
                 stdout=subprocess.PIPE,
@@ -218,8 +229,24 @@ def test_reads_answer_while_another_process_writes(vault, tmp_path):  # AC-05, A
                 assert cli.poll() is None, "the CLI run ended before the reads were done"
             finally:
                 out, err = await asyncio.to_thread(cli.communicate, timeout=300)
+            ended = datetime.now(timezone.utc)
             assert cli.returncode == 0, err
             assert "database is locked" not in out + err
+
+            # AC-10: the server, started before the CLI run, reports it.
+            seen = await call("status")
+            assert seen["running"] is False
+            # last_indexed is to the second, truncated: up to 1 s of the gap
+            # is the format, the rest is the CLI exiting after the run.
+            assert timedelta(0) <= ended - _when(seen["last_indexed"]) < timedelta(seconds=2)
+            assert seen["config_fingerprint"]
+            counts = re.search(r"Indexed (\d+) notes, (\d+) chunks, (\d+) skipped", out)
+            last = seen["last_run"]
+            assert (last["notes"], last["chunks"], last["skipped"]) == tuple(
+                int(n) for n in counts.groups()
+            )
+            again = await call("status")
+            assert again["last_indexed"] == seen["last_indexed"]
 
     asyncio.run(main())
 
@@ -268,3 +295,26 @@ def test_idle_watch_holds_no_lock_and_waits_for_a_run(indexed):  # AC-06
     finally:
         watcher.terminate()  # by PID
         watcher.wait(timeout=30)
+
+
+def test_guard_failure_is_reported(indexed):  # AC-02
+    vault = Path(re.search(r'path = "(.*)"', indexed.read_text())[1])
+    away = vault.with_name(vault.name + "-away")
+
+    async def main():
+        async with _server(indexed) as call:
+            before = await _until(call, lambda s: not s["running"], timeout=60)
+            vault.rename(away)
+            try:
+                assert await call("reindex") == {"started": True}
+                after = await _until(
+                    call, lambda s: not s["running"] and s["last_run"]["error"], timeout=60
+                )
+            finally:
+                away.rename(vault)
+            assert "unavailable" in after["last_run"]["error"]
+            assert after["last_indexed"] == before["last_indexed"]
+            assert after["config_fingerprint"] == before["config_fingerprint"]
+            assert (after["notes"], after["chunks"]) == (before["notes"], before["chunks"])
+
+    asyncio.run(main())
