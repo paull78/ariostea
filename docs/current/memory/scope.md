@@ -9,3 +9,7 @@ The cycle fixes the four server problems vault-hardening deferred: the MCP `rein
 ### server-robustness.06 · decision · 2026-10-27 · spec
 Non-goals: cancelling a run, queueing MCP `reindex` calls, progress for runs in other processes, a `status` count of notes on other settings, Windows, the rest of vault-hardening's deferred list, retrieval changes.
 **Why:** the owner kept the cycle to the four fixes. The three extras offered (old-settings count, cross-process progress, cancel) were each cheap to describe but add state or tools no fix needs.
+
+### server-robustness.11 · decision · 2026-10-27 · plan
+The owner approved the outline and asked to build through to the end with the recommended option at every choice and a final recap. Gate 1 is taken as approved in sequential mode; each milestone gate and the final gate still run their checks and show their recap, then carry on. Stand-ins for the owner's calls are listed in the recap.
+**Why:** the owner's instruction ("implement it till done use recommended choices and make a final recap"). Sequential over parallel: the two parallel pairs are small and touch neighbouring code, so worktrees would cost more than they save.
