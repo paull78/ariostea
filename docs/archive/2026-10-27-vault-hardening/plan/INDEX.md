@@ -1,7 +1,7 @@
 # Plan: vault-hardening
 
 Status: approved · Mode: sequential · Test: `uv run pytest`
-Current: wrap: recap written. Last stop: recap written; next, memory consolidation.
+Current: wrap: general done. Last stop: general memory unchanged at the owner's request; cycle archived.
 
 ## Milestone 1 · The index cannot be lost  ✅ gate passed 2026-10-26
 `reindex` (CLI and MCP) refuses a missing or empty vault, skips unreadable files with a named warning, leaves out dot-folders and Excalidraw, and prints errors as one line. The vault sits behind a port.
