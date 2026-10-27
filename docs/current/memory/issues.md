@@ -12,4 +12,4 @@ One entry per open issue found during the cycle, updated at every gate (general 
 
 ### vault-hardening.30 · issue · 2026-10-26 · step 09
 `uv run ruff check .` fails on `docs/current/assets/q.py` (E401, I001), committed at gate 0 with the hands-on assets. `src`, `tests` and `eval` are clean. The assets move to `docs/archive/` at wrap and would keep failing there.
-**Why:** found by the lint run in step 09. Proposed fix at wrap: exclude `docs/` from ruff in `pyproject.toml`, or leave the archived scripts as they ran. Status: open.
+**Why:** found by the lint run in step 09. Proposed fix at wrap: exclude `docs/` from ruff in `pyproject.toml`, or leave the archived scripts as they ran. CI runs `ruff check .` and `ruff format --check .`, so both failed: 2 lint errors and 3 files to reformat, all in `docs/current/assets/`. Status: resolved at the final gate (2026-10-27): the owner chose `extend-exclude = ["docs"]` under `[tool.ruff]`, so the scripts stay as they ran.
