@@ -8,6 +8,7 @@ from ariostea.domain.models import (
     Note,
     QueryFilters,
     RetrievedChunk,
+    RunRecord,
     StoredNote,
 )
 
@@ -43,6 +44,9 @@ class DocumentReader(Protocol):
 class IndexAdmin(Protocol):
     def known_notes(self) -> dict[str, StoredNote]: ...
     def stats(self) -> IndexStats: ...
+    def record_run(self, record: RunRecord) -> None: ...
+    def last_run(self) -> RunRecord | None: ...
+    def last_completed_run(self) -> RunRecord | None: ...
 
 
 @runtime_checkable

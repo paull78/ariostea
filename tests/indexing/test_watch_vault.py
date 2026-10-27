@@ -2,6 +2,7 @@
 each scripted change edits the vault, then the watcher runs a pass."""
 
 import pytest
+from fixtures.runs import index_runs
 
 from ariostea.adapters.chunk.heading_aware import HeadingAwareChunker
 from ariostea.adapters.contextualize.noop import NoopContextualizer
@@ -9,7 +10,6 @@ from ariostea.adapters.lock.memory import InMemoryRunLock
 from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
 from ariostea.adapters.vault.memory import InMemoryVault
 from ariostea.domain.models import IndexStats, StoredNote
-from ariostea.indexing.index_runs import IndexRuns
 from ariostea.indexing.index_vault import IndexVault
 from ariostea.indexing.watch_vault import WatchVault
 from ariostea.ports.vault import VaultUnavailable
@@ -45,7 +45,7 @@ class FakeStore:
         return {p: StoredNote(n.content_hash, fp) for p, (n, _, fp) in self.notes.items()}
 
     def stats(self):
-        return IndexStats(len(self.notes), sum(len(c) for _, c, _ in self.notes.values()), 0.0, "")
+        return IndexStats(len(self.notes), sum(len(c) for _, c, _ in self.notes.values()))
 
 
 def _watcher(vault, store, lock=None):
@@ -57,7 +57,7 @@ def _watcher(vault, store, lock=None):
         NoopContextualizer(),
         vault=vault,
     )
-    return WatchVault(IndexRuns(indexer, lock or InMemoryRunLock()), vault)
+    return WatchVault(index_runs(indexer, lock), vault)
 
 
 def edit(files):

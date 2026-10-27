@@ -48,18 +48,20 @@ def test_reindex_tool_returns_started():
     import threading
     from types import SimpleNamespace
 
-    from ariostea.adapters.lock.memory import InMemoryRunLock
+    from fixtures.runs import index_runs
+
     from ariostea.domain.models import IndexReport
-    from ariostea.indexing.index_runs import IndexRuns
 
     finished = threading.Event()
 
     class Indexer:
+        fingerprint = "fp"
+
         def index(self, progress=None):
             finished.set()
             return IndexReport(0, 0, (), (), ())
 
-    mcp = build_server(SimpleNamespace(runs=IndexRuns(Indexer(), InMemoryRunLock())))
+    mcp = build_server(SimpleNamespace(runs=index_runs(Indexer())))
     content = asyncio.run(mcp.call_tool("reindex", {}))
     blocks = content[0] if isinstance(content, tuple) else content
     assert json.loads(blocks[0].text) == {"started": True}

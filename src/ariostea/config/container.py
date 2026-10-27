@@ -4,6 +4,7 @@ import logging
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ariostea.adapters.chat.openai_compat import OpenAICompatChat
@@ -161,7 +162,13 @@ def build_container(
         contextualizer=_build_contextualizer(config.contextual, wrap_chat=wrap_chat),
         vault=vault,
     )
-    runs = IndexRuns(indexer, FileRunLock(store_path + ".lock"))
+    runs = IndexRuns(
+        indexer,
+        FileRunLock(store_path + ".lock"),
+        writer=writer,
+        reader=reader,
+        now=lambda: datetime.now(timezone.utc),
+    )
     searcher = SearchKnowledge(
         embeddings=embeddings,
         retriever=reader,

@@ -352,3 +352,53 @@ def test_pre_meta_index_gets_an_empty_fingerprint(tmp_path, old_index):
     db.close()
 
     assert SqliteStore(path=path, dim=3).known_notes() == {"a.md": StoredNote("h1", "")}
+
+
+def _record(error=None, minute=41, fingerprint="fp"):
+    from datetime import datetime, timezone
+
+    from ariostea.domain.models import RunRecord
+
+    return RunRecord(
+        finished_at=datetime(2026, 10, 27, 9, minute, 5, tzinfo=timezone.utc),
+        fingerprint=fingerprint,
+        notes=3,
+        chunks=9,
+        skipped=1,
+        error=error,
+    )
+
+
+def test_no_runs_on_a_new_index(tmp_path):
+    store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
+    assert store.last_run() is None and store.last_completed_run() is None
+
+
+def test_completed_run_is_last_and_last_completed(tmp_path):
+    store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
+    store.record_run(_record())
+    assert store.last_run() == _record() == store.last_completed_run()
+    assert store.last_run().finished_at.utcoffset().total_seconds() == 0
+
+
+def test_failed_run_leaves_last_completed_alone(tmp_path):
+    store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
+    store.record_run(_record())
+    store.record_run(_record(error="vault gone", minute=50))
+    assert store.last_run().error == "vault gone"
+    assert store.last_completed_run() == _record()
+
+
+def test_runs_are_seen_by_another_connection(tmp_path):
+    path = str(tmp_path / "idx.db")
+    writer = SqliteStore(path=path, dim=3, any_thread=True)
+    reader = SqliteStore(path=path, dim=3)
+    writer.record_run(_record())
+    assert reader.last_completed_run() == _record()
+
+
+def test_stats_counts_notes_and_chunks_only(tmp_path):
+    store = SqliteStore(path=str(tmp_path / "idx.db"), dim=3)
+    stats = store.stats()
+    assert (stats.notes, stats.chunks) == (0, 0)
+    assert not hasattr(stats, "last_indexed")

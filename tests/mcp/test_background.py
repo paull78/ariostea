@@ -6,9 +6,10 @@ import logging
 import threading
 from types import SimpleNamespace
 
+from fixtures.runs import index_runs
+
 from ariostea.adapters.lock.memory import InMemoryRunLock
 from ariostea.domain.models import IndexReport, IndexStats, Progress
-from ariostea.indexing.index_runs import IndexRuns
 from ariostea.mcp.background import BackgroundRuns
 from ariostea.mcp.handlers import start_reindex_payload, status_payload
 from ariostea.ports.vault import VaultUnavailable
@@ -18,6 +19,8 @@ WAIT = 10  # seconds; no test hangs when it fails
 
 class BlockingIndexer:
     """Reports one progress value, then waits for `go` before finishing."""
+
+    fingerprint = "fp"
 
     def __init__(self, error: Exception | None = None):
         self.go = threading.Event()
@@ -36,12 +39,12 @@ class BlockingIndexer:
 
 class FakeAdmin:
     def stats(self):
-        return IndexStats(notes=3, chunks=9, last_indexed=42.0, config_fingerprint="fp")
+        return IndexStats(notes=3, chunks=9)
 
 
 def _setup(error=None):
     indexer, lock = BlockingIndexer(error), InMemoryRunLock()
-    runs = IndexRuns(indexer, lock)
+    runs = index_runs(indexer, lock)
     container = SimpleNamespace(runs=runs, admin=FakeAdmin())
     return indexer, lock, BackgroundRuns(runs), container
 

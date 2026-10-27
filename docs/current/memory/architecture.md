@@ -14,3 +14,7 @@ Supersedes server-robustness.07 for the worker thread. `IndexRuns` starts no thr
 ### server-robustness.12 · discovery · 2026-10-27 · step 06
 One fastembed embedder (bge-m3) used from two threads at once, one embedding notes and counting tokens and the other embedding queries, gives the same vectors (within 1e-5) and token counts as the same calls one after the other, and raises nothing. The MCP server's search thread and its index thread share the embedder with no lock (`test_embedder_from_two_threads_matches_one`).
 **Why:** the open risk at Gate 0; ONNX Runtime sessions run concurrently and the tokenizer is only read. Rejected: a lock in the adapter (would make a search wait for a note's embedding, for no measured gain).
+
+### server-robustness.13 · decision · 2026-10-27 · step 08
+The index keeps two run records, not a history: a `runs` table with one row for the last run that ended and one for the last that completed, each replaced in place. `IndexRuns` records through the writer connection, before releasing the lock, and `state()` reads through the reader. A failed run records the index's counts after the failure and 0 skipped.
+**Why:** `status` needs only those two, and `watch` runs a pass on every change, so a history would grow without bound for nothing anyone reads. Rejected: an append-only table (needs pruning); two keys in `meta` as JSON (no columns to query, a second format to parse).

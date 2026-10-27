@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
-import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
 
@@ -15,6 +15,7 @@ from ariostea.domain.models import (
     Note,
     QueryFilters,
     RetrievedChunk,
+    RunRecord,
     StoredNote,
 )
 from ariostea.ports.store import ChunkRetriever, DocumentReader, DocumentWriter, IndexAdmin
@@ -106,6 +107,17 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
                 tokenize="unicode61 remove_diacritics 2"
             );
             CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+            -- Two rows at most: the last run that ended ('last') and the last
+            -- one that completed ('completed').
+            CREATE TABLE IF NOT EXISTS runs (
+                kind TEXT PRIMARY KEY,
+                finished_at TEXT NOT NULL,
+                fingerprint TEXT NOT NULL,
+                notes INTEGER NOT NULL,
+                chunks INTEGER NOT NULL,
+                skipped INTEGER NOT NULL,
+                error TEXT
+            );
             """
         )
         self._add_missing_chunk_columns()
@@ -320,9 +332,42 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
     def stats(self) -> IndexStats:
         notes = self.db.execute("SELECT COUNT(*) AS c FROM notes").fetchone()["c"]
         chunks = self.db.execute("SELECT COUNT(*) AS c FROM chunks").fetchone()["c"]
-        return IndexStats(
-            notes=notes,
-            chunks=chunks,
-            last_indexed=time.time(),
-            config_fingerprint="",  # replaced by the run records (step 08)
+        return IndexStats(notes=notes, chunks=chunks)
+
+    def record_run(self, record: RunRecord) -> None:
+        kinds = ("last",) if record.error is not None else ("last", "completed")
+        for kind in kinds:
+            self.db.execute(
+                "INSERT OR REPLACE INTO runs"
+                "(kind, finished_at, fingerprint, notes, chunks, skipped, error) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (
+                    kind,
+                    record.finished_at.astimezone(timezone.utc).isoformat(),
+                    record.fingerprint,
+                    record.notes,
+                    record.chunks,
+                    record.skipped,
+                    record.error,
+                ),
+            )
+        self.db.commit()
+
+    def last_run(self) -> RunRecord | None:
+        return self._run("last")
+
+    def last_completed_run(self) -> RunRecord | None:
+        return self._run("completed")
+
+    def _run(self, kind: str) -> RunRecord | None:
+        row = self.db.execute("SELECT * FROM runs WHERE kind = ?", (kind,)).fetchone()
+        if row is None:
+            return None
+        return RunRecord(
+            finished_at=datetime.fromisoformat(row["finished_at"]),
+            fingerprint=row["fingerprint"],
+            notes=row["notes"],
+            chunks=row["chunks"],
+            skipped=row["skipped"],
+            error=row["error"],
         )

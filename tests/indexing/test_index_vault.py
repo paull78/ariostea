@@ -54,7 +54,7 @@ class FakeStore:
         from ariostea.domain.models import IndexStats
 
         chunks = sum(len(c) for _, c, _ in self.notes.values())
-        return IndexStats(len(self.notes), chunks, 0.0, "")
+        return IndexStats(len(self.notes), chunks)
 
 
 def _indexer(vault, embed=None, store=None, chunker=None, contextualizer=None):

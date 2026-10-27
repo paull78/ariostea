@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import timezone
 from typing import TYPE_CHECKING
 
-from ariostea.domain.models import NoteMissing, Progress, Query
+from ariostea.domain.models import NoteMissing, Progress, Query, RunRecord
 from ariostea.ports.vault import VaultUnavailable
 
 if TYPE_CHECKING:
@@ -12,15 +13,21 @@ if TYPE_CHECKING:
 
 
 def status_payload(container: "Container", background: "BackgroundRuns | None" = None) -> dict:
-    """Index health. `running` says whether any process is indexing;
-    `progress` appears only for a run this server started."""
+    """Index health, read from the index, so it holds whichever process ran:
+    `last_indexed` and `config_fingerprint` come from the last run that
+    completed, `last_run` is the last that ended, `running` says whether any
+    process is indexing, and `progress` appears only for a run this server
+    started."""
     s = container.admin.stats()
+    state = container.runs.state()
+    completed = state.last_completed
     payload: dict = {
         "notes": s.notes,
         "chunks": s.chunks,
-        "running": container.runs.state().running,
-        "last_indexed": s.last_indexed,
-        "config_fingerprint": s.config_fingerprint,
+        "running": state.running,
+        "last_indexed": _utc(completed) if completed else None,
+        "config_fingerprint": completed.fingerprint if completed else None,
+        "last_run": _run_payload(state.last_run) if state.last_run else None,
     }
     progress = background.progress() if background is not None else None
     if progress is not None:
@@ -31,6 +38,20 @@ def status_payload(container: "Container", background: "BackgroundRuns | None" =
             "skipped": progress.skipped,
         }
     return payload
+
+
+def _utc(record: RunRecord) -> str:
+    return record.finished_at.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _run_payload(record: RunRecord) -> dict:
+    return {
+        "finished_at": _utc(record),
+        "notes": record.notes,
+        "chunks": record.chunks,
+        "skipped": record.skipped,
+        "error": record.error,
+    }
 
 
 def start_reindex_payload(background: "BackgroundRuns") -> dict:

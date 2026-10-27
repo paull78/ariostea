@@ -165,6 +165,8 @@ def test_cli_removed_key_prints_one_line_and_exits_1(tmp_path):
 
 def _raising_indexer_container(error):
     class Indexer:
+        fingerprint = "fp"
+
         def index(self, progress=None):
             raise error
 
@@ -226,6 +228,8 @@ def test_reindex_cli_progress_on_stderr_only(monkeypatch):  # AC-16
     from ariostea.domain.models import IndexReport, Progress
 
     class Indexer:
+        fingerprint = "fp"
+
         def index(self, progress=None):
             for done in range(1, 251):
                 progress(Progress(done=done, total=250, embedded=done, skipped=0))
@@ -266,10 +270,9 @@ def test_watch_cli_passes_progress_for_the_first_pass(monkeypatch, tmp_path):
 
 def _runs(indexer):
     """A real IndexRuns on the in-memory lock, around a fake indexer."""
-    from ariostea.adapters.lock.memory import InMemoryRunLock
-    from ariostea.indexing.index_runs import IndexRuns
+    from fixtures.runs import index_runs
 
-    return IndexRuns(indexer, InMemoryRunLock())
+    return index_runs(indexer)
 
 
 def test_reindex_cli_waits_with_one_line(monkeypatch):  # AC-03, CLI part
@@ -278,6 +281,8 @@ def test_reindex_cli_waits_with_one_line(monkeypatch):  # AC-03, CLI part
     from ariostea.domain.models import IndexReport
 
     class Indexer:
+        fingerprint = "fp"
+
         def index(self, progress=None):
             return IndexReport(2, 4, (), (), ())
 
