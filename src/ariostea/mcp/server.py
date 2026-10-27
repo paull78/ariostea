@@ -4,11 +4,12 @@ from typing import TYPE_CHECKING
 
 from mcp.server.fastmcp import FastMCP
 
+from ariostea.mcp.background import BackgroundRuns
 from ariostea.mcp.handlers import (
     get_note_payload,
-    reindex_payload,
     search_payload,
     search_sources_payload,
+    start_reindex_payload,
     status_payload,
 )
 
@@ -27,16 +28,21 @@ def resolve_transport(name: str) -> str:
 
 def build_server(container: "Container", host: str = "127.0.0.1", port: int = 8000) -> FastMCP:
     mcp = FastMCP("ariostea", host=host, port=port)
+    background = BackgroundRuns(container.runs)
 
     @mcp.tool()
     def status() -> dict:
-        """Report index health: note/chunk counts, last index time, config fingerprint."""
-        return status_payload(container.admin)
+        """Report index health: note and chunk counts, whether an index run is
+        going on (`running`) and, for a run this server started, its `progress`
+        (done and total notes, embedded and skipped so far)."""
+        return status_payload(container, background)
 
     @mcp.tool()
     def reindex() -> dict:
-        """Index (or re-index) the configured vault. Returns note/chunk counts."""
-        return reindex_payload(container)
+        """Start indexing the configured vault in the background and return at
+        once: {"started": true}, or {"started": false, "reason": ...} while
+        another index run is going on. Follow the run with `status`."""
+        return start_reindex_payload(background)
 
     @mcp.tool()
     def search_knowledge(query: str, k: int = 10) -> dict:

@@ -17,10 +17,14 @@ class FakeAdmin:
 
 
 def test_status_payload_reports_counts():
-    payload = status_payload(FakeAdmin())
+    from types import SimpleNamespace
+
+    container = SimpleNamespace(admin=FakeAdmin(), runs=_runs(None))
+    payload = status_payload(container)
     assert payload == {
         "notes": 3,
         "chunks": 12,
+        "running": False,
         "last_indexed": 42.0,
         "config_fingerprint": "fp",
     }
@@ -120,7 +124,7 @@ def test_reindex_payload_returns_error_on_unavailable_vault():
     assert payload == {"error": "vault /gone is unavailable: no such folder"}
 
 
-def test_mcp_reindex_passes_no_progress():
+def test_reindex_payload_without_progress_passes_none():
     from types import SimpleNamespace
 
     from ariostea.domain.models import IndexReport

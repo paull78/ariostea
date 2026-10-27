@@ -1,7 +1,7 @@
 # Plan: server-robustness
 
 Status: approved · Mode: sequential · Test: `uv run pytest`
-Current: step 05 (not started). Last stop: step 04 done.
+Current: step 06 (not started). Last stop: step 05 done.
 
 ## Milestone 1 · A reindex that doesn't block  ⛔ gate pending
 MCP `reindex` returns at once and searches are answered while it runs; a second writer is refused (MCP) or waits (CLI, `watch`), and nothing prints "database is locked"; a SIGKILL leaves no lock; `watch` holds the lock only during a pass.
@@ -9,7 +9,7 @@ MCP `reindex` returns at once and searches are answered while it runs; a second 
 - [x] 02 Store on WAL, two connections            (needs none)  ∥ 01
 - [x] 03 IndexRuns, used by CLI reindex           (needs 01, 02)
 - [x] 04 Watch passes through IndexRuns           (needs 03)
-- [ ] 05 MCP reindex on a background thread       (needs 03)
+- [x] 05 MCP reindex on a background thread       (needs 03)
 - [ ] 06 Cross-process integration tests          (needs 04, 05)
 
 ## Milestone 2 · Resume and an honest status  ⛔ gate pending

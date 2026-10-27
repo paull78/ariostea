@@ -109,7 +109,7 @@ def status(config: str = typer.Option("ariostea.toml", help="Path to config file
     """Print index status and exit."""
     with _one_line_errors():
         container = build_container(load_config(config))
-    typer.echo(status_payload(container.admin))
+    typer.echo(status_payload(container))
 
 
 def main() -> None:

@@ -4,21 +4,40 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from ariostea.domain.models import NoteMissing, Progress, Query
-from ariostea.ports.store import IndexAdmin
 from ariostea.ports.vault import VaultUnavailable
 
 if TYPE_CHECKING:
     from ariostea.config.container import Container
+    from ariostea.mcp.background import BackgroundRuns
 
 
-def status_payload(admin: IndexAdmin) -> dict:
-    s = admin.stats()
-    return {
+def status_payload(container: "Container", background: "BackgroundRuns | None" = None) -> dict:
+    """Index health. `running` says whether any process is indexing;
+    `progress` appears only for a run this server started."""
+    s = container.admin.stats()
+    payload: dict = {
         "notes": s.notes,
         "chunks": s.chunks,
+        "running": container.runs.state().running,
         "last_indexed": s.last_indexed,
         "config_fingerprint": s.config_fingerprint,
     }
+    progress = background.progress() if background is not None else None
+    if progress is not None:
+        payload["progress"] = {
+            "done": progress.done,
+            "total": progress.total,
+            "embedded": progress.embedded,
+            "skipped": progress.skipped,
+        }
+    return payload
+
+
+def start_reindex_payload(background: "BackgroundRuns") -> dict:
+    """Start an index run in the background, or say why not."""
+    if background.start():
+        return {"started": True}
+    return {"started": False, "reason": "an index run is in progress"}
 
 
 def _nothing() -> None:

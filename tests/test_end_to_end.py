@@ -21,7 +21,7 @@ def test_index_and_search_end_to_end(tmp_path):
     container = build_container(cfg)
 
     reindex_payload(container)  # full index
-    assert status_payload(container.admin)["notes"] == 2
+    assert status_payload(container)["notes"] == 2
 
     payload = search_payload(container, query="how are embeddings stored", k=1)
     assert payload["results"]
