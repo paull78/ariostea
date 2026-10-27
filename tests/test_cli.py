@@ -12,7 +12,7 @@ class FakeWatcher:
     def __init__(self, events):
         self.events = events
 
-    def run(self, stop_event=None, on_report=None, on_warning=None, progress=None):
+    def run(self, stop_event=None, on_report=None, on_warning=None, progress=None, on_wait=None):
         for kind, value in self.events:
             (on_report if kind == "report" else on_warning)(value)
 
@@ -169,7 +169,9 @@ def _raising_indexer_container(error):
             raise error
 
     class Watcher:
-        def run(self, stop_event=None, on_report=None, on_warning=None, progress=None):
+        def run(
+            self, stop_event=None, on_report=None, on_warning=None, progress=None, on_wait=None
+        ):
             raise error
 
     return SimpleNamespace(
@@ -248,7 +250,9 @@ def test_watch_cli_passes_progress_for_the_first_pass(monkeypatch, tmp_path):
     from ariostea.domain.models import Progress
 
     class Watcher:
-        def run(self, stop_event=None, on_report=None, on_warning=None, progress=None):
+        def run(
+            self, stop_event=None, on_report=None, on_warning=None, progress=None, on_wait=None
+        ):
             progress(Progress(done=1, total=1, embedded=1, skipped=0))
 
     monkeypatch.setattr(cli, "load_config", lambda path: None)
@@ -289,3 +293,19 @@ def test_reindex_cli_waits_with_one_line(monkeypatch):  # AC-03, CLI part
     assert result.exit_code == 0
     assert result.stderr == "waiting for the index run in progress\n"
     assert result.stdout == "Indexed 2 notes, 4 chunks, 0 skipped.\n"
+
+
+def test_watch_cli_prints_the_waiting_line(monkeypatch, tmp_path):  # AC-06
+    class Watcher:
+        def run(
+            self, stop_event=None, on_report=None, on_warning=None, progress=None, on_wait=None
+        ):
+            on_wait()
+
+    monkeypatch.setattr(cli, "load_config", lambda path: None)
+    monkeypatch.setattr(cli, "build_container", lambda cfg: _watch_container(tmp_path, Watcher()))
+
+    result = CliRunner().invoke(cli.app, ["watch", "--config", "x.toml"])
+
+    assert result.exit_code == 0
+    assert result.stderr == "waiting for the index run in progress\n"

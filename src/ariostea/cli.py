@@ -97,7 +97,10 @@ def watch(config: str = typer.Option("ariostea.toml", help="Path to config file"
         vault = os.path.expanduser(container.config.vault.path)
         typer.echo(f"Indexing and watching {vault} (Ctrl-C to stop)...")
         container.watcher.run(
-            on_report=_print_pass, on_warning=_print_warning, progress=_progress_printer()
+            on_report=_print_pass,
+            on_warning=_print_warning,
+            progress=_progress_printer(),
+            on_wait=_print_waiting,
         )
 
 

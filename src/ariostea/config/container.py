@@ -161,6 +161,7 @@ def build_container(
         contextualizer=_build_contextualizer(config.contextual, wrap_chat=wrap_chat),
         vault=vault,
     )
+    runs = IndexRuns(indexer, FileRunLock(store_path + ".lock"))
     searcher = SearchKnowledge(
         embeddings=embeddings,
         retriever=reader,
@@ -174,8 +175,8 @@ def build_container(
 
     return Container(
         config=config,
-        runs=IndexRuns(indexer, FileRunLock(store_path + ".lock")),
-        watcher=WatchVault(indexer, vault),
+        runs=runs,
+        watcher=WatchVault(runs, vault),
         searcher=searcher,
         admin=reader,
         sources=sources,

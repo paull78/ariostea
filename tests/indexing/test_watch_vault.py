@@ -5,9 +5,11 @@ import pytest
 
 from ariostea.adapters.chunk.heading_aware import HeadingAwareChunker
 from ariostea.adapters.contextualize.noop import NoopContextualizer
+from ariostea.adapters.lock.memory import InMemoryRunLock
 from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
 from ariostea.adapters.vault.memory import InMemoryVault
 from ariostea.domain.models import IndexStats
+from ariostea.indexing.index_runs import IndexRuns
 from ariostea.indexing.index_vault import IndexVault
 from ariostea.indexing.watch_vault import WatchVault
 from ariostea.ports.vault import VaultUnavailable
@@ -52,6 +54,18 @@ class FakeStore:
         self._fp = value
 
 
+def _watcher(vault, store, lock=None):
+    indexer = IndexVault(
+        ObsidianMarkdownParser(),
+        HeadingAwareChunker(),
+        FakeEmbed(),
+        store,
+        NoopContextualizer(),
+        vault=vault,
+    )
+    return WatchVault(IndexRuns(indexer, lock or InMemoryRunLock()), vault)
+
+
 def edit(files):
     """A scripted change that writes `files` into the vault."""
 
@@ -80,16 +94,9 @@ def available(flag):
 
 def run(vault, store=None):
     store = store if store is not None else FakeStore()
-    indexer = IndexVault(
-        ObsidianMarkdownParser(),
-        HeadingAwareChunker(),
-        FakeEmbed(),
-        store,
-        NoopContextualizer(),
-        vault=vault,
-    )
+    watcher = _watcher(vault, store)
     reports, warnings = [], []
-    WatchVault(indexer, vault).run(on_report=reports.append, on_warning=warnings.append)
+    watcher.run(on_report=reports.append, on_warning=warnings.append)
     return store, reports, warnings
 
 
@@ -184,28 +191,69 @@ def test_stop_event_ends_the_watch():
     stop.set()
     vault = InMemoryVault({"a.md": "# A\nalpha"}, script=[edit({"b.md": "x"})])
     store = FakeStore()
-    indexer = IndexVault(
-        ObsidianMarkdownParser(),
-        HeadingAwareChunker(),
-        FakeEmbed(),
-        store,
-        NoopContextualizer(),
-        vault=vault,
-    )
-    WatchVault(indexer, vault).run(stop_event=stop)
+    watcher = _watcher(vault, store)
+    watcher.run(stop_event=stop)
     assert set(store.notes) == {"a.md"}  # the initial pass only
 
 
 def test_progress_goes_to_the_first_pass_only():
     vault = InMemoryVault({"a.md": "# A\nalpha"}, script=[edit({"b.md": "# B\nbeta"})])
-    indexer = IndexVault(
-        ObsidianMarkdownParser(),
-        HeadingAwareChunker(),
-        FakeEmbed(),
-        FakeStore(),
-        NoopContextualizer(),
-        vault=vault,
-    )
+    watcher = _watcher(vault, FakeStore())
     seen = []
-    WatchVault(indexer, vault).run(progress=seen.append)
+    watcher.run(progress=seen.append)
     assert [(p.done, p.total) for p in seen] == [(1, 1)]
+
+
+def test_idle_watch_holds_no_lock():  # AC-06, first half
+    lock = InMemoryRunLock()
+    free_while_idle = []
+
+    def look_at_the_lock(vault):
+        other = lock.handle()
+        free_while_idle.append(other.try_acquire())
+        other.release()
+        return ["a.md"]
+
+    vault = InMemoryVault({"a.md": "# A\nalpha"}, script=[look_at_the_lock])
+    _watcher(vault, FakeStore(), lock).run()
+    assert free_while_idle == [True]
+
+
+def _held_for_a_moment(lock, events):
+    """Another process's run: take the lock now, release it 0.2 s later."""
+    import threading
+
+    other = lock.handle()
+    assert other.try_acquire()
+
+    def release():
+        events.append("released")
+        other.release()
+
+    threading.Timer(0.2, release).start()
+
+
+def test_pass_waits_for_a_run_in_progress():  # AC-06, second half
+    lock, events = InMemoryRunLock(), []
+
+    def edit_during_another_run(vault):
+        _held_for_a_moment(lock, events)
+        return edit({"b.md": "# B\nbeta"})(vault)
+
+    vault = InMemoryVault({"a.md": "# A\nalpha"}, script=[edit_during_another_run])
+    _watcher(vault, FakeStore(), lock).run(
+        on_wait=lambda: events.append("waiting"),
+        on_report=lambda r: events.append(r.embedded),
+    )
+    assert events == [("a.md",), "waiting", "released", ("b.md",)]
+
+
+def test_first_pass_waits_too():
+    lock, events = InMemoryRunLock(), []
+    _held_for_a_moment(lock, events)
+    vault = InMemoryVault({"a.md": "# A\nalpha"})
+    _watcher(vault, FakeStore(), lock).run(
+        on_wait=lambda: events.append("waiting"),
+        on_report=lambda r: events.append(r.embedded),
+    )
+    assert events == ["waiting", "released", ("a.md",)]
