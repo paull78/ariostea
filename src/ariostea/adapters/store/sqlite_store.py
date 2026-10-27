@@ -40,10 +40,16 @@ _CHUNK_COLUMNS_ADDED_LATER: tuple[tuple[str, str], ...] = (("context_blurb", "TE
 
 
 class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
-    def __init__(self, path: str, dim: int) -> None:
+    def __init__(self, path: str, dim: int, *, any_thread: bool = False) -> None:
+        """Open the index at `path`. With `any_thread`, a thread other than the
+        one opening it may use this connection, one thread at a time: the
+        index run holding the run lock writes through it (server-robustness.03)."""
         self._dim = dim
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(path)
+        self.db = sqlite3.connect(path, check_same_thread=not any_thread)
+        # The write-ahead log lets every other connection read while a run
+        # writes. It is a property of the file, set once and kept.
+        self.db.execute("PRAGMA journal_mode=WAL")
         self.db.row_factory = sqlite3.Row
         self.db.enable_load_extension(True)
         sqlite_vec.load(self.db)

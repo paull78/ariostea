@@ -138,3 +138,46 @@ def test_container_passes_normalize_to_the_embedder(monkeypatch):
     container._build_embeddings(EmbeddingCfg(local_model="m", normalize=True))
 
     assert built == {"model_name": "m", "normalize": True}
+
+
+def test_container_reads_and_writes_through_separate_connections(monkeypatch, tmp_path):
+    import sqlite3
+    import threading
+
+    from ariostea.config import container
+    from ariostea.config.schema import Config, RerankCfg, StoreCfg, VaultCfg
+
+    class _FakeEmbeddings:
+        def __init__(self, model_name, normalize):
+            pass
+
+        dimension = 3
+        fingerprint = "fake:v1"
+
+        def count_tokens(self, text):
+            return len(text.split())
+
+    monkeypatch.setattr(container, "FastEmbedEmbeddings", _FakeEmbeddings)
+    (tmp_path / "vault").mkdir()
+    built = container.build_container(
+        Config(
+            vault=VaultCfg(path=str(tmp_path / "vault"), ignore=[]),
+            store=StoreCfg(backend="sqlite", path=str(tmp_path / "index.db")),
+            rerank=RerankCfg(enabled=False),
+        )
+    )
+    writer = built.indexer._store
+    assert writer is not built.admin
+    outcome = {}
+
+    def use():
+        outcome["writer"] = writer.stats().notes
+        try:
+            built.admin.stats()
+        except sqlite3.ProgrammingError:
+            outcome["reader"] = "this thread only"
+
+    worker = threading.Thread(target=use)
+    worker.start()
+    worker.join(timeout=10)
+    assert outcome == {"writer": 0, "reader": "this thread only"}

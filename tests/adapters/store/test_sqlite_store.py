@@ -235,3 +235,71 @@ def test_an_old_index_takes_chunks_with_blurbs(tmp_path, old_index):
     (hit,) = store.dense([1.0, 0.0, 0.0], k=5)
     assert hit.chunk.text == "alpha"
     assert hit.context_blurb == "The A note."
+
+
+def _journal_mode(path) -> str:
+    import sqlite3
+
+    db = sqlite3.connect(path)
+    try:
+        return db.execute("PRAGMA journal_mode").fetchone()[0]
+    finally:
+        db.close()
+
+
+def test_index_uses_the_write_ahead_log(tmp_path):
+    path = str(tmp_path / "idx.db")
+    SqliteStore(path=path, dim=3)
+    assert _journal_mode(path) == "wal"
+
+
+def test_old_index_switches_to_the_write_ahead_log(tmp_path, old_index):
+    path = str(tmp_path / "idx.db")
+    old_index(path, 3)
+    assert _journal_mode(path) == "delete"
+    SqliteStore(path=path, dim=3)
+    assert _journal_mode(path) == "wal"
+
+
+def test_reader_reads_while_a_write_is_open(tmp_path):  # AC-05
+    import time
+
+    path = str(tmp_path / "idx.db")
+    writer = SqliteStore(path=path, dim=3)
+    note = _note()
+    writer.upsert_note(note, [_cchunk(note, 0, "x")], [[1.0, 0.0, 0.0]])
+    reader = SqliteStore(path=path, dim=3)
+
+    writer.db.execute("BEGIN EXCLUSIVE")
+    writer.db.execute(
+        "INSERT INTO notes(path, title, content_hash, mtime) VALUES ('b.md', 'B', 'h2', 1.0)"
+    )
+    try:
+        started = time.monotonic()
+        assert reader.known_hashes() == {"a.md": "h1"}  # the committed content only
+        assert reader.stats().notes == 1
+        assert time.monotonic() - started < 1
+    finally:
+        writer.db.rollback()
+
+
+def test_any_thread_store_works_from_another_thread(tmp_path):
+    import sqlite3
+    import threading
+
+    path = str(tmp_path / "idx.db")
+    shared = SqliteStore(path=path, dim=3, any_thread=True)
+    own = SqliteStore(path=path, dim=3)
+    outcome = {}
+
+    def use():
+        outcome["shared"] = shared.stats().notes
+        try:
+            own.stats()
+        except sqlite3.ProgrammingError:
+            outcome["own"] = "refused"
+
+    worker = threading.Thread(target=use)
+    worker.start()
+    worker.join(timeout=10)
+    assert outcome == {"shared": 0, "own": "refused"}

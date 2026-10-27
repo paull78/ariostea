@@ -138,7 +138,11 @@ def build_container(
 
     store_path = _expand(config.store.path)
     Path(store_path).parent.mkdir(parents=True, exist_ok=True)
-    store = SqliteStore(path=store_path, dim=embeddings.dimension)
+    # Two connections on one index: the run holding the run lock writes
+    # through `writer`, from whichever thread runs it; everything else reads
+    # through `reader`, which the write-ahead log never makes wait.
+    writer = SqliteStore(path=store_path, dim=embeddings.dimension, any_thread=True)
+    reader = SqliteStore(path=store_path, dim=embeddings.dimension)
 
     parser = ObsidianMarkdownParser()
     chunker = build_chunker(config.chunking, embeddings)
@@ -151,27 +155,27 @@ def build_container(
         parser=parser,
         chunker=chunker,
         embeddings=embeddings,
-        store=store,
+        store=writer,
         contextualizer=_build_contextualizer(config.contextual, wrap_chat=wrap_chat),
         vault=vault,
     )
     searcher = SearchKnowledge(
         embeddings=embeddings,
-        retriever=store,
+        retriever=reader,
         fuser=RRFFuser(),
         reranker=_build_reranker(config.rerank),
         k_dense=config.search.k_dense,
         k_sparse=config.search.k_sparse,
         pool=config.rerank.pool,
     )
-    sources = SearchSources(searcher=searcher, reader=store)
+    sources = SearchSources(searcher=searcher, reader=reader)
 
     return Container(
         config=config,
         indexer=indexer,
         watcher=WatchVault(indexer, vault),
         searcher=searcher,
-        admin=store,
+        admin=reader,
         sources=sources,
-        notes=GetNote(reader=store, vault=vault),
+        notes=GetNote(reader=reader, vault=vault),
     )
