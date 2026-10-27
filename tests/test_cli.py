@@ -63,7 +63,7 @@ def test_reindex_cli_prints_skipped_warnings_and_count(monkeypatch):
     }
     monkeypatch.setattr(cli, "load_config", lambda path: None)
     monkeypatch.setattr(cli, "build_container", lambda cfg: object())
-    monkeypatch.setattr(cli, "reindex_payload", lambda container, progress=None: payload)
+    monkeypatch.setattr(cli, "reindex_payload", lambda container, **_: payload)
 
     result = CliRunner().invoke(cli.app, ["reindex", "--config", "x.toml"])
 
@@ -174,7 +174,7 @@ def _raising_indexer_container(error):
 
     return SimpleNamespace(
         config=SimpleNamespace(vault=SimpleNamespace(path="/gone")),
-        indexer=Indexer(),
+        runs=_runs(Indexer()),
         watcher=Watcher(),
     )
 
@@ -229,7 +229,7 @@ def test_reindex_cli_progress_on_stderr_only(monkeypatch):  # AC-16
                 progress(Progress(done=done, total=250, embedded=done, skipped=0))
             return IndexReport(250, 900, (), (), ())
 
-    container = SimpleNamespace(indexer=Indexer())
+    container = SimpleNamespace(runs=_runs(Indexer()))
     monkeypatch.setattr(cli, "load_config", lambda path: None)
     monkeypatch.setattr(cli, "build_container", lambda cfg: container)
 
@@ -258,3 +258,34 @@ def test_watch_cli_passes_progress_for_the_first_pass(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert result.stderr == "1/1 notes · 1 embedded · 0 skipped\n"
+
+
+def _runs(indexer):
+    """A real IndexRuns on the in-memory lock, around a fake indexer."""
+    from ariostea.adapters.lock.memory import InMemoryRunLock
+    from ariostea.indexing.index_runs import IndexRuns
+
+    return IndexRuns(indexer, InMemoryRunLock())
+
+
+def test_reindex_cli_waits_with_one_line(monkeypatch):  # AC-03, CLI part
+    import threading
+
+    from ariostea.domain.models import IndexReport
+
+    class Indexer:
+        def index(self, progress=None):
+            return IndexReport(2, 4, (), (), ())
+
+    runs = _runs(Indexer())
+    other = runs._lock.handle()  # another process's run
+    other.try_acquire()
+    threading.Timer(0.3, other.release).start()
+    monkeypatch.setattr(cli, "load_config", lambda path: None)
+    monkeypatch.setattr(cli, "build_container", lambda cfg: SimpleNamespace(runs=runs))
+
+    result = CliRunner().invoke(cli.app, ["reindex", "--config", "x.toml"])
+
+    assert result.exit_code == 0
+    assert result.stderr == "waiting for the index run in progress\n"
+    assert result.stdout == "Indexed 2 notes, 4 chunks, 0 skipped.\n"

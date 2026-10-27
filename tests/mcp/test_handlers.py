@@ -101,7 +101,7 @@ def test_reindex_payload_lists_skipped():
     report = IndexReport(
         notes=2, chunks=5, embedded=("a.md",), deleted=(), skipped=(("bad.md", "not UTF-8 text"),)
     )
-    payload = reindex_payload(SimpleNamespace(indexer=_FakeIndexer(report)))
+    payload = reindex_payload(SimpleNamespace(runs=_runs(_FakeIndexer(report))))
     assert payload == {
         "notes": 2,
         "chunks": 5,
@@ -116,7 +116,7 @@ def test_reindex_payload_returns_error_on_unavailable_vault():
     from ariostea.ports.vault import VaultUnavailable
 
     error = VaultUnavailable("/gone", "no such folder")
-    payload = reindex_payload(SimpleNamespace(indexer=_FakeIndexer(error)))
+    payload = reindex_payload(SimpleNamespace(runs=_runs(_FakeIndexer(error))))
     assert payload == {"error": "vault /gone is unavailable: no such folder"}
 
 
@@ -133,5 +133,13 @@ def test_mcp_reindex_passes_no_progress():
             calls.append(progress)
             return IndexReport(0, 0, (), (), ())
 
-    reindex_payload(SimpleNamespace(indexer=Indexer()))
+    reindex_payload(SimpleNamespace(runs=_runs(Indexer())))
     assert calls == [None]
+
+
+def _runs(indexer):
+    """A real IndexRuns on the in-memory lock, around a fake indexer."""
+    from ariostea.adapters.lock.memory import InMemoryRunLock
+    from ariostea.indexing.index_runs import IndexRuns
+
+    return IndexRuns(indexer, InMemoryRunLock())

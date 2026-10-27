@@ -166,7 +166,7 @@ def test_container_reads_and_writes_through_separate_connections(monkeypatch, tm
             rerank=RerankCfg(enabled=False),
         )
     )
-    writer = built.indexer._store
+    writer = built.runs._indexer._store
     assert writer is not built.admin
     outcome = {}
 

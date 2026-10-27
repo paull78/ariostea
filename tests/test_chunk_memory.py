@@ -42,7 +42,7 @@ _SCRIPT = textwrap.dedent(
     container = build_container(config)
     container.searcher.search(Query(text="warm up", k=1))  # load the models first
     before = peak()
-    container.indexer.index()
+    container.runs.begin(wait=True).execute()
     after = peak()
 
     texts = [r[0] for r in sqlite3.connect(root / "idx.db").execute("SELECT text FROM chunks")]

@@ -40,6 +40,10 @@ def _progress_printer() -> ProgressPrinter:
     return ProgressPrinter(lambda line: typer.echo(line, err=True))
 
 
+def _print_waiting() -> None:
+    typer.echo("waiting for the index run in progress", err=True)
+
+
 def _print_pass(report: IndexReport) -> None:
     """One line for a pass that changed the index, nothing for one that did not."""
     if report.embedded or report.deleted:
@@ -74,7 +78,7 @@ def reindex(config: str = typer.Option("ariostea.toml", help="Path to config fil
     """Index the vault once and exit."""
     with _one_line_errors():
         container = build_container(load_config(config))
-    result = reindex_payload(container, progress=_progress_printer())
+    result = reindex_payload(container, progress=_progress_printer(), on_wait=_print_waiting)
     if "error" in result:
         raise _fail(result["error"])
     for skip in result["skipped"]:

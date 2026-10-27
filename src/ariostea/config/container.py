@@ -13,12 +13,14 @@ from ariostea.adapters.contextualize.llm_chunk import LLMChunkContextualizer
 from ariostea.adapters.contextualize.noop import NoopContextualizer
 from ariostea.adapters.embedding.fastembed_local import FastEmbedEmbeddings
 from ariostea.adapters.fuse.rrf import RRFFuser
+from ariostea.adapters.lock.file import FileRunLock
 from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
 from ariostea.adapters.rerank.fastembed_rerank import FastEmbedReranker
 from ariostea.adapters.rerank.noop import NoopReranker
 from ariostea.adapters.store.sqlite_store import SqliteStore
 from ariostea.adapters.vault.filesystem import FilesystemVault
 from ariostea.config.schema import ChunkingCfg, Config, ContextualCfg, EmbeddingCfg, RerankCfg
+from ariostea.indexing.index_runs import IndexRuns
 from ariostea.indexing.index_vault import IndexVault
 from ariostea.indexing.watch_vault import WatchVault
 from ariostea.ports.chat import ChatProvider
@@ -40,7 +42,7 @@ class Container:
     internals of build_container and are deliberately not exposed here."""
 
     config: Config
-    indexer: IndexVault
+    runs: IndexRuns
     watcher: WatchVault
     searcher: SearchKnowledge
     admin: IndexAdmin
@@ -172,7 +174,7 @@ def build_container(
 
     return Container(
         config=config,
-        indexer=indexer,
+        runs=IndexRuns(indexer, FileRunLock(store_path + ".lock")),
         watcher=WatchVault(indexer, vault),
         searcher=searcher,
         admin=reader,

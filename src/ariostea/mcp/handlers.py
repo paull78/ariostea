@@ -21,14 +21,21 @@ def status_payload(admin: IndexAdmin) -> dict:
     }
 
 
+def _nothing() -> None:
+    pass
+
+
 def reindex_payload(
-    container: "Container", progress: Callable[[Progress], None] | None = None
+    container: "Container",
+    progress: Callable[[Progress], None] | None = None,
+    on_wait: Callable[[], None] = _nothing,
 ) -> dict:
-    """Index the vault. A vault that cannot be trusted comes back as
-    `{"error": ...}` with the index left as it was. The MCP tool passes no
-    `progress`: on stdio, stdout belongs to the protocol."""
+    """Index the vault, waiting for a run in progress to end first (`on_wait`
+    hears when that happens). A vault that cannot be trusted comes back as
+    `{"error": ...}` with the index left as it was."""
+    run = container.runs.begin(wait=True, on_wait=on_wait)
     try:
-        report = container.indexer.index(progress=progress)
+        report = run.execute(progress=progress)
     except VaultUnavailable as exc:
         return {"error": str(exc)}
     return {
