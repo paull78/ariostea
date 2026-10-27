@@ -11,7 +11,7 @@ Fix 5 uses the CommonMark fence rule (three or more backticks or tildes, closed 
 **Why:** the documented rule the Obsidian editor follows; anything else would disagree with what the user sees highlighted as code.
 
 ### vault-hardening.08 · decision · 2026-10-26 · spec
-The chunker fingerprint stays as it is. Notes whose chunks change under fixes 2, 3 and 5 are re-chunked when next edited; new indexes get every fix at once; deleting the index file forces a full rebuild.
+The chunker fingerprint stays as it is. Notes whose chunks change under fixes 2, 3 and 5 are re-chunked when next edited; new indexes get every fix at once; deleting the index (`rm index.db*`, server-robustness.08) forces a full rebuild.
 **Why:** setup.04, no forced reindex without the owner's say, and the owner chose not to: the affected notes are few, and their old chunks are no worse than today. Rejected: bumping the fingerprint (every vault re-embeds once, about an hour for a large vault on bge-m3).
 
 ### vault-hardening.09 · decision · 2026-10-26 · spec

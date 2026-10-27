@@ -1,7 +1,7 @@
 # Plan: server-robustness
 
 Status: approved · Mode: sequential · Test: `uv run pytest`
-Current: wrap: recap written. Last stop: final gate passed (1328 passed, 1 skipped).
+Current: wrap: general done. Last stop: memory consolidated; general memory nothing new.
 
 ## Milestone 1 · A reindex that doesn't block  ✅ gate passed 2026-10-27
 MCP `reindex` returns at once and searches are answered while it runs; a second writer is refused (MCP) or waits (CLI, `watch`), and nothing prints "database is locked"; a SIGKILL leaves no lock; `watch` holds the lock only during a pass.
