@@ -6,7 +6,17 @@ from __future__ import annotations
 import math
 import statistics
 import time
-from typing import Callable, Sequence
+from typing import Callable, Sequence, TypeVar
+
+from ariostea.config.schema import ChunkingCfg, Config, EmbeddingCfg
+from ariostea.eval.blurb_eval import fail_on_warnings
+from ariostea.eval.chunk_sweep import model_slug
+
+# The logger build_container warns on when the reranker falls back to fused
+# order (search-speed.14).
+CONTAINER_LOGGER = "ariostea.config.container"
+
+T = TypeVar("T")
 
 
 def search_latency_ms(
@@ -40,3 +50,41 @@ def short_sources(
     """How many queries get fewer than `k` notes back from `sources`: with a
     small rerank pool, search_sources groups too few chunks to fill its list."""
     return sum(1 for query in queries if len(sources(query, k)) < k)
+
+
+def parse_entry(text: str) -> tuple[str, int]:
+    """`MODEL:POOL` -> (model, pool). Split on the last colon, so a model name
+    may hold one; the pool must be a positive whole number."""
+    model, sep, pool = text.rpartition(":")
+    if not sep or not model or not pool.isdigit() or int(pool) < 1:
+        raise ValueError(f"expected MODEL:POOL with a positive pool, got {text!r}")
+    return model, int(pool)
+
+
+def rerank_run_id(date: str, model: str, pool: int) -> str:
+    return f"{date}-rerank-{model_slug(model)}-pool{pool}"
+
+
+def rerank_config(config: Config, model: str, pool: int) -> Config:
+    """`config` with the reranker's model and pool replaced, nothing else."""
+    rerank = config.rerank.model_copy(update={"model": model, "pool": pool})
+    return config.model_copy(update={"rerank": rerank})
+
+
+def rerank_run_config(k: int, model: str, pool: int) -> dict:
+    """The `config` a sweep run logs: the default embedding and chunking every
+    run shares, and the reranker configuration it measures."""
+    return {
+        "k": k,
+        "embedding": EmbeddingCfg().local_model,
+        "chunking": ChunkingCfg().model_dump(),
+        "rerank": {"model": model, "pool": pool},
+    }
+
+
+def guarded(run: Callable[[], T]) -> T:
+    """`run()`, aborting with WarnedError if the container warned meanwhile: a
+    reranker that fell back to fused order would log fused numbers under its
+    own name."""
+    with fail_on_warnings(CONTAINER_LOGGER):
+        return run()
