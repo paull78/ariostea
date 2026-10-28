@@ -12,7 +12,7 @@ class FakeWatcher:
     def __init__(self, events):
         self.events = events
 
-    def run(self, stop_event=None, on_report=None, on_warning=None, progress=None):
+    def run(self, stop_event=None, on_report=None, on_warning=None, progress=None, on_wait=None):
         for kind, value in self.events:
             (on_report if kind == "report" else on_warning)(value)
 
@@ -63,7 +63,7 @@ def test_reindex_cli_prints_skipped_warnings_and_count(monkeypatch):
     }
     monkeypatch.setattr(cli, "load_config", lambda path: None)
     monkeypatch.setattr(cli, "build_container", lambda cfg: object())
-    monkeypatch.setattr(cli, "reindex_payload", lambda container, progress=None: payload)
+    monkeypatch.setattr(cli, "reindex_payload", lambda container, **_: payload)
 
     result = CliRunner().invoke(cli.app, ["reindex", "--config", "x.toml"])
 
@@ -165,16 +165,20 @@ def test_cli_removed_key_prints_one_line_and_exits_1(tmp_path):
 
 def _raising_indexer_container(error):
     class Indexer:
+        fingerprint = "fp"
+
         def index(self, progress=None):
             raise error
 
     class Watcher:
-        def run(self, stop_event=None, on_report=None, on_warning=None, progress=None):
+        def run(
+            self, stop_event=None, on_report=None, on_warning=None, progress=None, on_wait=None
+        ):
             raise error
 
     return SimpleNamespace(
         config=SimpleNamespace(vault=SimpleNamespace(path="/gone")),
-        indexer=Indexer(),
+        runs=_runs(Indexer()),
         watcher=Watcher(),
     )
 
@@ -224,12 +228,14 @@ def test_reindex_cli_progress_on_stderr_only(monkeypatch):  # AC-16
     from ariostea.domain.models import IndexReport, Progress
 
     class Indexer:
+        fingerprint = "fp"
+
         def index(self, progress=None):
             for done in range(1, 251):
                 progress(Progress(done=done, total=250, embedded=done, skipped=0))
             return IndexReport(250, 900, (), (), ())
 
-    container = SimpleNamespace(indexer=Indexer())
+    container = SimpleNamespace(runs=_runs(Indexer()))
     monkeypatch.setattr(cli, "load_config", lambda path: None)
     monkeypatch.setattr(cli, "build_container", lambda cfg: container)
 
@@ -248,7 +254,9 @@ def test_watch_cli_passes_progress_for_the_first_pass(monkeypatch, tmp_path):
     from ariostea.domain.models import Progress
 
     class Watcher:
-        def run(self, stop_event=None, on_report=None, on_warning=None, progress=None):
+        def run(
+            self, stop_event=None, on_report=None, on_warning=None, progress=None, on_wait=None
+        ):
             progress(Progress(done=1, total=1, embedded=1, skipped=0))
 
     monkeypatch.setattr(cli, "load_config", lambda path: None)
@@ -258,3 +266,51 @@ def test_watch_cli_passes_progress_for_the_first_pass(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert result.stderr == "1/1 notes · 1 embedded · 0 skipped\n"
+
+
+def _runs(indexer):
+    """A real IndexRuns on the in-memory lock, around a fake indexer."""
+    from fixtures.runs import index_runs
+
+    return index_runs(indexer)
+
+
+def test_reindex_cli_waits_with_one_line(monkeypatch):  # AC-03, CLI part
+    import threading
+
+    from ariostea.domain.models import IndexReport
+
+    class Indexer:
+        fingerprint = "fp"
+
+        def index(self, progress=None):
+            return IndexReport(2, 4, (), (), ())
+
+    runs = _runs(Indexer())
+    other = runs._lock.handle()  # another process's run
+    other.try_acquire()
+    threading.Timer(0.3, other.release).start()
+    monkeypatch.setattr(cli, "load_config", lambda path: None)
+    monkeypatch.setattr(cli, "build_container", lambda cfg: SimpleNamespace(runs=runs))
+
+    result = CliRunner().invoke(cli.app, ["reindex", "--config", "x.toml"])
+
+    assert result.exit_code == 0
+    assert result.stderr == "waiting for the index run in progress\n"
+    assert result.stdout == "Indexed 2 notes, 4 chunks, 0 skipped.\n"
+
+
+def test_watch_cli_prints_the_waiting_line(monkeypatch, tmp_path):  # AC-06
+    class Watcher:
+        def run(
+            self, stop_event=None, on_report=None, on_warning=None, progress=None, on_wait=None
+        ):
+            on_wait()
+
+    monkeypatch.setattr(cli, "load_config", lambda path: None)
+    monkeypatch.setattr(cli, "build_container", lambda cfg: _watch_container(tmp_path, Watcher()))
+
+    result = CliRunner().invoke(cli.app, ["watch", "--config", "x.toml"])
+
+    assert result.exit_code == 0
+    assert result.stderr == "waiting for the index run in progress\n"

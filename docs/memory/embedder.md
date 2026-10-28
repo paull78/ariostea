@@ -18,3 +18,7 @@ Superseded by bge-m3-default.13.
 ### bge-m3-default.13 · decision · 2026-10-13 · step 03
 Both fastembed adapters, `FastEmbedEmbeddings` and `FastEmbedReranker`, load models from `fastembed_cache_dir()` in `src/ariostea/adapters/fastembed_cache.py`: `FASTEMBED_CACHE_PATH` if set, else `~/.cache/fastembed`, read at call time. The eval's environment-variable pin in `wiki_index.py` is gone. Resolves embedding-sweep.10.
 **Why:** fastembed's default, the system temp directory, is purged by macOS and leaves broken model links that make the next load fail or hang. Rejected: a config option for the path (nobody needs it yet; the environment variable covers the exception).
+
+### server-robustness.12 · discovery · 2026-10-27 · step 06
+One fastembed embedder (bge-m3) used from two threads at once, one embedding notes and counting tokens and the other embedding queries, gives the same vectors (within 1e-5) and token counts as the same calls in sequence, and raises nothing. The MCP server's search thread and its index thread share the embedder with no lock (`test_embedder_from_two_threads_matches_one`).
+**Why:** ONNX Runtime sessions run concurrently and the tokenizer is only read. Rejected: a lock in the adapter (a search would wait for a note's embedding).

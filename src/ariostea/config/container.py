@@ -4,6 +4,7 @@ import logging
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ariostea.adapters.chat.openai_compat import OpenAICompatChat
@@ -13,12 +14,14 @@ from ariostea.adapters.contextualize.llm_chunk import LLMChunkContextualizer
 from ariostea.adapters.contextualize.noop import NoopContextualizer
 from ariostea.adapters.embedding.fastembed_local import FastEmbedEmbeddings
 from ariostea.adapters.fuse.rrf import RRFFuser
+from ariostea.adapters.lock.file import FileRunLock
 from ariostea.adapters.parse.obsidian import ObsidianMarkdownParser
 from ariostea.adapters.rerank.fastembed_rerank import FastEmbedReranker
 from ariostea.adapters.rerank.noop import NoopReranker
 from ariostea.adapters.store.sqlite_store import SqliteStore
 from ariostea.adapters.vault.filesystem import FilesystemVault
 from ariostea.config.schema import ChunkingCfg, Config, ContextualCfg, EmbeddingCfg, RerankCfg
+from ariostea.indexing.index_runs import IndexRuns
 from ariostea.indexing.index_vault import IndexVault
 from ariostea.indexing.watch_vault import WatchVault
 from ariostea.ports.chat import ChatProvider
@@ -40,7 +43,7 @@ class Container:
     internals of build_container and are deliberately not exposed here."""
 
     config: Config
-    indexer: IndexVault
+    runs: IndexRuns
     watcher: WatchVault
     searcher: SearchKnowledge
     admin: IndexAdmin
@@ -138,7 +141,11 @@ def build_container(
 
     store_path = _expand(config.store.path)
     Path(store_path).parent.mkdir(parents=True, exist_ok=True)
-    store = SqliteStore(path=store_path, dim=embeddings.dimension)
+    # Two connections on one index: the run holding the run lock writes
+    # through `writer`, from whichever thread runs it; everything else reads
+    # through `reader`, which the write-ahead log never makes wait.
+    writer = SqliteStore(path=store_path, dim=embeddings.dimension, any_thread=True)
+    reader = SqliteStore(path=store_path, dim=embeddings.dimension)
 
     parser = ObsidianMarkdownParser()
     chunker = build_chunker(config.chunking, embeddings)
@@ -151,27 +158,34 @@ def build_container(
         parser=parser,
         chunker=chunker,
         embeddings=embeddings,
-        store=store,
+        store=writer,
         contextualizer=_build_contextualizer(config.contextual, wrap_chat=wrap_chat),
         vault=vault,
     )
+    runs = IndexRuns(
+        indexer,
+        FileRunLock(store_path + ".lock"),
+        writer=writer,
+        reader=reader,
+        now=lambda: datetime.now(timezone.utc),
+    )
     searcher = SearchKnowledge(
         embeddings=embeddings,
-        retriever=store,
+        retriever=reader,
         fuser=RRFFuser(),
         reranker=_build_reranker(config.rerank),
         k_dense=config.search.k_dense,
         k_sparse=config.search.k_sparse,
         pool=config.rerank.pool,
     )
-    sources = SearchSources(searcher=searcher, reader=store)
+    sources = SearchSources(searcher=searcher, reader=reader)
 
     return Container(
         config=config,
-        indexer=indexer,
-        watcher=WatchVault(indexer, vault),
+        runs=runs,
+        watcher=WatchVault(runs, vault),
         searcher=searcher,
-        admin=store,
+        admin=reader,
         sources=sources,
-        notes=GetNote(reader=store, vault=vault),
+        notes=GetNote(reader=reader, vault=vault),
     )

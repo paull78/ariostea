@@ -244,3 +244,46 @@ def test_count_tokens_excludes_the_models_special_tokens():
     # Subword counting: a rare word costs more tokens than a common one.
     assert emb.count_tokens("the") == 1
     assert emb.count_tokens("Hallstatt") > 1
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(not _cached(BGE_M3), reason="bge-m3 not downloaded (about 2.3 GB)")
+def test_embedder_from_two_threads_matches_one():
+    """The MCP server embeds queries on its own thread while an index run
+    embeds notes and counts tokens on another, through one embedder."""
+    import threading
+
+    emb = FastEmbedEmbeddings(BGE_M3)
+    notes = [
+        f"Note {i}: the boiler pressure should sit near {i % 3 + 1} bar." * 8 for i in range(40)
+    ]
+    queries = [f"what pressure for boiler number {i}" for i in range(40)]
+    alone_docs = [emb.embed_documents(notes[i : i + 4]) for i in range(0, 40, 4)]
+    alone_counts = [emb.count_tokens(n) for n in notes]
+    alone_queries = [emb.embed_query(q) for q in queries]
+
+    out: dict = {}
+    errors: list[BaseException] = []
+
+    def index_side():
+        try:
+            out["docs"] = [emb.embed_documents(notes[i : i + 4]) for i in range(0, 40, 4)]
+            out["counts"] = [emb.count_tokens(n) for n in notes]
+        except BaseException as exc:
+            errors.append(exc)
+
+    def search_side():
+        try:
+            out["queries"] = [emb.embed_query(q) for q in queries]
+        except BaseException as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=index_side), threading.Thread(target=search_side)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=300)
+    assert errors == []
+    assert out["counts"] == alone_counts
+    assert np.allclose(np.array(out["docs"]), np.array(alone_docs), atol=1e-5)
+    assert np.allclose(np.array(out["queries"]), np.array(alone_queries), atol=1e-5)

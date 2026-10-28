@@ -80,8 +80,8 @@ flows, the config-fingerprint guard, and the reason for each ranking stage.
 
 | Tool               | Returns                                                            |
 | ------------------ | ----------------------------------------------------------------- |
-| `status`           | Index health: note and chunk counts, last index time, fingerprint. |
-| `reindex`          | (Re)indexes the configured vault and returns note and chunk counts and the files it skipped. |
+| `status`           | Index health: `notes` and `chunks`; `last_indexed`, when an index run last completed (ISO 8601 UTC, or null), and `config_fingerprint`, the settings it ran with; `last_run`, the last run that ended, with `finished_at`, `notes`, `chunks`, `skipped` and `error`; `running`, whether an index run is going on in any process; and `progress` (done and total notes, embedded and skipped so far) for a run this server started. |
+| `reindex`          | Starts indexing the configured vault in the background and returns `{"started": true}` at once, or `{"started": false, "reason": ...}` while another index run is going on. Follow the run with `status`. |
 | `search_knowledge` | Most relevant passages with their source notes.                   |
 | `search_sources`   | Which notes a concept appears in: hit count, best score, snippets. |
 | `get_note`         | A note's title and its text as written in the file, by vault-relative path, for notes the index holds. |
@@ -139,9 +139,23 @@ another file. Only `[vault].path` is required, and every other value has a built
 
 After an upgrade that changes the embedding model or the chunking, run `uv run ariostea
 reindex` once. When the new model's vectors have a different size, the server answers from
-BM25 alone until that reindex. Fixes to how a note is cut into chunks (code fences, long
-unbroken strings such as inline images) apply to each note the next time it changes; for a
-full rebuild, delete the index file and run `reindex`.
+BM25 alone until that reindex. If the reindex stops partway, the next one picks up where it
+stopped; until one finishes, the index holds notes from both settings and search quality is
+mixed. Fixes to how a note is cut into chunks (code fences, long unbroken strings such as
+inline images) apply to each note the next time it changes. For a full rebuild, stop any
+server or `watch` using the index, delete the index file together with its `-wal` and `-shm`
+files (`rm ~/.ariostea/index.db*`), and run `reindex`.
+
+One index run goes on at a time, whichever process starts it. While one runs, the `reindex`
+tool starts nothing and says so, and `ariostea reindex` and each `watch` pass print `waiting
+for the index run in progress`, then start when it ends. Searches, `get_note` and `status`
+are answered throughout, from the index as it is. A run that stops partway, after a crash or
+Ctrl-C, keeps every note it finished, and the next run embeds only the rest.
+
+Three files sit next to the index file: `index.db-wal` and `index.db-shm`, sqlite's
+write-ahead log, which lets searches read while a run writes, and `index.db.lock`, which a
+run locks while it goes on. The operating system releases the lock when the process ends,
+however it ends, and the file stays.
 
 ### First run
 
@@ -179,7 +193,9 @@ Every `.md` file in the vault, except:
 A file that cannot be read (not UTF-8 text, permission denied) is skipped with a warning that
 names it, and the run carries on. If the vault folder is missing, or holds no notes while the
 index holds some (an iCloud vault not synced yet, the wrong folder), the command stops with
-an error and leaves the index as it was. To empty an index on purpose, delete the index file.
+an error and leaves the index as it was. To empty an index on purpose, stop any server or
+`watch` using it and delete the index file together with its `-wal` and `-shm` files
+(`rm ~/.ariostea/index.db*`).
 
 ### Memory and speed
 

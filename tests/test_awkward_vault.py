@@ -184,12 +184,27 @@ def test_stdio_stdout_is_protocol_only_during_reindex(awkward):  # AC-16
         response(1)
         send({"method": "notifications/initialized"})
         send({"id": 2, "method": "tools/call", "params": {"name": "reindex", "arguments": {}}})
-        result = response(2)["result"]
+        started = json.loads(response(2)["result"]["content"][0]["text"])
+        # The run goes on in the background; ask for status until it ends.
+        request_id, deadline = 2, time.monotonic() + 600
+        while True:
+            request_id += 1
+            send(
+                {
+                    "id": request_id,
+                    "method": "tools/call",
+                    "params": {"name": "status", "arguments": {}},
+                }
+            )
+            status = json.loads(response(request_id)["result"]["content"][0]["text"])
+            if not status["running"] or time.monotonic() > deadline:
+                break
+            time.sleep(0.25)
     finally:
         server.terminate()
         server.wait(timeout=30)
-    payload = json.loads(result["content"][0]["text"])
-    assert payload["notes"] > 0 and payload["skipped"]
+    assert started == {"started": True}
+    assert status["running"] is False and status["notes"] > 0
     while not lines.empty():
         json.loads(lines.get())
 

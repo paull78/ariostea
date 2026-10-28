@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
-import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
 
@@ -15,6 +15,8 @@ from ariostea.domain.models import (
     Note,
     QueryFilters,
     RetrievedChunk,
+    RunRecord,
+    StoredNote,
 )
 from ariostea.ports.store import ChunkRetriever, DocumentReader, DocumentWriter, IndexAdmin
 
@@ -40,10 +42,16 @@ _CHUNK_COLUMNS_ADDED_LATER: tuple[tuple[str, str], ...] = (("context_blurb", "TE
 
 
 class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
-    def __init__(self, path: str, dim: int) -> None:
+    def __init__(self, path: str, dim: int, *, any_thread: bool = False) -> None:
+        """Open the index at `path`. With `any_thread`, a thread other than the
+        one opening it may use this connection, one thread at a time: the
+        index run holding the run lock writes through it (server-robustness.03)."""
         self._dim = dim
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(path)
+        self.db = sqlite3.connect(path, check_same_thread=not any_thread)
+        # The write-ahead log lets every other connection read while a run
+        # writes. It is a property of the file, set once and kept.
+        self.db.execute("PRAGMA journal_mode=WAL")
         self.db.row_factory = sqlite3.Row
         self.db.enable_load_extension(True)
         sqlite_vec.load(self.db)
@@ -55,9 +63,9 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
 
         sqlite-vec fixes a vector table's size when it is created and rejects
         vectors of any other size, so an index built with one embedding model
-        cannot take another model's vectors (bge-m3-default.01). The stored
-        fingerprint is cleared with the table, so the next index re-embeds every
-        note even if its content is unchanged; the chunk rows stay until then.
+        cannot take another model's vectors (bge-m3-default.01). Every note
+        still records the old model's fingerprint, so the next index re-embeds
+        it even if its content is unchanged; the chunk rows stay until then.
         """
         row = self.db.execute("SELECT sql FROM sqlite_master WHERE name = 'chunks_vec'").fetchone()
         if row is None:
@@ -66,8 +74,6 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
         if size is not None and int(size.group(1)) == self._dim:
             return
         self.db.execute("DROP TABLE chunks_vec")
-        if self.db.execute("SELECT name FROM sqlite_master WHERE name = 'meta'").fetchone():
-            self.db.execute("DELETE FROM meta WHERE key = 'fingerprint'")
         self.db.commit()
 
     def _init_schema(self) -> None:
@@ -79,7 +85,8 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
                 path TEXT UNIQUE NOT NULL,
                 title TEXT NOT NULL,
                 content_hash TEXT NOT NULL,
-                mtime REAL NOT NULL
+                mtime REAL NOT NULL,
+                fingerprint TEXT NOT NULL DEFAULT ''
             );
             CREATE TABLE IF NOT EXISTS chunks (
                 id INTEGER PRIMARY KEY,
@@ -100,9 +107,21 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
                 tokenize="unicode61 remove_diacritics 2"
             );
             CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+            -- Two rows at most: the last run that ended ('last') and the last
+            -- one that completed ('completed').
+            CREATE TABLE IF NOT EXISTS runs (
+                kind TEXT PRIMARY KEY,
+                finished_at TEXT NOT NULL,
+                fingerprint TEXT NOT NULL,
+                notes INTEGER NOT NULL,
+                chunks INTEGER NOT NULL,
+                skipped INTEGER NOT NULL,
+                error TEXT
+            );
             """
         )
         self._add_missing_chunk_columns()
+        self._add_note_fingerprints()
         self.db.commit()
 
     def _add_missing_chunk_columns(self) -> None:
@@ -118,20 +137,41 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
             if column not in present:
                 self.db.execute(f"ALTER TABLE chunks ADD COLUMN {column} {sql_type}")
 
+    def _add_note_fingerprints(self) -> None:
+        """Give an index built before server-robustness a fingerprint per note.
+
+        Those indexes kept one fingerprint for the whole index in `meta`,
+        written when a run finished; every note it holds was embedded under it.
+        Each note takes it, and the index-wide one goes, so the per-note
+        fingerprints are the only record of what each note was embedded with
+        (server-robustness.04, .10). Notes in an index older than `meta` get
+        "", which no settings produce, so they are embedded again.
+        """
+        present = {row["name"] for row in self.db.execute("PRAGMA table_info(notes)")}
+        if "fingerprint" in present:
+            return
+        self.db.execute("ALTER TABLE notes ADD COLUMN fingerprint TEXT NOT NULL DEFAULT ''")
+        row = self.db.execute("SELECT value FROM meta WHERE key = 'fingerprint'").fetchone()
+        if row is not None:
+            self.db.execute("UPDATE notes SET fingerprint = ?", (row["value"],))
+        self.db.execute("DELETE FROM meta WHERE key = 'fingerprint'")
+
     # --- DocumentWriter ---
     def upsert_note(
         self,
         note: Note,
         chunks: Sequence[ContextualizedChunk],
         embeddings: Sequence[list[float]],
+        fingerprint: str,
     ) -> None:
         cur = self.db.cursor()
         cur.execute("BEGIN")
         try:
             self._delete_note_rows(cur, note.path)
             cur.execute(
-                "INSERT INTO notes(path, title, content_hash, mtime) VALUES (?,?,?,?)",
-                (note.path, note.title, note.content_hash, note.mtime),
+                "INSERT INTO notes(path, title, content_hash, mtime, fingerprint) "
+                "VALUES (?,?,?,?,?)",
+                (note.path, note.title, note.content_hash, note.mtime, fingerprint),
             )
             note_id = cur.lastrowid
             for cc, vec in zip(chunks, embeddings):
@@ -285,28 +325,49 @@ class SqliteStore(DocumentWriter, DocumentReader, ChunkRetriever, IndexAdmin):
         return {r["path"]: r["title"] for r in rows}
 
     # --- IndexAdmin ---
-    def known_hashes(self) -> dict[str, str]:
-        rows = self.db.execute("SELECT path, content_hash FROM notes").fetchall()
-        return {r["path"]: r["content_hash"] for r in rows}
+    def known_notes(self) -> dict[str, StoredNote]:
+        rows = self.db.execute("SELECT path, content_hash, fingerprint FROM notes").fetchall()
+        return {r["path"]: StoredNote(r["content_hash"], r["fingerprint"]) for r in rows}
 
     def stats(self) -> IndexStats:
         notes = self.db.execute("SELECT COUNT(*) AS c FROM notes").fetchone()["c"]
         chunks = self.db.execute("SELECT COUNT(*) AS c FROM chunks").fetchone()["c"]
-        return IndexStats(
-            notes=notes,
-            chunks=chunks,
-            last_indexed=time.time(),
-            config_fingerprint=self.fingerprint(),
-        )
+        return IndexStats(notes=notes, chunks=chunks)
 
-    def fingerprint(self) -> str:
-        row = self.db.execute("SELECT value FROM meta WHERE key = 'fingerprint'").fetchone()
-        return row["value"] if row else ""
-
-    def set_fingerprint(self, value: str) -> None:
-        self.db.execute(
-            "INSERT INTO meta(key, value) VALUES ('fingerprint', ?) "
-            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            (value,),
-        )
+    def record_run(self, record: RunRecord) -> None:
+        kinds = ("last",) if record.error is not None else ("last", "completed")
+        for kind in kinds:
+            self.db.execute(
+                "INSERT OR REPLACE INTO runs"
+                "(kind, finished_at, fingerprint, notes, chunks, skipped, error) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (
+                    kind,
+                    record.finished_at.astimezone(timezone.utc).isoformat(),
+                    record.fingerprint,
+                    record.notes,
+                    record.chunks,
+                    record.skipped,
+                    record.error,
+                ),
+            )
         self.db.commit()
+
+    def last_run(self) -> RunRecord | None:
+        return self._run("last")
+
+    def last_completed_run(self) -> RunRecord | None:
+        return self._run("completed")
+
+    def _run(self, kind: str) -> RunRecord | None:
+        row = self.db.execute("SELECT * FROM runs WHERE kind = ?", (kind,)).fetchone()
+        if row is None:
+            return None
+        return RunRecord(
+            finished_at=datetime.fromisoformat(row["finished_at"]),
+            fingerprint=row["fingerprint"],
+            notes=row["notes"],
+            chunks=row["chunks"],
+            skipped=row["skipped"],
+            error=row["error"],
+        )

@@ -315,13 +315,19 @@ def _open_index(
         return build_container(wiki_config(WIKI, str(index), contextual=ctx), wrap_chat=wrap_chat)
 
 
+def _stored_fingerprint(container: Container) -> str:
+    """The fingerprint of the last run that completed on this index, or ""."""
+    completed = container.runs.state().last_completed
+    return completed.fingerprint if completed else ""
+
+
 def _index_up_to_date(container: Container) -> str:
     """Index (or refresh) the corpus and return the stored fingerprint,
     printing it before and after."""
-    before = container.admin.stats().config_fingerprint
+    before = _stored_fingerprint(container)
     print(f"  fingerprint before: {before or '(none)'}", flush=True)
     stats = reindex_payload(container)
-    after = container.admin.stats().config_fingerprint
+    after = _stored_fingerprint(container)
     print(f"  fingerprint after:  {after}", flush=True)
     if before and before != after:
         print("  NOTE: the fingerprint changed, so the whole index was rebuilt", flush=True)
@@ -452,7 +458,7 @@ def main(argv: list[str] | None = None) -> int:
             # Reuse skips the LLM probe, so it must not trigger a rebuild that
             # needs the LLM: a kept index blurbed by another model would be
             # re-blurbed in place, or flattened to plain chunks if the LLM is down.
-            stored = container.admin.stats().config_fingerprint
+            stored = _stored_fingerprint(container)
             marker = index_marker(granularity, ctx.model)
             if marker not in stored.split("|"):
                 print(

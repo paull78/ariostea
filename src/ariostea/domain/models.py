@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 
@@ -98,8 +99,28 @@ class NoteMissing:
 class IndexStats:
     notes: int
     chunks: int
-    last_indexed: float
-    config_fingerprint: str
+
+
+@dataclass(frozen=True)
+class RunRecord:
+    """How an index run ended, as the index stores it. `error` is None for a
+    run that completed; `notes` and `chunks` count the whole index after it."""
+
+    finished_at: datetime
+    fingerprint: str
+    notes: int
+    chunks: int
+    skipped: int
+    error: str | None
+
+
+@dataclass(frozen=True)
+class StoredNote:
+    """What the index knows of a note: the hash of the text it embedded and
+    the fingerprint (model, contextualizer, chunking) it embedded it with."""
+
+    content_hash: str
+    fingerprint: str
 
 
 @dataclass(frozen=True)

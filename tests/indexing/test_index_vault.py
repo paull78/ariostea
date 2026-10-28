@@ -32,28 +32,29 @@ class FakeEmbed:
 class FakeStore:
     def __init__(self):
         self.notes = {}
-        self._fp = ""
+        self.fingerprints = {}
 
-    def upsert_note(self, note, chunks, embeddings):
+    def upsert_note(self, note, chunks, embeddings, fingerprint):
         self.notes[note.path] = (note, list(chunks), list(embeddings))
+        self.fingerprints[note.path] = fingerprint
 
     def delete_note(self, path):
         self.notes.pop(path, None)
+        self.fingerprints.pop(path, None)
 
-    def known_hashes(self):
-        return {p: n.content_hash for p, (n, _, _) in self.notes.items()}
+    def known_notes(self):
+        from ariostea.domain.models import StoredNote
+
+        return {
+            p: StoredNote(n.content_hash, self.fingerprints[p])
+            for p, (n, _, _) in self.notes.items()
+        }
 
     def stats(self):
         from ariostea.domain.models import IndexStats
 
         chunks = sum(len(c) for _, c, _ in self.notes.values())
-        return IndexStats(len(self.notes), chunks, 0.0, self._fp)
-
-    def fingerprint(self):
-        return self._fp
-
-    def set_fingerprint(self, value):
-        self._fp = value
+        return IndexStats(len(self.notes), chunks)
 
 
 def _indexer(vault, embed=None, store=None, chunker=None, contextualizer=None):
@@ -80,8 +81,8 @@ def test_index_vault_indexes_each_note():
     assert report.chunks == 2
     # embeddings were requested for the chunk text
     assert any("alpha content here" in t for t in embed.seen)
-    # fingerprint recorded so later runs can detect model changes
-    assert store.fingerprint() == "fake:v1|noop"  # combined embeddings|contextualizer
+    # each note records the fingerprint it was embedded with
+    assert store.fingerprints == {"a.md": "fake:v1|noop", "b.md": "fake:v1|noop"}
 
 
 def test_embedding_text_defaults_to_chunk_text():
@@ -184,7 +185,7 @@ def test_contextualizer_output_flows_to_store():
     _, chunks, _ = store.notes["a.md"]
     assert chunks[0].context_blurb == "Topic"
     assert chunks[0].embedding_text.startswith("Topic\n\n")
-    assert store.fingerprint() == "fake:v1|titlectx"  # contextualizer in the fingerprint
+    assert store.fingerprints["a.md"] == "fake:v1|titlectx"  # contextualizer in it
 
 
 def test_index_reembeds_when_contextualizer_changes():
@@ -211,7 +212,7 @@ def test_index_reembeds_when_contextualizer_changes():
     embed.seen.clear()
     _indexer(vault, embed, store, contextualizer=StubCtx()).index()
     assert any("alpha" in t for t in embed.seen)  # re-embedded despite unchanged content
-    assert store.fingerprint() == "fake:v1|stub"
+    assert store.fingerprints["a.md"] == "fake:v1|stub"
 
 
 def test_the_default_chunker_leaves_the_stored_fingerprint_as_it_was():
@@ -220,7 +221,7 @@ def test_the_default_chunker_leaves_the_stored_fingerprint_as_it_was():
     # vault is forced into a full reindex on upgrade for no reason.
     store = FakeStore()
     _indexer(InMemoryVault({"a.md": "# A\nalpha"}), store=store).index()
-    assert store.fingerprint() == "fake:v1|noop"
+    assert store.fingerprints["a.md"] == "fake:v1|noop"
 
 
 def test_a_chunking_change_rechunks_unchanged_notes():
@@ -233,7 +234,7 @@ def test_a_chunking_change_rechunks_unchanged_notes():
 
     _indexer(vault, embed, store, chunker=HeadingAwareChunker(max_tokens=10)).index()
     assert len(store.notes["a.md"][1]) > 1
-    assert "chunk:heading_aware:10" in store.fingerprint()
+    assert "chunk:heading_aware:10" in store.fingerprints["a.md"]
 
 
 # --- guards: a vault that cannot be trusted never empties the index (AC-01, AC-02)
@@ -268,7 +269,6 @@ def test_empty_vault_on_empty_index_indexes_zero():
     store = FakeStore()
     report = _indexer(InMemoryVault({}), store=store).index()
     assert report.notes == 0
-    assert store.fingerprint() == "fake:v1|noop"
 
 
 # --- unreadable notes are skipped, named, and keep what they had (AC-04)
@@ -318,6 +318,7 @@ def test_excluded_notes_leave_the_index():
     store = FakeStore()
     _indexer(InMemoryVault({"x.md": "# X\nold"}), store=store).index()
     store.notes[".trash/x.md"] = store.notes.pop("x.md")
+    store.fingerprints[".trash/x.md"] = store.fingerprints.pop("x.md")
 
     report = _indexer(_two_notes(), store=store).index()
     assert ".trash/x.md" not in store.notes
@@ -375,7 +376,7 @@ def test_reindexing_with_a_model_of_another_size_replaces_every_vector(tmp_path)
     assert sizes == {3}
     assert second.db.execute("SELECT COUNT(*) FROM chunks_vec").fetchone()[0] == chunks_before
     assert second.db.execute("SELECT COUNT(*) FROM chunks").fetchone()[0] == chunks_before
-    assert "fake:v2" in second.fingerprint()
+    assert all("fake:v2" in s.fingerprint for s in second.known_notes().values())
 
 
 def test_reindexing_an_old_index_with_a_new_model_succeeds(tmp_path, old_index):
@@ -428,3 +429,83 @@ def test_progress_reports_every_listed_note():
 
 def test_no_progress_callback_is_fine():
     assert _indexer(_two_notes()).index().notes == 2
+
+
+# --- an interrupted run resumes (AC-07, AC-08, AC-09)
+
+
+class FailingEmbed(FakeEmbed):
+    """Embeds `allowed` notes, then raises: a run stopped partway."""
+
+    def __init__(self, allowed, fingerprint="fake:v1"):
+        super().__init__()
+        self.allowed, self._fingerprint = allowed, fingerprint
+
+    def embed_documents(self, texts):
+        if self.allowed == 0:
+            raise RuntimeError("stopped")
+        self.allowed -= 1
+        return super().embed_documents(texts)
+
+    @property
+    def fingerprint(self):
+        return self._fingerprint
+
+
+class CountingEmbed(FakeEmbed):
+    def __init__(self, fingerprint="fake:v1"):
+        super().__init__()
+        self.calls, self._fingerprint = 0, fingerprint
+
+    def embed_documents(self, texts):
+        self.calls += 1
+        return super().embed_documents(texts)
+
+    @property
+    def fingerprint(self):
+        return self._fingerprint
+
+
+def _thirty_notes():
+    return InMemoryVault({f"n{i:02}.md": f"# N{i}\nnote number {i}" for i in range(30)})
+
+
+def test_interrupted_first_index_resumes():  # AC-07
+    vault, store = _thirty_notes(), FakeStore()
+    with pytest.raises(RuntimeError):
+        _indexer(vault, FailingEmbed(allowed=10), store).index()
+    assert len(store.notes) == 10
+
+    embed = CountingEmbed()
+    report = _indexer(vault, embed, store).index()
+    assert embed.calls == 20 and len(report.embedded) == 20
+    assert len(store.notes) == 30
+
+
+def test_interrupted_change_of_settings_resumes():  # AC-08
+    vault, store = _thirty_notes(), FakeStore()
+    _indexer(vault, CountingEmbed("fake:v1"), store).index()
+    with pytest.raises(RuntimeError):
+        _indexer(vault, FailingEmbed(allowed=10, fingerprint="fake:v2"), store).index()
+    assert sorted(store.fingerprints.values()).count("fake:v2|noop") == 10
+
+    embed = CountingEmbed("fake:v2")
+    _indexer(vault, embed, store).index()
+    assert embed.calls == 20
+    assert set(store.fingerprints.values()) == {"fake:v2|noop"}
+
+
+def test_unchanged_index_embeds_nothing_after_migration(tmp_path, previous_release_index):
+    # AC-09: an index from the previous release, with the settings it was built with.
+    import hashlib
+
+    from ariostea.adapters.store.sqlite_store import SqliteStore
+
+    vault = _two_notes()
+    hashes = {p: hashlib.sha256(text.encode()).hexdigest() for p, text in vault.files.items()}
+    path = str(tmp_path / "idx.db")
+    previous_release_index(path, 2, hashes, "fake:v1|noop")
+
+    embed = CountingEmbed()
+    report = _indexer(vault, embed, SqliteStore(path=path, dim=2)).index()
+    assert embed.calls == 0 and report.embedded == ()

@@ -4,7 +4,7 @@ import threading
 from collections.abc import Callable
 
 from ariostea.domain.models import IndexReport, Progress
-from ariostea.indexing.index_vault import IndexVault
+from ariostea.indexing.index_runs import IndexRuns
 from ariostea.ports.vault import Vault, VaultUnavailable
 
 
@@ -12,13 +12,19 @@ def _ignore(_: object) -> None:
     pass
 
 
+def _nothing() -> None:
+    pass
+
+
 class WatchVault:
     """Keep the index current: one pass at start, then one per batch of
-    changes the vault reports. What each pass did goes to `on_report`, and
-    what the user should know goes to `on_warning` as one-line messages."""
+    changes the vault reports. Each pass is an index run: it waits for a run
+    in progress to end (`on_wait` hears when that happens), and an idle watch
+    holds no lock. What each pass did goes to `on_report`, and what the user
+    should know goes to `on_warning` as one-line messages."""
 
-    def __init__(self, indexer: IndexVault, vault: Vault) -> None:
-        self._indexer = indexer
+    def __init__(self, runs: IndexRuns, vault: Vault) -> None:
+        self._runs = runs
         self._vault = vault
         self._warned: set[str] = set()
 
@@ -28,15 +34,16 @@ class WatchVault:
         on_report: Callable[[IndexReport], None] = _ignore,
         on_warning: Callable[[str], None] = _ignore,
         progress: Callable[[Progress], None] | None = None,
+        on_wait: Callable[[], None] = _nothing,
     ) -> None:
         """Watch until `stop_event` is set. A vault that fails its guard at
         start raises VaultUnavailable; on a later pass it is a warning, the
         index stays as it was, and the next change tries again. `progress`
         hears about the first pass, the only long one."""
-        self._pass(on_report, on_warning, progress)
+        self._pass(on_report, on_warning, on_wait, progress)
         for _batch in self._vault.changes(stop_event):
             try:
-                self._pass(on_report, on_warning)
+                self._pass(on_report, on_warning, on_wait)
             except VaultUnavailable as exc:
                 on_warning(str(exc))
 
@@ -44,9 +51,12 @@ class WatchVault:
         self,
         on_report: Callable[[IndexReport], None],
         on_warning: Callable[[str], None],
+        on_wait: Callable[[], None],
         progress: Callable[[Progress], None] | None = None,
     ) -> None:
-        report = self._indexer.index(progress=progress)
+        run = self._runs.begin(wait=True, on_wait=on_wait)
+        assert run is not None  # begin with wait=True always returns a run
+        report = run.execute(progress=progress)
         # Warn about a bad file once, not on every pass while it stays bad.
         for path, reason in report.skipped:
             if path not in self._warned:

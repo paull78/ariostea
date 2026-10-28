@@ -56,5 +56,5 @@ def test_query_defaults():
 
 
 def test_index_stats_fields():
-    s = IndexStats(notes=2, chunks=5, last_indexed=1.0, config_fingerprint="fp")
-    assert s.notes == 2 and s.config_fingerprint == "fp"
+    s = IndexStats(notes=2, chunks=5)
+    assert s.notes == 2 and s.chunks == 5
