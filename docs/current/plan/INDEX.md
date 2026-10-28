@@ -1,13 +1,13 @@
 # Plan: search-speed
 
 Status: approved · Mode: sequential · Test: `uv run pytest && uv run ruff check . && uv run ruff format --check .`
-Current: step 03 (in progress). Last stop: starting.
+Current: gate M1 (pending). Last stop: step 03 done, control reproduces 157.
 
 ## Milestone 1 · Sweep skeleton on today's reranker  ⛔ gate pending
 The sweep runner indexes the wiki once and logs a jina run with recall, search latency (median, p95) and the `search_sources` short count; the control rerun at pool 100 shows whether 157 of 167 reproduces.
 - [x] 01 latency and sources helpers      (needs none)
 - [x] 02 rerank sweep runner              (needs 01)
-- [~] 03 control rerun                    (needs 02)
+- [x] 03 control rerun                    (needs 02)
 
 ## Milestone 2 · Full sweep and the pick  ⛔ gate pending
 mMiniLM-L12 loads from an empty cache; all 8 runs are logged; the gate shows the table and the configuration the pick rule proposes, for the owner's yes or no.
