@@ -1,12 +1,12 @@
 # Plan: search-speed
 
 Status: approved · Mode: sequential · Test: `uv run pytest && uv run ruff check . && uv run ruff format --check .`
-Current: step 01 (not started). Last stop: none.
+Current: step 02 (in progress). Last stop: starting.
 
 ## Milestone 1 · Sweep skeleton on today's reranker  ⛔ gate pending
 The sweep runner indexes the wiki once and logs a jina run with recall, search latency (median, p95) and the `search_sources` short count; the control rerun at pool 100 shows whether 157 of 167 reproduces.
-- [ ] 01 latency and sources helpers      (needs none)
-- [ ] 02 rerank sweep runner              (needs 01)
+- [x] 01 latency and sources helpers      (needs none)
+- [~] 02 rerank sweep runner              (needs 01)
 - [ ] 03 control rerun                    (needs 02)
 
 ## Milestone 2 · Full sweep and the pick  ⛔ gate pending
