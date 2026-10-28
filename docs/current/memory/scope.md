@@ -48,3 +48,7 @@ mMiniLM-L12 runs from its fp32 `onnx/model.onnx`, not the `model_qint8_arm64` fi
 ### search-speed.14 · decision · 2026-10-28 · challenge round
 Each sweep run builds its container and runs its queries inside the existing `fail_on_warnings` guard (`src/ariostea/eval/blurb_eval.py`), so a reranker that falls back to fused order aborts the run before it is logged.
 **Why:** hexagonal lens: the container degrades on purpose and only warns, so without a guard a failed mMiniLM load would be logged as mMiniLM with fused-order numbers (about 24 fewer cases). Reuses code that exists. Rejected: asserting the reranker's concrete type (reaches past the port, setup.01); no guard.
+
+### search-speed.15 · decision · 2026-10-28 · plan
+The sweep indexes the wiki corpus once and builds one container per (model, pool) over the same database, in a new runner `eval/run_rerank_sweep.py`, instead of reusing `eval/run_chunk_sweep.py`, which re-indexes per run. Plan approved at Gate 1 in sequential mode; the owner said "go go go" to the outline, read as the yes at Gate 1 and at the Milestone 1 gate. The Milestone 2 gate still waits for the owner, because it carries the default decision (setup.04).
+**Why:** the reranker does not touch the index, so 8 runs take about 40 minutes instead of about 2 hours (334 s indexing each); the second-container trick already exists in `fused_channel`. Rejected: extending the chunk sweep with reranker flags (one index per run).
