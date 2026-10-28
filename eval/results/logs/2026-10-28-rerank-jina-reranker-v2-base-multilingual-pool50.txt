@@ -1,0 +1,11 @@
+
+[1/7] jinaai/jina-reranker-v2-base-multilingual, pool 50
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.975     0.982      1.000     0.931     0.949
+cross_lingual   46      0.978     0.899     0.917      0.891     0.801     0.820
+exact_term      41      1.000     0.963     0.973      0.951     0.875     0.894
+paraphrase      40      0.975     0.953     0.957      0.900     0.848     0.858
+overall        167      0.988     0.946     0.956      0.934     0.862     0.878
+  discriminated-out cases (29): span recall 1.000
+  search median 2340.4 ms, p95 2426.1 ms; search_sources short of 10 notes for 35 of 167 queries

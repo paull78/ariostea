@@ -1,0 +1,11 @@
+
+[4/7] cross-encoder/mmarco-mMiniLMv2-L12-H384-v1, pool 100
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.971     0.978      0.975     0.965     0.966
+cross_lingual   46      0.957     0.861     0.881      0.826     0.741     0.754
+exact_term      41      1.000     0.939     0.955      0.976     0.861     0.890
+paraphrase      40      0.975     0.892     0.911      0.925     0.758     0.798
+overall        167      0.982     0.914     0.930      0.922     0.828     0.848
+  discriminated-out cases (29): span recall 1.000
+  search median 1627.6 ms, p95 1941.9 ms; search_sources short of 10 notes for 36 of 167 queries

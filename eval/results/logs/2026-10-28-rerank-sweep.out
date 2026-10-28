@@ -1,0 +1,88 @@
+indexing the wiki corpus at the defaults, spans reachable 167/167
+  indexed in 337.5 s
+
+[1/7] jinaai/jina-reranker-v2-base-multilingual, pool 50
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.975     0.982      1.000     0.931     0.949
+cross_lingual   46      0.978     0.899     0.917      0.891     0.801     0.820
+exact_term      41      1.000     0.963     0.973      0.951     0.875     0.894
+paraphrase      40      0.975     0.953     0.957      0.900     0.848     0.858
+overall        167      0.988     0.946     0.956      0.934     0.862     0.878
+  discriminated-out cases (29): span recall 1.000
+  search median 2340.4 ms, p95 2426.1 ms; search_sources short of 10 notes for 35 of 167 queries
+  logged 2026-10-28-rerank-jina-reranker-v2-base-multilingual-pool50
+
+[2/7] jinaai/jina-reranker-v2-base-multilingual, pool 30
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.975     0.982      1.000     0.931     0.949
+cross_lingual   46      0.957     0.897     0.907      0.913     0.804     0.830
+exact_term      41      1.000     0.947     0.961      0.951     0.876     0.894
+paraphrase      40      0.975     0.953     0.957      0.900     0.848     0.858
+overall        167      0.982     0.941     0.950      0.940     0.863     0.881
+  discriminated-out cases (29): span recall 1.000
+  search median 1585.2 ms, p95 1634.2 ms; search_sources short of 10 notes for 101 of 167 queries
+  logged 2026-10-28-rerank-jina-reranker-v2-base-multilingual-pool30
+
+[3/7] jinaai/jina-reranker-v2-base-multilingual, pool 20
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.938     0.941      0.950     0.894     0.908
+cross_lingual   46      0.935     0.889     0.895      0.891     0.811     0.829
+exact_term      41      0.976     0.929     0.941      0.902     0.840     0.854
+paraphrase      40      0.950     0.938     0.941      0.875     0.836     0.842
+overall        167      0.952     0.922     0.928      0.904     0.844     0.857
+  discriminated-out cases (29): span recall 1.000
+  search median 1146.2 ms, p95 1198.9 ms; search_sources short of 10 notes for 153 of 167 queries
+  logged 2026-10-28-rerank-jina-reranker-v2-base-multilingual-pool20
+
+[4/7] cross-encoder/mmarco-mMiniLMv2-L12-H384-v1, pool 100
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.971     0.978      0.975     0.965     0.966
+cross_lingual   46      0.957     0.861     0.881      0.826     0.741     0.754
+exact_term      41      1.000     0.939     0.955      0.976     0.861     0.890
+paraphrase      40      0.975     0.892     0.911      0.925     0.758     0.798
+overall        167      0.982     0.914     0.930      0.922     0.828     0.848
+  discriminated-out cases (29): span recall 1.000
+  search median 1627.6 ms, p95 1941.9 ms; search_sources short of 10 notes for 36 of 167 queries
+  logged 2026-10-28-rerank-mmarco-mminilmv2-l12-h384-v1-pool100
+
+[5/7] cross-encoder/mmarco-mMiniLMv2-L12-H384-v1, pool 50
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.971     0.978      0.975     0.965     0.966
+cross_lingual   46      0.957     0.862     0.881      0.826     0.744     0.755
+exact_term      41      1.000     0.939     0.955      0.976     0.865     0.893
+paraphrase      40      0.975     0.897     0.915      0.925     0.761     0.801
+overall        167      0.982     0.915     0.931      0.922     0.831     0.850
+  discriminated-out cases (29): span recall 1.000
+  search median 1002.5 ms, p95 1059.4 ms; search_sources short of 10 notes for 35 of 167 queries
+  logged 2026-10-28-rerank-mmarco-mminilmv2-l12-h384-v1-pool50
+
+[6/7] cross-encoder/mmarco-mMiniLMv2-L12-H384-v1, pool 30
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      1.000     0.971     0.978      0.975     0.965     0.966
+cross_lingual   46      0.978     0.857     0.885      0.870     0.750     0.773
+exact_term      41      1.000     0.939     0.955      0.976     0.865     0.893
+paraphrase      40      0.975     0.884     0.905      0.925     0.765     0.804
+overall        167      0.988     0.911     0.929      0.934     0.833     0.856
+  discriminated-out cases (29): span recall 1.000
+  search median 576.1 ms, p95 707.4 ms; search_sources short of 10 notes for 101 of 167 queries
+  logged 2026-10-28-rerank-mmarco-mminilmv2-l12-h384-v1-pool30
+
+[7/7] cross-encoder/mmarco-mMiniLMv2-L12-H384-v1, pool 20
+=== HYBRID ===
+type             n   note_r@5  note_mrr note_ndcg   span_r@5  span_mrr span_ndcg
+buried          40      0.950     0.933     0.938      0.925     0.927     0.925
+cross_lingual   46      0.957     0.859     0.882      0.913     0.764     0.801
+exact_term      41      0.976     0.933     0.944      0.927     0.852     0.871
+paraphrase      40      0.950     0.869     0.890      0.900     0.759     0.793
+overall        167      0.958     0.897     0.912      0.916     0.824     0.846
+  discriminated-out cases (29): span recall 1.000
+  search median 360.4 ms, p95 418.4 ms; search_sources short of 10 notes for 153 of 167 queries
+  logged 2026-10-28-rerank-mmarco-mminilmv2-l12-h384-v1-pool20
+
+rendered /Users/paolo/code/personal/ariostea/eval/results/experiment_log.html
