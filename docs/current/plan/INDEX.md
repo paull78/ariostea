@@ -1,9 +1,9 @@
 # Plan: search-speed
 
 Status: approved · Mode: sequential · Test: `uv run pytest && uv run ruff check . && uv run ruff format --check .`
-Current: step 05 (blocked on gate M1). Last stop: step 04 done; gate M1 suite running on snapshot gate-m1-speed.
+Current: step 05 (in progress). Last stop: starting.
 
-## Milestone 1 · Sweep skeleton on today's reranker  ⛔ gate pending
+## Milestone 1 · Sweep skeleton on today's reranker  ✅ gate passed 2026-10-28
 The sweep runner indexes the wiki once and logs a jina run with recall, search latency (median, p95) and the `search_sources` short count; the control rerun at pool 100 shows whether 157 of 167 reproduces.
 - [x] 01 latency and sources helpers      (needs none)
 - [x] 02 rerank sweep runner              (needs 01)
@@ -12,7 +12,7 @@ The sweep runner indexes the wiki once and logs a jina run with recall, search l
 ## Milestone 2 · Full sweep and the pick  ⛔ gate pending
 mMiniLM-L12 loads from an empty cache; all 8 runs are logged; the gate shows the table and the configuration the pick rule proposes, for the owner's yes or no.
 - [x] 04 mMiniLM in the reranker adapter  (needs none)
-- [ ] 05 full sweep                       (needs 03, 04)
+- [~] 05 full sweep                       (needs 03, 04)
 
 ## Milestone 3 · Apply the decision  ⛔ gate pending
 Defaults and README match the owner's decision, with memory and scratch-vault search time re-measured.
