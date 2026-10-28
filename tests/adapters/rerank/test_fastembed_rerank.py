@@ -94,3 +94,71 @@ def test_reranker_passes_the_cache_dir(fake_encoder, monkeypatch, tmp_path):
 
     monkeypatch.setenv("FASTEMBED_CACHE_PATH", str(tmp_path))
     assert FastEmbedReranker()._model.cache_dir == str(tmp_path)
+
+
+MMINILM = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
+
+
+def _texts(*texts):
+    return [_rc(i, text) for i, text in enumerate(texts)]
+
+
+@pytest.mark.integration
+def test_mminilm_loads_into_an_empty_cache_and_ranks(monkeypatch, tmp_path):
+    from huggingface_hub import constants
+
+    from ariostea.adapters.rerank.fastembed_rerank import FastEmbedReranker
+
+    monkeypatch.setenv("FASTEMBED_CACHE_PATH", str(tmp_path))
+    # The model is public: test the fetch, not whether the machine's stored
+    # Hugging Face token is still valid (an expired one gets a 401).
+    monkeypatch.setattr(constants, "HF_HUB_DISABLE_IMPLICIT_TOKEN", True)
+    reranker = FastEmbedReranker(model_name=MMINILM)
+
+    fetched = {path.name for path in tmp_path.rglob("*") if path.is_file() or path.is_symlink()}
+    assert {"model.onnx", "config.json", "tokenizer.json"} <= fetched
+
+    query = "What is the capital of France?"
+    for answer in ("Paris is the capital of France.", "Parigi è la capitale della Francia."):
+        out = reranker.rerank(
+            query,
+            _texts("Bananas are rich in potassium.", "The Moon orbits the Earth.", answer),
+            top_n=3,
+        )
+        assert out[0].chunk.text == answer
+
+
+@pytest.mark.integration
+def test_container_builds_mminilm_without_fallback(tmp_path):
+    from ariostea.config.container import build_container
+    from ariostea.config.schema import Config, RerankCfg, StoreCfg, VaultCfg
+    from ariostea.eval.rerank_sweep import guarded
+
+    (tmp_path / "vault").mkdir()
+    config = Config(
+        vault=VaultCfg(path=str(tmp_path / "vault")),
+        store=StoreCfg(backend="sqlite", path=str(tmp_path / "index.db")),
+        rerank=RerankCfg(model=MMINILM),
+    )
+    guarded(lambda: build_container(config))
+
+
+def test_registration_is_idempotent(monkeypatch):
+    from fastembed.rerank.cross_encoder import TextCrossEncoder
+
+    from ariostea.adapters.rerank import fastembed_rerank
+
+    registered = []
+    monkeypatch.setattr(
+        TextCrossEncoder, "list_supported_models", classmethod(lambda cls: registered)
+    )
+    monkeypatch.setattr(
+        TextCrossEncoder,
+        "add_custom_model",
+        classmethod(lambda cls, model, **spec: registered.append({"model": model, **spec})),
+    )
+    fastembed_rerank._register_if_custom(MMINILM)
+    fastembed_rerank._register_if_custom(MMINILM)
+    fastembed_rerank._register_if_custom("jinaai/jina-reranker-v2-base-multilingual")
+    assert [m["model"] for m in registered] == [MMINILM]
+    assert registered[0]["model_file"] == "onnx/model.onnx"
