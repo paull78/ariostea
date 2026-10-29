@@ -1,7 +1,7 @@
 # Plan: search-speed
 
 Status: approved · Mode: sequential · Test: `uv run pytest && uv run ruff check . && uv run ruff format --check .`
-Current: wrap. Last stop: step 07 done; final gate again (owner reads README.md and LEARNING.md, manual).
+Current: wrap: general done. Last stop: general memory: source added to one lesson; archiving next.
 
 ## Milestone 1 · Sweep skeleton on today's reranker  ✅ gate passed 2026-10-28
 The sweep runner indexes the wiki once and logs a jina run with recall, search latency (median, p95) and the `search_sources` short count; the control rerun at pool 100 shows whether 157 of 167 reproduces.
@@ -14,7 +14,7 @@ mMiniLM-L12 loads from an empty cache; all 8 runs are logged; the gate shows the
 - [x] 04 mMiniLM in the reranker adapter  (needs none)
 - [x] 05 full sweep                       (needs 03, 04)
 
-## Milestone 3 · Apply the decision  ⛔ gate pending
+## Milestone 3 · Apply the decision  ✅ gate passed 2026-10-29
 Defaults and README match the owner's decision, with memory and scratch-vault search time re-measured.
 - [x] 06 defaults and README              (needs 05)
 - [x] 07 README split                     (needs 06)

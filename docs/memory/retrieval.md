@@ -1,6 +1,6 @@
 # Retrieval and evaluation
 
-Decisions and discoveries about retrieval quality, the eval protocol and the embedding model. Results tables live in `docs/retrieval-tuning.md`.
+Decisions and discoveries about retrieval quality, the eval protocol, the embedding model and the reranker. Results tables live in `docs/retrieval-tuning.md`.
 
 ### embedding-sweep.02 · decision · 2026-10-12 · spec
 The decision rule stays as in chunking and contextual retrieval: hybrid overall span recall at k=5 up at least 0.03 on the control, no query type down more than 0.05, at least 160 of 167 spans reachable. Ties go to span MRR, then lower cost.
@@ -60,6 +60,30 @@ Contextual indexing was measured twice on the wiki set and both fail the decisio
 Machine facts from the per-chunk context runs on this 48 GB Mac: qwen2.5-14b at a 32k context ran the GPU out of memory and panicked the kernel twice; `qwen2.5-7b-instruct` (mlx 4-bit) ran all 4,246 wiki chunks in 3.5 hours with no crash. LM Studio reuses the cached article prefix only when loaded with `lms load ... --parallel 1`. The overnight launcher is `eval/run_chunk_context_overnight.sh`.
 **Why:** moved from auto-memory at setup; any future local LLM batch job on this machine starts from these limits.
 
-### vault-hardening.29 · discovery · 2026-10-26 · step 09
-Re-measured for the README on the 50-note scratch vault over stdio: a running server holds 4.5 GB after the first search and 5.1 GB after six more, and a search takes 2.3 to 3.0 s. With `rerank.enabled = false` the same server holds 1.7 GB and a search takes about 20 ms, so the reranker accounts for nearly all of both. The README says "about 5 GB" and "about 2.5 s", not the spec's 4.3 GB (vault-hardening.12), and adds the reranker-off figures.
-**Why:** step 09's note asked to re-measure before writing numbers; the hands-on figure was lower than what the server holds after a few searches. Rejected: keeping 4.3 GB to match the spec wording.
+### search-speed.03 · discovery · 2026-10-28 · spec
+The reranker's cost is linear in candidates and chunk length: on this M4 Pro, jina-reranker-v2 takes about 46 ms per 256-token candidate, so 4.6 s at a pool of 100 on a vault whose notes fill the pool with full chunks. Faster ways to run jina buy nothing here (onnxruntime 1.26): its int8 and quantized files take the same time, fp16 fails to load on the CPU provider, the CoreML provider takes minutes or fails. `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` is 2.4 to 3.4 times faster at the same pool. Turning the reranker off is not an option on quality: the fused order finds 131 of 167 against 155 with it at 160t+40. Merges search-speed.05.
+**Why:** any later speed work starts from the cost model, not from another quantisation attempt.
+
+### search-speed.07 · decision · 2026-10-28 · spec
+A change made for speed, not recall, is judged by a no-loss bar instead of the decision rule (embedding-sweep.02): at least 155 of 167 on the wiki HYBRID eval and no query type down more than 2 cases against the control, ties to span MRR. Latency is measured inside the same HYBRID run: all 167 queries timed through the production search path after one warm-up, median and 95th percentile in the run's `cost`; the target in search-speed was the 95th percentile under 1 s. Merges search-speed.02.
+**Why:** 2 cases is below what the set resolves (embedding-sweep.18); wiki chunks fill the pool as a real vault does, where the 50-note scratch vault understates it, and one run gives recall and time from the same searches. Rejected: the decision rule (asks for a gain a speed change cannot give); a timing test in the suite (flaky across machines).
+
+### search-speed.15 · decision · 2026-10-28 · plan
+`eval/run_rerank_sweep.py MODEL:POOL ...` indexes the wiki corpus once and builds one container per reranker configuration over the same database; helpers in `src/ariostea/eval/rerank_sweep.py`. Each configuration runs inside `fail_on_warnings` on the container logger, so a reranker that falls back to fused order aborts the sweep before it is logged. Run ids are `<date>-rerank-<model slug>-pool<pool>`. Merges search-speed.14.
+**Why:** the reranker does not touch the index, so 8 runs take about an hour instead of 8 indexings of 334 s each; without the guard a failed model load would log fused numbers (about 24 fewer cases) under the model's name. Rejected: extending the chunk sweep with reranker flags (one index per run); asserting the reranker's concrete type (reaches past the port, setup.01).
+
+### search-speed.22 · decision · 2026-10-29 · gate M2
+Defaults: reranker `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1`, `rerank.pool = 30`, approved by the owner. It was the only one of 8 configurations (jina-v2 and mMiniLM-L12 at pool 100, 50, 30, 20) to pass both bars of search-speed.07: 156 of 167 (per type 39, 40, 40, 37 against 40, 41, 39, 37), span MRR 0.833 against 0.867, search median 576 ms and 95th percentile 707 ms against 4,009 and 4,623 ms. jina never got under 1 s at a passing pool; mMiniLM at pool 50 missed by 59 ms. Full table in `docs/retrieval-tuning.md` (Search speed) and `LEARNING.md` (Trial 5). Switching back is `model` and `pool` under `[rerank]`, no reindex.
+**Why:** a search six times faster for 1 hit of 167. Rejected: keeping jina at pool 100 (3.6 s over the goal); mMiniLM at pool 50 (fails the latency bar).
+
+### search-speed.20 · discovery · 2026-10-28 · step 05
+`search_sources` asks the searcher for 50 passages (`SearchSources(pool=50)`, not in config), so it groups at most 50 or `rerank.pool` reranked passages, whichever is fewer. Wiki queries for which it returns fewer than 10 notes at k=10: 54 at pool 100 (the best 50 of 100 sit on fewer notes), 35 at 50, 101 at 30, 153 at 20.
+**Why:** the README states this bound; anything that changes the pool or `SearchSources` changes the notes tool's breadth.
+
+### search-speed.23 · issue · 2026-10-29 · gate M2
+Open: at the default pool of 30, `search_sources` returns fewer than 10 notes for 101 of 167 wiki queries (54 under the old default). The missing notes are the low-ranked tail. Proposed fix: give `search_sources` its own pool of 50, about 1 s per call with mMiniLM (95th percentile 1,059 ms at pool 50), with `search_knowledge` unchanged.
+**Why:** the owner accepted the cost at the Milestone 2 gate; a separate pool was rejected earlier only because it cost 2.3 s with jina.
+
+### search-speed.24 · discovery · 2026-10-29 · step 06
+Server figures on the 50-note scratch vault over stdio (the README's): at the defaults the server holds 2.75 GB after the first search and 3.13 GB after seven, and a search takes 541 to 582 ms. With jina at pool 100 it held 4.5 GB after one search and 5.1 GB after seven, and a search took 2.3 to 3.0 s; with `rerank.enabled = false` it holds 1.7 GB and a search takes about 20 ms. Measure with a scratch `--config` whose `store.path` is in the scratchpad, never the owner's index. Replaces vault-hardening.29.
+**Why:** the README quotes these ("about 3 GB", "about 0.6 s", jina "about 5 GB", "about 2.5 s"); re-measure the same way when a default changes.

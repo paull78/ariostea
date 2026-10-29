@@ -1,6 +1,6 @@
-# Embedder adapter
+# Embedder and reranker adapters
 
-The fastembed adapter: query and passage modes, prefixes, custom models, caching.
+The fastembed adapters: query and passage modes, prefixes, custom models, caching, downloads.
 
 ### embedding-sweep.05 · discovery · 2026-10-12 · step 03
 fastembed 0.8.0 warns that `intfloat/multilingual-e5-large` "now uses mean pooling instead of CLS embedding" and suggests pinning 0.5.1 or `add_custom_model` to keep CLS. Mean pooling is what the e5 model card prescribes, so the current fastembed behaviour is the correct one and the warning needs no action.
@@ -22,3 +22,11 @@ Both fastembed adapters, `FastEmbedEmbeddings` and `FastEmbedReranker`, load mod
 ### server-robustness.12 · discovery · 2026-10-27 · step 06
 One fastembed embedder (bge-m3) used from two threads at once, one embedding notes and counting tokens and the other embedding queries, gives the same vectors (within 1e-5) and token counts as the same calls in sequence, and raises nothing. The MCP server's search thread and its index thread share the embedder with no lock (`test_embedder_from_two_threads_matches_one`).
 **Why:** ONNX Runtime sessions run concurrently and the tokenizer is only read. Rejected: a lock in the adapter (a search would wait for a note's embedding).
+
+### search-speed.13 · decision · 2026-10-28 · challenge round
+`FastEmbedReranker` registers `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` with fastembed (`_CUSTOM_MODELS`, `_register_if_custom`, asking fastembed's registry first since a second registration raises) and loads its fp32 `onnx/model.onnx`. Pitfall: fastembed downloads a model's files only when no snapshot exists yet, so files added to a model already in the cache (an extra ONNX file, a custom model's config and tokenizer) must be fetched explicitly, or the model's cache folder deleted first.
+**Why:** the arm64 int8 file would tie the model to the CPU type and change its scores. Rejected: the `model_qint8_arm64` file (0.67 s against 0.95 s at pool 50).
+
+### search-speed.18 · issue · 2026-10-28 · step 04
+Open, machine fact: the Hugging Face token in `~/.cache/huggingface/token` has expired, and huggingface_hub sends it even for public repositories, so a model not cached yet fails to download with a 401 and the reranker falls back to fused order. The integration test patches `huggingface_hub.constants.HF_HUB_DISABLE_IMPLICIT_TOKEN`; eval runs that download set `HF_HUB_DISABLE_IMPLICIT_TOKEN=1`. The token is the owner's: leave it alone (`hf auth login` refreshes it).
+**Why:** cost a debugging round in search-speed; any new model download on this machine hits it.
