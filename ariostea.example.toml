@@ -33,7 +33,7 @@ enabled = true                                          # multilingual cross-enc
 model = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"    # ONNX, no API key
 pool = 30       # fused candidates re-scored by the reranker (recall vs latency)
 # The previous default ranks slightly better and makes a search about 4 times slower
-# (Trial 5 in the README). Switching reranker needs no reindex:
+# (Trial 5 in LEARNING.md). Switching reranker needs no reindex:
 # model = "jinaai/jina-reranker-v2-base-multilingual"
 # pool = 100
 use_context = false   # score the context blurb with each chunk; needs contextual indexing; experimental

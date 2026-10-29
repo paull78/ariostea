@@ -511,6 +511,47 @@ Both fastembed adapters now keep their models under `~/.cache/fastembed` (or
 `FASTEMBED_CACHE_PATH`). fastembed's own default, the system temp directory, is purged by
 macOS, which leaves broken model links behind.
 
+## Search speed
+
+A search took about 2.5 s on the 50-note scratch vault and 4.0 s at the median on the eval set,
+nearly all of it in the reranker. The reranker scores every candidate in the pool, and its cost
+grows with the number of candidates and their length: jina-v2 took about 46 ms per 256-token
+candidate on an M4 Pro, at a pool of 100 (a scratch measurement, outside the log). An int8 export of jina was no faster, the fp16 export
+did not load, and the CoreML provider was far slower, so the second model measured is
+`cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` (fp32 ONNX, Apache 2.0, 0.47 GB against 1.1 GB).
+fastembed does not list it, and the reranker adapter registers it before loading.
+
+The bar was fixed before the runs, because the trial traded recall for time and the decision
+rule asks for a gain: a 95th percentile under 1 s on the eval set, at least 155 of 167 hits,
+and no query type more than 2 cases down on the control
+(`2026-10-13-chunk-256t+64-bge-m3-norm-hybrid`, 157). Among the configurations that pass,
+the most hits wins, then span MRR, then the lower 95th percentile. The runner indexes the
+corpus once and times all 167 queries through the production search path after one warm-up
+query, so recall and time come from the same searches. A container whose reranker falls back
+to fused order aborts the run before it is logged.
+
+| reranker, pool | buried | cross_lingual | exact_term | paraphrase | overall | span MRR | median | p95 | `search_sources` short |
+|---|---|---|---|---|---|---|---|---|---|
+| jina-v2, 100 (rerun of the control) | 40 | 41 | 39 | 37 | 157 | 0.867 | 4009 ms | 4623 ms | 54 |
+| jina-v2, 50 | 40 | 41 | 39 | 36 | 156 | 0.862 | 2340 ms | 2426 ms | 35 |
+| jina-v2, 30 | 40 | 42 | 39 | 36 | 157 | 0.863 | 1585 ms | 1634 ms | 101 |
+| jina-v2, 20 | 38 | 41 | 37 | 35 | 151 | 0.844 | 1146 ms | 1199 ms | 153 |
+| mMiniLM, 100 | 39 | 38 | 40 | 37 | 154 | 0.828 | 1628 ms | 1942 ms | 36 |
+| mMiniLM, 50 | 39 | 38 | 40 | 37 | 154 | 0.831 | 1003 ms | 1059 ms | 35 |
+| mMiniLM, 30 | 39 | 40 | 40 | 37 | 156 | 0.833 | 576 ms | 707 ms | 101 |
+| mMiniLM, 20 | 37 | 42 | 38 | 36 | 153 | 0.824 | 360 ms | 418 ms | 153 |
+
+The last column counts the queries for which `search_sources` (k=10) returns fewer than 10
+notes. The 29 discriminated-out cases score 1.000 in every run. Only mMiniLM at pool 30 passes,
+and it is the default since 2026-10-29. `search_sources` asks the searcher for 50 passages, so
+it groups at most 50 or `rerank.pool`, whichever is fewer; at pool 100 it gets the reranker's
+best 50, which sit on fewer notes than the 50 of a pool of 50.
+
+Outside the log, on the 50-note scratch vault over stdio, the new default holds 2.75 GB after the first search
+and 3.13 GB after seven, and a search takes 541 to 582 ms. One of the seven queries ranks
+differently: "perché i pomodori hanno il marciume apicale" finds the tomato note second, where
+jina put it first.
+
 ## Reproducing
 
 ```bash
@@ -531,6 +572,13 @@ uv run python eval/run_chunk_sweep.py 160t+40 --model BAAI/bge-m3 --normalize \
 # bge-m3 chunk size; since 2026-10-13 bge-m3 is the pinned model, so --model is optional
 uv run python eval/run_chunk_sweep.py 256t+64 --channels HYBRID \
   --control 2026-10-12-chunk-160t+40-bge-m3-norm-hybrid
+
+# search speed: the control rerun, then the other seven, one index for all, about an hour
+uv run python eval/run_rerank_sweep.py jinaai/jina-reranker-v2-base-multilingual:100
+uv run python eval/run_rerank_sweep.py jinaai/jina-reranker-v2-base-multilingual:50 \
+  jinaai/jina-reranker-v2-base-multilingual:30 jinaai/jina-reranker-v2-base-multilingual:20 \
+  cross-encoder/mmarco-mMiniLMv2-L12-H384-v1:100 cross-encoder/mmarco-mMiniLMv2-L12-H384-v1:50 \
+  cross-encoder/mmarco-mMiniLMv2-L12-H384-v1:30 cross-encoder/mmarco-mMiniLMv2-L12-H384-v1:20
 
 # contextual blurbs: load the blurb model first, about 3 hours in all
 lms load qwen2.5-14b-instruct-mlx --context-length 32768
