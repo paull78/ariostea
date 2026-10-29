@@ -56,3 +56,7 @@ The sweep indexes the wiki corpus once and builds one container per (model, pool
 ### search-speed.21 · decision · 2026-10-28 · step 05
 Proposed default: reranker `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1`, `rerank.pool = 30`. It is the only configuration that passes both bars (search-speed.02, search-speed.07): 156 of 167, per type 39, 40, 40, 37 against 40, 41, 39, 37, p95 707 ms. The pick rule (search-speed.08) has a single candidate, so no tie-break applies. Cost the owner sees: span MRR 0.867 → 0.833, and `search_sources` returns fewer than 10 notes for 101 of 167 queries (54 today). Waits for the owner's yes or no (search-speed.15, setup.04).
 **Why:** rule applied as written. Rejected: mMiniLM at pool 50 (p95 1059 ms, fails the latency bar), jina at pool 20 (151 hits and p95 1199 ms, fails both), mMiniLM at pool 20 (153 hits, fails the quality bar).
+
+### search-speed.22 · decision · 2026-10-29 · gate M2
+The owner approved search-speed.21: the defaults become `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` with `rerank.pool = 30`. `search_sources` keeps following the pool (search-speed.12), and the README states its real bound, min(50, `rerank.pool`) chunks (search-speed.20).
+**Why:** p95 4623 ms → 707 ms for 1 hit of 167 and span MRR 0.867 → 0.833; the change needs no reindex and is two lines of config to undo. Rejected: keeping jina at pool 100 (misses the goal by 3.6 s); a separate pool of 50 for `search_sources` now (a spec amendment for a cost the owner accepts; kept as search-speed.23).
