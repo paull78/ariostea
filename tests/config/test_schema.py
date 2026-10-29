@@ -64,13 +64,15 @@ top_k = 8
     assert cfg.search.k_dense == 40 and cfg.search.top_k == 8
 
 
-def test_rerank_defaults(tmp_path):
+def test_rerank_defaults_match_the_sweep_pick(tmp_path):
+    # mMiniLM-L12 at pool 30: the only configuration under 1 s at the quality
+    # bar in the search-speed sweep (search-speed.22).
     cfg_file = tmp_path / "ariostea.toml"
     cfg_file.write_text('[vault]\npath = "~/Vault"\n')
     cfg = load_config(cfg_file)
     assert cfg.rerank.enabled is True
-    assert cfg.rerank.model == "jinaai/jina-reranker-v2-base-multilingual"
-    assert cfg.rerank.pool == 100
+    assert cfg.rerank.model == "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
+    assert cfg.rerank.pool == 30
     assert cfg.rerank.use_context is False
 
 

@@ -111,7 +111,10 @@ Once connected, an MCP client calls the tools. Asking for passages about a conce
 ```
 
 `search_sources` answers the other question, which notes discuss a concept, and returns notes
-with hit counts, best score and snippets.
+with hit counts, best score and snippets. It groups the reranked passages of one search by
+note, at most 50 passages or `rerank.pool`, whichever is fewer. With the default pool of 30,
+a concept whose passages sit in a few notes comes back with fewer notes than asked for: on the
+eval set, 101 of 167 queries return fewer than 10 notes at k=10.
 
 ## Quick start
 
@@ -159,8 +162,8 @@ however it ends, and the file stays.
 
 ### First run
 
-The first run downloads about 3.2 GB of models: the `BAAI/bge-m3` embedding model (2.1 GB)
-and the `jina-reranker-v2-base-multilingual` reranker (1.1 GB). They go to
+The first run downloads about 2.6 GB of models: the `BAAI/bge-m3` embedding model (2.1 GB)
+and the `mmarco-mMiniLMv2-L12-H384-v1` reranker (0.47 GB). They go to
 `~/.cache/fastembed`, or to `FASTEMBED_CACHE_PATH` when it is set, and later runs load them
 from there.
 
@@ -199,10 +202,16 @@ an error and leaves the index as it was. To empty an index on purpose, stop any 
 
 ### Memory and speed
 
-Measured on a Mac, on CPU: a running server holds about 5 GB of memory, and a search takes
-about 2.5 s. Nearly all of both is the reranker. With `rerank.enabled = false` the server
-holds 1.7 GB and a search takes about 20 ms, at a large cost in ranking quality (Trial 1
-below compares the two).
+Measured on a Mac, on CPU, with a 50-note vault: a running server holds about 3 GB of memory,
+and a search takes about 0.6 s. On the 167 queries of the eval set, half the searches take
+under 0.6 s and 95% under 0.7 s. Most of the time is the reranker. With
+`rerank.enabled = false` the server holds 1.7 GB and a search takes about 20 ms, at a large
+cost in ranking quality (Trial 1 below compares the two).
+
+The previous reranker ranks slightly better and is much slower: with
+`model = "jinaai/jina-reranker-v2-base-multilingual"` and `pool = 100` under `[rerank]`, the
+server holds about 5 GB and a search takes about 2.5 s (Trial 5 below compares the two).
+Switching reranker needs no reindex.
 
 ### Connecting an MCP client
 
@@ -389,18 +398,55 @@ take vectors of a new size, and an index built before the late-September blurb w
 column the store now writes. Both broke the next reindex. The store now rebuilds the vector table and adds missing
 columns when it opens.
 
+### Trial 5: search speed
+
+A search took about 2.5 s, nearly all of it in the reranker. Its cost grows with the number of
+candidates it scores and with their length: jina took about 46 ms per 256-token candidate on
+this Mac, and it scored 100. The trial aimed at a 95th percentile under 1 s on the eval set,
+with a quality bar of at least 155 of 167 hits and no query type more than 2 cases down on the
+control. It turned two knobs: the pool, the number of fused candidates the reranker scores,
+and the model. A quantised jina was no faster, so the second model is
+`cross-encoder/mmarco-mMiniLMv2-L12-H384-v1`, a multilingual cross-encoder under Apache 2.0,
+0.47 GB against 1.1 GB.
+
+Each of the 167 queries was timed through the production search path, after one warm-up
+query. Hits out of 167, cross-lingual out of 46; the last column counts the queries for which
+`search_sources` returns fewer than 10 notes at k=10:
+
+| reranker, pool | hybrid | hybrid cross_lingual | span MRR | median | 95th percentile | `search_sources` short |
+|---|---|---|---|---|---|---|
+| jina, 100 (control) | 157 | 41 | 0.867 | 4009 ms | 4623 ms | 54 |
+| jina, 50 | 156 | 41 | 0.862 | 2340 ms | 2426 ms | 35 |
+| jina, 30 | 157 | 42 | 0.863 | 1585 ms | 1634 ms | 101 |
+| jina, 20 | 151 | 41 | 0.844 | 1146 ms | 1199 ms | 153 |
+| mMiniLM, 100 | 154 | 38 | 0.828 | 1628 ms | 1942 ms | 36 |
+| mMiniLM, 50 | 154 | 38 | 0.831 | 1003 ms | 1059 ms | 35 |
+| mMiniLM, 30 | 156 | 40 | 0.833 | 576 ms | 707 ms | 101 |
+| mMiniLM, 20 | 153 | 42 | 0.824 | 360 ms | 418 ms | 153 |
+
+Only mMiniLM at pool 30 passes both bars. jina gets under 1 s only at pool
+20, where it finds 151, and mMiniLM at pool 50 misses the time target by 59 ms. The new default
+costs 1 hit and some ranking quality: span MRR falls from 0.867 to 0.833, so the right passage
+sits lower in the top 5 more often. On the 50-note vault, an Italian query about blossom-end
+rot in tomatoes finds the tomato note second, where jina put it first.
+
+The `search_sources` column follows the pool. That tool groups at most 50 reranked passages by
+note, so at pool 30 it has 30 to group, and many queries come back with fewer than 10 notes.
+At pool 100 it gets the reranker's best 50 of 100, which sit on fewer notes than the 50 of a
+pool of 50.
+
 ### The defaults today
 
 `BAAI/bge-m3` embeddings, 256-token chunks with 64 of overlap, the
-`jina-reranker-v2-base-multilingual` reranker on, contextual indexing off. bge-m3 returns unit
-vectors itself, so `normalize` stays off. Hybrid span recall is 0.940, 157 of 167, against
-0.880 before the trial and 0.832 at the baseline. Cross-lingual is 0.891, 41 of 46.
+`mmarco-mMiniLMv2-L12-H384-v1` reranker on with a pool of 30, contextual indexing off. bge-m3
+returns unit vectors itself, so `normalize` stays off. Hybrid span recall is 0.934, 156 of
+167, against 0.880 before Trial 4 and 0.832 at the baseline. Cross-lingual is 0.870, 40 of 46.
 
 The cost is a larger model: a 2.27 GB download against 1 GB, about three times the indexing
 time, and 15 ms to embed a query against 5. That figure is query embedding alone; a whole
-search, reranker included, takes about 2.5 s (see Memory and speed). With dense retrieval this strong, fusing in BM25
-now lowers the first stage on cross-lingual queries, and the reranker hides it. That, and the
-10 cases still missed, are the next things to look at.
+search, reranker included, takes about 0.6 s (see Memory and speed). With dense retrieval this
+strong, fusing in BM25 now lowers the first stage on cross-lingual queries, and the reranker
+hides it. That, and the 11 cases still missed, are the next things to look at.
 
 ## Licence
 

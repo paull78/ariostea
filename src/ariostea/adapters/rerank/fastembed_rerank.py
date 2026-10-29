@@ -49,7 +49,7 @@ class FastEmbedReranker(Reranker):
 
     def __init__(
         self,
-        model_name: str = "jinaai/jina-reranker-v2-base-multilingual",
+        model_name: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1",
         use_context: bool = False,
     ) -> None:
         self._model_name = model_name

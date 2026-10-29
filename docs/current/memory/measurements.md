@@ -36,3 +36,7 @@ The 29 discriminated-out cases score 1.000 in every run. Only mMiniLM-L12 at poo
 ### search-speed.20 · discovery · 2026-10-28 · step 05
 `search_sources` asks the searcher for 50 chunks (`SearchSources(pool=50)`, not wired to config), so it groups at most min(50, `rerank.pool`) chunks, not `rerank.pool` as search-speed.12 assumed. At pool 100 the reranker keeps the best 50 of 100, which sit on fewer notes, so it comes back short more often (54) than at pool 50 (35). At pool 30 and 20 the pool is the bound (101 and 153 short).
 **Why:** the README sentence in AC-06 ("sees at most `rerank.pool` chunks") stays true but loose; step 06 (defaults and README) states the real bound, min(50, `rerank.pool`).
+
+### search-speed.24 · discovery · 2026-10-29 · step 06
+New defaults on the 50-note scratch vault over stdio, measured as in vault-hardening.29: the server holds 2.75 GB after the first search and 3.13 GB after seven, a search takes 541 to 582 ms, and `search_sources` (k=10) 493 ms. One of the seven queries ranks differently from jina: "perché i pomodori hanno il marciume apicale" finds the tomato note second, behind a Dune note, where jina put it first. The README now says "about 3 GB" and "about 0.6 s", keeps jina as a commented option (about 5 GB, about 2.5 s), and adds Trial 5 with the sweep table.
+**Why:** AC-05 asks for re-measured figures, and the mis-ranked query is the span MRR drop (0.867 → 0.833) showing on a real vault. Rejected: quoting the eval median alone, which is not a server measurement.

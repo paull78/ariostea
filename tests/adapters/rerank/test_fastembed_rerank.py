@@ -41,6 +41,14 @@ class _RecordingEncoder:
         self.seen: list[str] = []
         self.cache_dir = cache_dir
 
+    @staticmethod
+    def list_supported_models():
+        return []
+
+    @staticmethod
+    def add_custom_model(**spec):
+        pass
+
     def rerank(self, query, documents):
         self.seen = list(documents)
         return [float(i) for i in range(len(documents))]
@@ -162,3 +170,13 @@ def test_registration_is_idempotent(monkeypatch):
     fastembed_rerank._register_if_custom("jinaai/jina-reranker-v2-base-multilingual")
     assert [m["model"] for m in registered] == [MMINILM]
     assert registered[0]["model_file"] == "onnx/model.onnx"
+
+
+def test_adapter_default_model_matches_the_config_default():
+    import inspect
+
+    from ariostea.adapters.rerank.fastembed_rerank import FastEmbedReranker
+    from ariostea.config.schema import RerankCfg
+
+    default = inspect.signature(FastEmbedReranker).parameters["model_name"].default
+    assert default == RerankCfg().model

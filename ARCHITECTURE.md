@@ -202,8 +202,9 @@ ranking stages is deliberate:
    own top-k candidates.
 2. **RRF fusion is a recall gatherer, not the final ranker.** Reciprocal Rank Fusion merges
    the two candidate lists by rank position (ignoring the incomparable raw score scales of a
-   cosine distance and a BM25 score). It is deliberately run to a *large* pool (`rerank.pool`,
-   default 100) — its job is to assemble a high-recall candidate set, not to pick the winners.
+   cosine distance and a BM25 score). It is run to a pool larger than `top_k` (`rerank.pool`,
+   default 30, the size the search-speed sweep chose for a search under 1 s) — its job is to
+   assemble a high-recall candidate set, not to pick the winners.
 3. **The cross-encoder reranker chooses the final `top_k`.** A bi-encoder embedding compares
    query and passage independently; a cross-encoder scores the (query, passage) *pair*
    jointly and is far more precise. Running it over the fused pool and keeping the best
@@ -227,7 +228,7 @@ flowchart LR
 
 `search_sources` answers a different question — *which notes* discuss a concept, rather than
 *which passages* are most relevant. It is a thin composition over `SearchKnowledge`: run a
-broad knowledge search, roll the passage hits up by source note (hit count, best score,
+broad knowledge search (at most 50 passages, or `rerank.pool` if fewer), roll the passage hits up by source note (hit count, best score,
 representative snippets), then decorate with titles via `DocumentReader`. `get_note` completes
 the loop through the `GetNote` use case: it asks `DocumentReader` whether the index holds the
 path, and only then reads the file through the `Vault` port, so the text comes back as
