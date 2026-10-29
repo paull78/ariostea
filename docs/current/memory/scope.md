@@ -60,3 +60,7 @@ Proposed default: reranker `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1`, `rerank
 ### search-speed.22 · decision · 2026-10-29 · gate M2
 The owner approved search-speed.21: the defaults become `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` with `rerank.pool = 30`. `search_sources` keeps following the pool (search-speed.12), and the README states its real bound, min(50, `rerank.pool`) chunks (search-speed.20).
 **Why:** p95 4623 ms → 707 ms for 1 hit of 167 and span MRR 0.867 → 0.833; the change needs no reindex and is two lines of config to undo. Rejected: keeping jina at pool 100 (misses the goal by 3.6 s); a separate pool of 50 for `search_sources` now (a spec amendment for a cost the owner accepts; kept as search-speed.23).
+
+### search-speed.25 · decision · 2026-10-29 · final gate
+The README splits in two. `README.md` is the product page (purpose, tools, example, quick start, running the index, development, licence); a new `LEARNING.md` next to `ARCHITECTURE.md` holds the architecture rationale, the eval instrument and Trials 1 to 5, linked from the README. The review's eight corrections go in with the move, and `docs/retrieval-tuning.md` gains a search-speed section so the learning page's "full account" link holds.
+**Why:** the owner asked for it at the final gate's README check: at 470 lines the README buried "Connecting an MCP client" at line 216 and the learning journey was 44% of it. Rejected: trimming Trial 5 and reordering inside one file (keeps one page doing two jobs).

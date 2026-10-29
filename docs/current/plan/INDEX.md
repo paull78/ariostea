@@ -1,7 +1,7 @@
 # Plan: search-speed
 
 Status: approved · Mode: sequential · Test: `uv run pytest && uv run ruff check . && uv run ruff format --check .`
-Current: wrap. Last stop: step 06 done; final gate next (owner reads the README sections, manual).
+Current: step 07 (in progress). Last stop: starting; the owner asked to split the README at the final gate (search-speed.25).
 
 ## Milestone 1 · Sweep skeleton on today's reranker  ✅ gate passed 2026-10-28
 The sweep runner indexes the wiki once and logs a jina run with recall, search latency (median, p95) and the `search_sources` short count; the control rerun at pool 100 shows whether 157 of 167 reproduces.
@@ -17,6 +17,8 @@ mMiniLM-L12 loads from an empty cache; all 8 runs are logged; the gate shows the
 ## Milestone 3 · Apply the decision  ⛔ gate pending
 Defaults and README match the owner's decision, with memory and scratch-vault search time re-measured.
 - [x] 06 defaults and README              (needs 05)
+- [~] 07 README split                     (needs 06)
 
 ## Notes
 - AC mapping: AC-01 → 05; AC-02 → 01, 02, 03, 05; AC-03 → 04; AC-04 → 02, 03, 05; AC-05 → 06; AC-06 → 01, 02, 05, 06.
+- 2026-10-29 · plan updated: step 07 (README split) added at the final gate's README check · see search-speed.25
